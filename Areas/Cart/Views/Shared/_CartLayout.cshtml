@@ -1,0 +1,150 @@
+@{
+    var currentPage = ViewBag.CurrentPage as string ?? "Dashboard";
+    var departments = ViewBag.SidebarDepartments as IEnumerable<TrackNGoMati.Models.Department>;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — TrackNGo Mati (CART)</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/cart.css" />
+</head>
+<body>
+    <header class="topbar" style="position:relative;">
+        <button class="topbar-btn" onclick="toggleSidebar()" title="Menu"><i data-lucide="menu"></i></button>
+        
+        <form action="/Cart/Document" method="get" class="topbar-search" style="margin-right:auto; margin-left:24px; display:flex; align-items:center;">
+            <div class="search-input" style="width: 400px; position:relative;">
+                <i data-lucide="search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--ink-muted);"></i>
+                <input type="text" name="search" placeholder="Search by reference number or keyword..." style="padding-left:36px; height:36px; border-radius:18px; border:1px solid var(--border); width:100%; font-size:13px; background:#f8fafc;" />
+            </div>
+        </form>
+
+        <div style="position:relative;">
+            <button class="topbar-btn" title="Notifications" onclick="toggleNotifications()" id="notifBtn">
+                <i data-lucide="bell"></i><span class="topbar-badge" id="notifBadge" style="display:none;"></span>
+            </button>
+            <div id="notifDropdown" style="display:none; position:absolute; right:0; top:48px; width:320px; background:white; border:1px solid var(--border); border-radius:8px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); z-index:1000; overflow:hidden;">
+                <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                    <strong style="font-size:13px; color:var(--ink);">Notifications</strong>
+                    <a href="javascript:void(0)" onclick="markAllRead()" style="font-size:11px; color:var(--brand); text-decoration:none;">Mark all read</a>
+                </div>
+                <div id="notifList" style="max-height:300px; overflow-y:auto; padding:0;">
+                    <div style="padding:24px; text-align:center; color:var(--ink-muted); font-size:12px;">No new notifications</div>
+                </div>
+            </div>
+        </div>
+        
+        <span class="topbar-separator"></span>
+        <a href="/Profile" class="topbar-btn" title="Settings"><i data-lucide="settings"></i></a>
+        <a href="/Calendar" class="topbar-btn" title="Calendar Deadlines"><i data-lucide="calendar"></i></a>
+        <a href="/Account/Logout" class="topbar-btn" title="Logout"><i data-lucide="log-out"></i></a>
+    </header>
+
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-icon" style="background:var(--brand)">C</div>
+            <div class="sidebar-logo-text">
+                <span class="sidebar-logo-title">CART Office</span>
+                <span class="sidebar-logo-sub">TrackNGo Mati</span>
+            </div>
+        </div>
+        <div class="sidebar-role" id="current-role-label">Compliance Officer</div>
+        
+        <div class="sidebar-nav">
+            <a href="/Cart/Dashboard" class="sidebar-nav-item @(currentPage == "Dashboard" ? "active" : "")"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+            <a href="/Cart/Document" class="sidebar-nav-item @(currentPage == "Document" ? "active" : "")"><i data-lucide="shield-check"></i> ARTA Monitoring</a>
+            <a href="/Cart/RoutingSlip" class="sidebar-nav-item @(currentPage == "RoutingSlip" ? "active" : "")"><i data-lucide="map"></i> Routing Slips</a>
+            <a href="/Cart/ARTAEscalations" class="sidebar-nav-item @(currentPage == "Escalations" ? "active" : "")"><i data-lucide="alert-circle"></i> Escalations</a>
+            <a href="/Cart/AuditTrail" class="sidebar-nav-item @(currentPage == "AuditTrail" ? "active" : "")"><i data-lucide="activity"></i> Audit Trail</a>
+            <a href="/Cart/Notification" class="sidebar-nav-item @(currentPage == "Notification" ? "active" : "")"><i data-lucide="bell"></i> Notifications</a>
+            <a href="/Cart/Reports" class="sidebar-nav-item @(currentPage == "Reports" ? "active" : "")"><i data-lucide="file-bar-chart"></i> Reports</a>
+            <a href="/Cart/Archive" class="sidebar-nav-item @(currentPage == "Archive" ? "active" : "")"><i data-lucide="archive"></i> Archived</a>
+        </div>
+
+        @if (departments != null && departments.Any())
+        {
+            <div style="padding: 0 24px; margin-top: 16px;">
+                <div style="font-size: 10px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Departments</div>
+            </div>
+            <div class="sidebar-nav" style="padding-top: 0;">
+                @foreach (var dept in departments)
+                {
+                    <a href="/Cart/Document?department=@dept.Id" class="sidebar-nav-item" style="font-size: 13px;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:var(--brand); margin-right:8px; flex-shrink:0;"></span>
+                        @dept.DepartmentName
+                    </a>
+                }
+            </div>
+        }
+
+        <div style="margin-top: auto; padding: 24px; padding-bottom: 32px;">
+            <a href="/Profile" class="topbar-btn" title="Settings"><i data-lucide="settings"></i></a>
+        <a href="/Calendar" class="topbar-btn" title="Calendar Deadlines"><i data-lucide="calendar"></i></a>
+        <a href="/Account/Logout" class="btn btn-secondary" style="width: 100%; border-color: var(--border); color: #EF4444; justify-content: center;">
+                <i data-lucide="log-out"></i> Sign Out
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        @RenderBody()
+    </main>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="~/js/site.js"></script>
+    <script src="~/js/cart.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        function toggleNotifications() {
+            var dd = document.getElementById('notifDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+        document.addEventListener('click', function(e) {
+            var dd = document.getElementById('notifDropdown');
+            var btn = document.getElementById('notifBtn');
+            if(dd && btn && !dd.contains(e.target) && !btn.contains(e.target)) {
+                dd.style.display = 'none';
+            }
+        });
+        function loadNotifications() {
+            // Fake load for now since we haven't built the endpoint
+            var badge = document.getElementById('notifBadge');
+            badge.style.display = 'block';
+            badge.innerText = '2';
+            
+            document.getElementById('notifList').innerHTML = 
+                <a href="#" style="display:block; padding:12px 16px; border-bottom:1px solid var(--border); text-decoration:none; transition:background 0.2s;">
+                    <div style="font-size:12px; font-weight:600; color:var(--ink); margin-bottom:4px;">Document Flagged</div>
+                    <div style="font-size:11px; color:var(--ink-muted);">TNG-2026-0004 has been flagged by CART.</div>
+                    <div style="font-size:10px; color:var(--brand); margin-top:6px;">10 mins ago</div>
+                </a>
+                <a href="#" style="display:block; padding:12px 16px; border-bottom:1px solid var(--border); text-decoration:none; transition:background 0.2s;">
+                    <div style="font-size:12px; font-weight:600; color:var(--ink); margin-bottom:4px;">SLA Warning</div>
+                    <div style="font-size:11px; color:var(--ink-muted);">TNG-2026-0001 is nearing its ARTA deadline.</div>
+                    <div style="font-size:10px; color:var(--brand); margin-top:6px;">1 hr ago</div>
+                </a>
+            ;
+        }
+        function markAllRead() {
+            document.getElementById('notifBadge').style.display = 'none';
+            document.getElementById('notifList').innerHTML = '<div style="padding:24px; text-align:center; color:var(--ink-muted); font-size:12px;">No new notifications</div>';
+            showToast('All notifications marked as read', 'success');
+        }
+        
+        // Load on start
+        setTimeout(loadNotifications, 1000);
+    </script>
+</body>
+</html>
+

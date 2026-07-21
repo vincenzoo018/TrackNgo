@@ -1,0 +1,196 @@
+@{
+    ViewData["Title"] = "CART Dashboard";
+}
+
+<div class="page-header animate-fade-in">
+    <div class="page-header-left">
+        <h1 class="page-title">Monitoring Reports & Dashboard</h1>
+        <p class="page-subtitle">Document transaction insights across 52 departments</p>
+    </div>
+</div>
+
+@if (ViewBag.OverdueDocs != null && ((IEnumerable<TrackNGoMati.Models.Document>)ViewBag.OverdueDocs).Any())
+{
+    <div class="animate-fade-in" style="background-color: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px;">
+        <div style="background: #FEE2E2; color: #DC2626; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+            <i data-lucide="alert-triangle"></i>
+        </div>
+        <div style="flex: 1;">
+            <h4 style="margin: 0; color: #991B1B; font-size: 14px; font-weight: 700;">SLA Breach Alert</h4>
+            <p style="margin: 0; color: #B91C1C; font-size: 12px; margin-top: 4px;">There are <strong>@(((IEnumerable<TrackNGoMati.Models.Document>)ViewBag.OverdueDocs).Count())</strong> documents that have exceeded their ARTA processing SLA.</p>
+        </div>
+        <a href="/Cart/Document" class="btn" style="background: white; border: 1px solid #FCA5A5; color: #DC2626;">View Overdue</a>
+    </div>
+}
+
+@if (ViewBag.ActionNeeded != null && ((IEnumerable<TrackNGoMati.Models.Document>)ViewBag.ActionNeeded).Any())
+{
+    <div class="animate-fade-in" style="background-color: #F0FDF4; border: 1px solid #86EFAC; border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px;">
+        <div style="background: #DCFCE7; color: #16A34A; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+            <i data-lucide="inbox"></i>
+        </div>
+        <div style="flex: 1;">
+            <h4 style="margin: 0; color: #166534; font-size: 14px; font-weight: 700;">Action Required</h4>
+            <p style="margin: 0; color: #15803D; font-size: 12px; margin-top: 4px;">You have <strong>@(((IEnumerable<TrackNGoMati.Models.Document>)ViewBag.ActionNeeded).Count())</strong> documents pending your review and signature.</p>
+        </div>
+        <a href="/Cart/Document" class="btn" style="background: white; border: 1px solid #86EFAC; color: #16A34A;">Go to Inbox</a>
+    </div>
+}
+<div class="filter-bar animate-fade-in" style="justify-content: space-between; display: flex; width: 100%;">
+    <div style="display:flex; gap:12px; align-items:center;">
+        <select class="filter-select"><option>May 1, 2026 — May 29, 2026</option></select>
+        <select class="filter-select"><option>Department</option></select>
+        <select class="filter-select"><option>Document Type</option></select>
+        <select class="filter-select"><option>Status</option></select>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center;">
+        <button class="btn btn-secondary">Export PDF</button>
+        <button class="btn btn-secondary">Export CSV</button>
+    </div>
+</div>
+
+<div class="stat-grid animate-fade-in" style="margin-top:24px;">
+    <div class="stat-card" style="background:var(--brand); color:var(--white);">
+        <div class="stat-card-info" style="flex:1;">
+            <span class="stat-card-value" style="color:var(--white);">13</span>
+            <span class="stat-card-label" style="color:var(--brand-soft);">Total Documents</span>
+            <span style="font-size:11px; color:rgba(255,255,255,0.7); margin-top:4px;">This month</span>
+        </div>
+        <div class="stat-card-icon" style="color:var(--white);"><i data-lucide="file-text"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-info" style="flex:1;">
+            <span class="stat-card-value" style="color:var(--brand);">5</span>
+            <span class="stat-card-label">Completed</span>
+            <span style="font-size:11px; color:var(--ink-muted); margin-top:4px;">38% completion rate</span>
+        </div>
+        <div class="stat-card-icon brand"><i data-lucide="check-circle"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-info" style="flex:1;">
+            <span class="stat-card-value" style="color:var(--brand);">4</span>
+            <span class="stat-card-label">In Progress</span>
+            <span style="font-size:11px; color:var(--ink-muted); margin-top:4px;">Across 52 departments</span>
+        </div>
+        <div class="stat-card-icon brand"><i data-lucide="clock"></i></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-info" style="flex:1;">
+            <span class="stat-card-value" style="color:var(--brand);">2</span>
+            <span class="stat-card-label">Returned</span>
+            <span style="font-size:11px; color:var(--ink-muted); margin-top:4px;">Require resubmission</span>
+        </div>
+        <div class="stat-card-icon brand"><i data-lucide="rotate-ccw"></i></div>
+    </div>
+</div>
+
+<div class="form-row animate-fade-in">
+    <div class="card">
+        <div class="card-header" style="border:none; padding-bottom:0;">
+            <span class="card-header-title" style="font-size:14px;">Active Bottlenecks (Documents per Stage)</span>
+        </div>
+        <div class="card-body">
+            <canvas id="barChart" height="200"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header" style="border:none; padding-bottom:0;">
+            <span class="card-header-title" style="font-size:14px;">Status Distribution</span>
+        </div>
+        <div class="card-body" style="display:flex; align-items:center;">
+            <div style="flex:1;"><canvas id="donutChart" height="200"></canvas></div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:12px; padding-left:20px;">
+                <div style="display:flex; justify-content:space-between; font-size:13px;">
+                    <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--brand); margin-right:8px;"></span>Completed</span>
+                    <strong>79%</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:13px;">
+                    <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#60A5FA; margin-right:8px;"></span>In Progress</span>
+                    <strong>13%</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:13px;">
+                    <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#BFDBFE; margin-right:8px;"></span>Returned</span>
+                    <strong>8%</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card animate-fade-in" style="margin-top:24px;">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="card-header-title" style="font-size:14px;">Department Processing Summary</span>
+        <a href="#" style="font-size:12px; font-weight:600;">View Full Department Report &rarr;</a>
+    </div>
+    <div class="table-wrapper" style="border:none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>DEPARTMENT</th>
+                    <th>TOTAL FILED</th>
+                    <th>COMPLETED</th>
+                    <th>IN PROGRESS</th>
+                    <th>RETURNED</th>
+                    <th>AVG. PROCESSING TIME</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:600;">HRMO</td>
+                    <td>24</td>
+                    <td>18</td>
+                    <td>4</td>
+                    <td>2</td>
+                    <td>1.2 days</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:600;">Mayor's Office</td>
+                    <td>42</td>
+                    <td>38</td>
+                    <td>4</td>
+                    <td>0</td>
+                    <td>0.8 days</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:600;">City Engineering</td>
+                    <td>15</td>
+                    <td>10</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>3.5 days</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+                        var ctxBar = document.getElementById('barChart').getContext('2d');
+            new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['Receiving', 'Dept Head', 'CART', 'Mayor'],
+                    datasets: [{
+                        label: 'Documents Stuck',
+                        data: [@ViewBag.Step1Count, @ViewBag.Step2Count, @ViewBag.Step3Count, @ViewBag.Step4Count],
+                        backgroundColor: ['#1A56DB', '#3B82F6', '#60A5FA', '#93C5FD'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { display: false }, border: { display: false } },
+                        x: { beginAtZero: true, grid: { display: false }, border: { display: false } }
+                    }
+                }
+            });
+        });
+    </script>
+}
+

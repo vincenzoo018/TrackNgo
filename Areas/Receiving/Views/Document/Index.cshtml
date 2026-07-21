@@ -1,0 +1,440 @@
+@model IEnumerable<TrackNGoMati.Models.Document>
+@{
+    ViewData["Title"] = "Document Registration";
+}
+
+<div class="page-header animate-fade-in" style="align-items:center; margin-bottom: 24px;">
+    <div class="page-header-left">
+        <h1 class="page-title">All Documents</h1>
+        <p class="page-subtitle">13 total records across 52 departments</p>
+    </div>
+    <div class="page-header-right" style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="openModal('ocrModal')" style="padding: 10px 20px;">
+            <i data-lucide="scan"></i> OCR Scan
+        </button>
+        <button class="btn btn-primary" onclick="openModal('registerModal')" style="padding: 10px 20px;">
+            + Submit New Document
+        </button>
+    </div>
+</div>
+
+<div class="card animate-fade-in" style="border-radius: 8px; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+    <!-- Search Bar -->
+    <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+        <div class="search-input" style="width: 100%;">
+            <i data-lucide="search"></i>
+            <input type="text" id="tableSearch" placeholder="Search by reference number, type, or name..." style="padding-left: 36px; height: 40px;" />
+        </div>
+    </div>
+    
+    <!-- Filters Row -->
+    <div class="filter-bar" style="padding: 12px 16px; margin-bottom: 0; display: flex; gap: 12px; align-items: center; background: #fafafa;">
+        <select class="filter-select" id="bulkAction" style="min-width: 150px; background:#EFF6FF; color:#1D4ED8; border-color:#BFDBFE; display:none;"><option value="">Bulk Actions</option><option value="forward">Forward Selected</option><option value="archive">Archive Selected</option></select>
+        <select class="filter-select" style="min-width: 180px;"><option>Document Type</option></select>
+        <select class="filter-select" style="min-width: 180px;"><option>Department</option></select>
+        <select class="filter-select" style="min-width: 150px;"><option>Status</option></select>
+        <select class="filter-select" style="min-width: 220px;"><option>May 1, 2026 — May 29, 2026</option></select>
+        <button class="btn btn-secondary" style="color: var(--ink-muted); border-color: var(--border);"><i data-lucide="download"></i> Export <i data-lucide="lock" style="width:12px;height:12px;color:#F59E0B;margin-left:4px;"></i></button>
+    </div>
+    
+    <!-- Table -->
+    <div class="table-wrapper" style="border:none; border-top: 1px solid var(--border); border-radius: 0;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="padding-left: 20px; width: 40px;"><input type="checkbox" id="selectAll" /></th>
+                    <th>REF NO.</th>
+                    <th>DOCUMENT TYPE</th>
+                    <th>SUBMITTED BY</th>
+                    <th>DEPARTMENT</th>
+                    <th>DATE FILED</th>
+                    <th>STEP PROGRESS</th>
+                    <th>STATUS</th>
+                    <th>ARTA</th>
+                    <th>QR</th>
+                    <th>ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var doc in Model)
+                {
+                    var elapsed = (int)(DateTime.Now - doc.DateFiled).TotalDays;
+                    var artaOk  = elapsed <= doc.ArtaprocessingDays;
+                    
+                    var statusClass = doc.CurrentStatus switch {
+                        1 => "badge-pending",
+                        2 => "badge-in-progress",
+                        3 => "badge-completed",
+                        4 => "badge-returned",
+                        _ => "badge-pending"
+                    };
+                    
+                    var statusText = doc.CurrentStatus switch {
+                        1 => "PENDING",
+                        2 => "IN PROGRESS",
+                        3 => "COMPLETED",
+                        4 => "RETURNED",
+                        _ => "UNKNOWN"
+                    };
+
+                    <tr>
+                        <td style="padding-left: 20px;"><input type="checkbox" class="bulk-cb" value="@doc.TrackingNumber" /></td>
+                        <td><a href="/Receiving/Document/Details/@doc.TrackingNumber" style="font-weight:600; color:var(--brand); text-decoration: underline;">@doc.TrackingNumber</a></td>
+                        <td>@doc.DocumentType</td>
+                        <td>@doc.SubmittedBy</td>
+                        <td>@(doc.OriginatingDepartment ?? "HRMO")</td>
+                        <td>@doc.DateFiled.ToString("MMM dd, yyyy")</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px; color:var(--ink-muted); font-size:12px;">
+                                <div style="display:flex; gap:3px;">
+                                    @for(int i=1; i<=doc.TotalSteps; i++)
+                                    {
+                                        if (i <= doc.CurrentStepIndex) {
+                                            <span style="display:inline-block; width:8px; height:8px; background:var(--brand); border-radius:50%;"></span>
+                                        } else {
+                                            <span style="display:inline-block; width:8px; height:8px; border:1px solid var(--brand); border-radius:50%; box-sizing:border-box;"></span>
+                                        }
+                                    }
+                                </div>
+                                @doc.CurrentStepIndex/@doc.TotalSteps
+                            </div>
+                        </td>
+                        <td><span class="badge @statusClass" style="border-radius:4px; border:1px solid currentColor; background:transparent;">@statusText</span></td>
+                        <td>
+                            @if (doc.CurrentStatus == 3)
+                            {
+                                <span class="badge" style="background:#1A56DB; color:#fff; border:none; padding:4px 8px;">ARTA @(doc.ArtaprocessingDays)D MET</span>
+                            }
+                            else if (artaOk)
+                            {
+                                <span class="badge" style="background:#1A56DB; color:#fff; border:none; padding:4px 8px;">ARTA @(doc.ArtaprocessingDays - elapsed)D LEFT</span>
+                            }
+                            else
+                            {
+                                <span class="badge" style="background:#DC2626; color:#fff; border:none; padding:4px 8px;">ARTA OVERDUE - @(elapsed - doc.ArtaprocessingDays)D PAST</span>
+                            }
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-ghost" style="padding:4px; height:auto; color:var(--brand);" onclick="showQrModal('@doc.TrackingNumber', '@doc.Title')">
+                                <i data-lucide="qr-code" style="width:18px; height:18px;"></i>
+                            </button>
+                        </td>
+                        <td class="table-actions">
+                            <a href="/Receiving/Document/Details/@doc.TrackingNumber" class="btn btn-primary btn-sm" style="padding: 6px 12px; font-weight: 600;">
+                                <i data-lucide="eye" style="width:14px; height:14px;"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="10" style="text-align:center; padding:40px; color:var(--ink-muted);">
+                        No documents registered yet. Click "Submit New Document" to get started.
+                    </td></tr>
+                }
+            </tbody>
+<script>
+    document.getElementById('selectAll')?.addEventListener('change', function(e) {
+        document.querySelectorAll('.bulk-cb').forEach(cb => cb.checked = e.target.checked);
+        toggleBulk();
+    });
+    document.querySelectorAll('.bulk-cb').forEach(cb => cb.addEventListener('change', toggleBulk));
+    
+    function toggleBulk() {
+        const anyChecked = document.querySelectorAll('.bulk-cb:checked').length > 0;
+        document.getElementById('bulkAction').style.display = anyChecked ? 'inline-block' : 'none';
+    }
+</script>
+        </table>
+    </div>
+</div>
+
+<!-- Register Document Modal -->
+<div class="modal-overlay" id="registerModal">
+    <div class="modal modal-lg animate-fade-in" style="padding: 0;">
+        <div class="modal-header" style="background-color: var(--brand); color: white; border-radius: 8px 8px 0 0; padding: 16px 24px; border-bottom: none;">
+            <h3 class="modal-title" style="color: white; font-size: 14px; font-weight: 600;">Submit New Document &middot; Routing Slip</h3>
+            <button class="modal-close" onclick="closeModal('registerModal')" style="color: white; background: transparent; border: none;"><i data-lucide="x" style="width: 18px; height: 18px;"></i></button>
+        </div>
+        <form method="post" action="/Receiving/Document/Register" enctype="multipart/form-data">
+            <div class="modal-body" style="padding: 24px;">                
+                <!-- File Upload & Auto OCR -->
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label class="form-label" style="font-weight:600; font-size:12px; margin-bottom:4px;">Document File (PDF/Image)</label>
+                    <input type="file" class="form-control" name="Attachment" id="auto-ocr-file" accept=".jpg,.jpeg,.png,.pdf" required style="padding: 8px;" />
+                    
+                    
+                  <div class="form-row" style="margin-bottom: 16px;">
+                      <div class="form-group" style="flex:1;">
+                          <label class="form-label" style="display:flex; align-items:center; gap:8px;">
+                              <input type="checkbox" name="IsUrgent" id="isUrgent" value="true" onchange="document.getElementById('urgencyJustificationWrapper').style.display = this.checked ? 'block' : 'none';" />
+                              <span style="color:#EF4444; font-weight:600;"><i data-lucide="alert-triangle" style="width:14px; height:14px;"></i> Mark as Urgent / Rush (Halves ARTA SLA)</span>
+                          </label>
+                      </div>
+                  </div>
+                  <div class="form-row" id="urgencyJustificationWrapper" style="margin-bottom: 16px; display:none;">
+                      <div class="form-group" style="flex:1;">
+                          <label class="form-label">Urgency Justification</label>
+                          <textarea class="form-control" name="UrgencyJustification" rows="2" placeholder="Required if marked urgent..."></textarea>
+                      </div>
+                  </div>
+<!-- OCR Loading & Preview Area -->
+                    <div id="ocr-loading" style="display:none; margin-top:12px; font-size:12px; color:var(--brand); align-items:center; gap:8px;">
+                        <i data-lucide="loader" style="width:16px;height:16px;animation:spin 1s linear infinite;"></i> Running Automatic OCR Scan...
+                    </div>
+                    <div id="ocr-preview" style="display:none; margin-top:12px; padding:12px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; font-size:12px; color:var(--ink);">
+                        <strong><i data-lucide="scan-line" style="width:14px;height:14px;display:inline-block;vertical-align:middle;"></i> OCR Result:</strong>
+                        <div id="ocr-text" style="margin-top:8px; max-height:80px; overflow-y:auto; color:var(--ink-muted); font-style:italic;"></div>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-bottom: 16px;">
+                    <div class="form-group" style="flex:1;">
+                        <select class="form-control" name="TypeId" required style="height: 40px;">
+                            <option value="">Document Category</option>
+                            @if (ViewBag.DocTypes != null)
+                            {
+                                foreach (var t in ViewBag.DocTypes)
+                                {
+                                    <option value="@t.Id">@t.TypeName</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <select class="form-control" name="DepartmentId" id="topDepartmentSelect" required style="height: 40px;">
+                            <option value="">Department</option>
+                            @if (ViewBag.Departments != null)
+                            {
+                                foreach (var d in ViewBag.Departments)
+                                {
+                                    <option value="@d.Id">@d.DepartmentName</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row" style="margin-bottom: 16px;">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label" style="font-weight:600; font-size:12px; margin-bottom:4px;">Title</label>
+                        <input type="text" class="form-control" name="Title" id="reg-title" placeholder="e.g., Request for Budget Allocation 2026" required style="height: 40px;" />
+                    </div>
+                </div>
+
+                <!-- ROUTING SLIP BOX -->
+                <div style="border: 1px solid #BFDBFE; border-radius: 8px; margin-top: 24px; overflow: hidden;">
+                    <div style="background-color: #EFF6FF; text-align: center; padding: 12px; font-weight: 700; font-size: 12px; color: #1E3A8A; letter-spacing: 0.5px; border-bottom: 1px solid #BFDBFE;">
+                        ROUTING SLIP (MAIL)
+                    </div>
+                    <div style="padding: 20px;">
+                        <div class="form-group" style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <label style="width: 180px; font-weight: 700; font-size: 11px;">TO:</label>
+                            <select class="form-control" name="TargetDepartmentId" id="routingSlipDeptSelect" style="flex: 1;">
+                                <option value="">Select Destination Department</option>
+                                @if (ViewBag.Departments != null)
+                                {
+                                    foreach (var d in ViewBag.Departments)
+                                    {
+                                        <option value="@d.Id">@d.DepartmentName</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <label style="width: 180px; font-weight: 700; font-size: 11px;">SENDER NAME:</label>
+                            <input type="text" class="form-control" name="SenderName" placeholder="e.g., Juan Dela Cruz" style="flex: 1;" />
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; margin-bottom: 16px;">
+                            <label style="width: 180px; font-weight: 700; font-size: 11px;">DOCUMENT ATTACHED IS:</label>
+                            <input type="text" class="form-control" placeholder="e.g., Memo + 3 attachments" style="flex: 1;" />
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 8px;">Instructions / Action Required</label>
+                            <textarea class="form-control" name="ActionInstruction" rows="3" placeholder="e.g., For approval and signature of the Department Head"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 20px; align-items: center; justify-content: center; margin-top: 24px; padding: 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
+                            <div style="width: 80px; height: 80px; background: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                                <i data-lucide="qr-code" style="width: 40px; height: 40px; color: #94a3b8;"></i>
+                            </div>
+                            <div style="font-size: 12px; color: var(--ink-muted); max-width: 250px;">
+                                <strong style="color: var(--ink); display: block; margin-bottom: 4px;">QR Code Auto-Generation</strong>
+                                A unique tracking QR Code will be automatically generated and embedded into the printable routing slip upon submission.
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; margin-top: 32px; font-size: 11px; color: var(--ink-muted);">
+                            <span>Sent by: <span style="color:var(--ink);">—</span></span>
+                            <span>Department: <span id="routingSlipDeptLabel" style="color:var(--ink); font-weight:600;">—</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Keep inputs needed for backend submission hidden if necessary, or just rely on backend parsing. -->
+                <input type="hidden" name="ContactNumber" value="09000000000" />
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px; background: #fafafa; border-radius: 0 0 8px 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('registerModal')" style="padding: 8px 16px;">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="padding: 8px 24px;"><i data-lucide="save"></i> Submit Document</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- OCR Scan Modal -->
+@section Scripts {
+    <script>
+        // Sync top Department dropdown to routing slip TO: dropdown and label
+        document.getElementById('topDepartmentSelect').addEventListener('change', function() {
+            var routingSlipDept = document.getElementById('routingSlipDeptSelect');
+            var routingSlipLabel = document.getElementById('routingSlipDeptLabel');
+            routingSlipDept.value = this.value;
+            var selectedText = this.options[this.selectedIndex].text;
+            routingSlipLabel.textContent = this.value ? selectedText : '—';
+        });
+
+        document.getElementById('auto-ocr-file').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('ocr-loading').style.display = 'flex';
+            document.getElementById('ocr-preview').style.display = 'none';
+            
+            var formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/Receiving/Document/OcrExtract', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('ocr-loading').style.display = 'none';
+                if(data.success) {
+                    document.getElementById('ocr-preview').style.display = 'block';
+                    document.getElementById('ocr-text').innerText = data.rawText;
+                    
+                    // Auto-fill Title if empty
+                    var titleInput = document.getElementById('reg-title');
+                    if (titleInput && !titleInput.value && data.subject) {
+                        titleInput.value = data.subject;
+                        showToast('Title auto-filled from OCR!', 'success');
+                    }
+                } else {
+                    showToast('OCR Failed: ' + data.message, 'error');
+                }
+            })
+            .catch(err => {
+                document.getElementById('ocr-loading').style.display = 'none';
+                showToast('OCR Error: Network issue.', 'error');
+            });
+        });
+
+        var _ocrFields = {};
+
+        function runOcr() {
+            var file = document.getElementById('ocr-file').files[0];
+            if (!file) { showToast('Please select an image file.', 'error'); return; }
+
+            document.getElementById('ocr-progress').style.display = 'block';
+            document.getElementById('ocr-result').style.display   = 'none';
+
+            var fd = new FormData();
+            fd.append('imageFile', file);
+
+            fetch('/Receiving/Document/OcrExtract', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('ocr-progress').style.display = 'none';
+                    document.getElementById('ocr-result').style.display   = 'block';
+                    document.getElementById('ocr-use-btn').style.display  = 'inline-flex';
+
+                    document.getElementById('ocr-raw').value     = data.rawText ?? '';
+                    document.getElementById('ocr-subject').value = data.fields?.Subject ?? '';
+                    _ocrFields = data.fields ?? {};
+                    showToast('OCR extraction complete!', 'success');
+                })
+                .catch(() => {
+                    document.getElementById('ocr-progress').style.display = 'none';
+                    showToast('OCR extraction failed. Please try again.', 'error');
+                });
+        }
+
+        
+          function applyTemplate(selectElem) {
+              if (selectElem.value) {
+                  document.getElementById('reg-title').value = selectElem.value;
+              }
+          }
+function useOcrData() {
+            closeModal('ocrModal');
+            openModal('registerModal');
+            if (_ocrFields.Subject)
+                document.getElementById('reg-title').value = _ocrFields.Subject;
+        }
+    </script>
+}
+
+
+<!-- QR Code Modal -->
+<div class="modal-overlay" id="qrModal">
+    <div class="modal animate-fade-in" style="max-width: 400px; text-align: center;">
+        <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
+            <button class="modal-close" style="position: absolute; right: 16px; top: 16px;" onclick="closeModal('qrModal')"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 24px;">                
+                <!-- File Upload & Auto OCR -->
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label class="form-label" style="font-weight:600; font-size:12px; margin-bottom:4px;">Document File (PDF/Image)</label>
+                    <input type="file" class="form-control" name="Attachment" id="auto-ocr-file" accept=".jpg,.jpeg,.png,.pdf" required style="padding: 8px;" />
+                    
+                    
+                  <div class="form-row" style="margin-bottom: 16px;">
+                      <div class="form-group" style="flex:1;">
+                          <label class="form-label" style="display:flex; align-items:center; gap:8px;">
+                              <input type="checkbox" name="IsUrgent" id="isUrgent" value="true" onchange="document.getElementById('urgencyJustificationWrapper').style.display = this.checked ? 'block' : 'none';" />
+                              <span style="color:#EF4444; font-weight:600;"><i data-lucide="alert-triangle" style="width:14px; height:14px;"></i> Mark as Urgent / Rush (Halves ARTA SLA)</span>
+                          </label>
+                      </div>
+                  </div>
+                  <div class="form-row" id="urgencyJustificationWrapper" style="margin-bottom: 16px; display:none;">
+                      <div class="form-group" style="flex:1;">
+                          <label class="form-label">Urgency Justification</label>
+                          <textarea class="form-control" name="UrgencyJustification" rows="2" placeholder="Required if marked urgent..."></textarea>
+                      </div>
+                  </div>
+<!-- OCR Loading & Preview Area -->
+                    <div id="ocr-loading" style="display:none; margin-top:12px; font-size:12px; color:var(--brand); align-items:center; gap:8px;">
+                        <i data-lucide="loader" style="width:16px;height:16px;animation:spin 1s linear infinite;"></i> Running Automatic OCR Scan...
+                    </div>
+                    <div id="ocr-preview" style="display:none; margin-top:12px; padding:12px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; font-size:12px; color:var(--ink);">
+                        <strong><i data-lucide="scan-line" style="width:14px;height:14px;display:inline-block;vertical-align:middle;"></i> OCR Result:</strong>
+                        <div id="ocr-text" style="margin-top:8px; max-height:80px; overflow-y:auto; color:var(--ink-muted); font-style:italic;"></div>
+                    </div>
+                </div>
+
+            <h3 style="margin-bottom: 8px; font-weight: 600; font-size: 18px; color: var(--ink);" id="qrDocTitle">Document Title</h3>
+            <p style="color: var(--ink-muted); font-size: 13px; margin-bottom: 24px;" id="qrDocRef">REF NO.</p>
+            
+            <div style="background: white; padding: 16px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid var(--border); margin-bottom: 24px;">
+                <img id="qrImage" src="" alt="QR Code" style="width: 200px; height: 200px; display: block;" />
+            </div>
+            
+            <p style="font-size: 12px; color: var(--ink-muted); margin-bottom:0;">Scan this code to quickly track or process this document from any mobile device.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showQrModal(trackingNumber, title) {
+        document.getElementById('qrDocTitle').textContent = title;
+        document.getElementById('qrDocRef').textContent = trackingNumber;
+        document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(trackingNumber);
+        
+        openModal('qrModal');
+    }
+</script>
+
+

@@ -1,0 +1,945 @@
+﻿ TrackNGo Mati: A Document Management and Monitoring System with Workflow Tracking 
+and Digital Signature Integration
+Christian Kerby Navallo
+BS in Information Technology
+University of Mindanao
+Matina, Davao City, 8000
+c.navallo.545783@umindanao.edu.ph
+Vincent Ray Toylo
+BS in Information Technology
+University of Mindanao
+Matina, Davao City, 8000
+v.toylo.546983@umindanao.edu.ph
+
+Fe B.Yara, MSIS
+University of Mindanao
+Matina, Davao City, 8000
+fe_yara@umindanao.edu.ph
+Benz Carl C. Vale
+BS in Information Technology
+University of Mindanao
+Matina, Davao City, 8000
+b.vale.545823@umindanao.edu.ph
+
+CCS Concepts
+CCS ΓåÆ Information systems ΓåÆ Information systems applications ΓåÆ Enterprise information systems ΓåÆ Enterprise applications
+General Terms
+Management, Documentation, Security, Design, Verification.
+Keywords
+Document Management System; Workflow Management; Document Tracking; Smart Escalation; Digital Signature
+1. INTRODUCTION
+1.1 Project Context
+The Rapid growth of information and communication due to technological advancements. These are influencing the manner in which business and organizations deal with information [1]. Electronic Document Management Systems are critical in organizing document management according to Gamido, Gamido and Macaspac. They facilitate organization, storage and retrieval of documents. In his discussion on the application of technology in governance and its impact on development, Chowdhury indicated that it increases transparency and accountability of governments. Technology ensures efficient delivery of public service through elimination of bottlenecks [2]. Therefore, governments and businesses in the world are utilizing digital means to facilitate easy workflow and access to information in order to make appropriate decisions. In the Philippines, the government is utilizing technology to ensure security of record and ease of information sharing and delivery of services. The Electronic Document Management Systems form part of the efforts.
+Based on the information gathered during the Reverse Pitching and interview activity with the DOST Head, DOST personnel, and personnel from the Office of the Mayor of Mati, document processing is currently performed through a manual, paper-based workflow. Documents handled by the office include applications, permits, requests, letters, financial documents, legislative papers, memoranda, endorsements, reports, and communications from other government agencies. These documents are classified into two categories: external documents and internal documents. External documents originate from citizens, clients, private organizations, or other government agencies and are first received by the Receiving Clerk. The Receiving Clerk records the document, assigns a tracking number, prepares a routing slip, and forwards the document to the appropriate department based on its purpose. The routing slip indicates the offices responsible for processing the document and, when necessary, the officials required to review or sign it, such as the Department Head, City Administrator, or the Mayor. However, not all external documents require approval or signatures. Some submissions, such as documentary requirements, requests for verification, or supporting documents, are only checked, recorded, or processed by the responsible office before being filed or released without passing through the complete approval workflow. Internal documents originate from offices or departments within the City Government, such as the City Planning Office, Human Resource Office, Accounting Office, or external government partners like DOST during official coordination. These documents are manually forwarded directly to the intended office or approving authority, depending on the nature of the transaction. They may be routed to the Mayor, the City Administrator, another department, or other authorized officials for review, endorsement, or approval. After all required actions have been completed, documents intended for clients are released by the responsible office, while documents that serve as official records remain in the department where the transaction is completed and are manually filed and archived for future reference. This manual document routing, approval, release, and archiving process remains the common practice in many local government units in the Philippines, where document movement is primarily monitored through paper records and routing slips rather than an automated document management system [3].
+The current manual document processing in the Office of the Mayor of Mati makes it difficult for personnel and clients to monitor the status and movement of documents throughout the workflow. Since routing depends on paper-based records and manual coordination among departments, document updates often require repeated follow-ups because the clients do not know the status of the submitted documents. These challenges are evident in the related literature that has limited procedures and policies in managing document [4]. Effective workflow tracking enables organizations to monitor document movement, improve process visibility, and identify bottlenecks that affect the timely completion of transactions [10]. In addition, digital signature integration enhances the authenticity and integrity of documents by providing secure electronic approval and verification throughout the document lifecycle [11]. As presented in Table 1, although existing document management systems offer basic document storage and monitoring capabilities, they do not collectively provide QR code-based tracking, SMS notifications, smart escalation for ARTA-compliant processing, and password-protected document export. These limitations demonstrate the need for a more comprehensive document management and monitoring system that improves workflow visibility, communication, document security, and service efficiency in the Office of the Mayor of Mati.
+Table 1.  Feature Comparison Matrix ΓÇô NOT MENTIONED
+Features
+TrackNGo Mati
+eDOCS
+DTS
+EDMS
+Centralized Document Management
+Centralized Management
+Centralized Management
+Centralized Management
+Centralized Management
+Electronic Document Routing
+Automated Routing
+Electronic Routing
+Electronic Routing
+Electronic Routing
+
+
+Workflow Monitoring
+
+FSM-Based Monitoring
+
+Workflow
+
+Routing Status
+
+Document Workflow
+QR Code Document Tracking
+QR Code Tracking
+Not Available
+QR Code Tracking
+Not Available
+OCR-Based Document Digitization
+OCR Integration
+OCR Support
+Not Available
+Not Available
+SMS Notification
+Automatic SMS Alerts
+Not Available
+Not Available
+Not Available
+Digital Signature
+Integrated
+Available
+Not Available
+Available
+Smart Escalation Monitoring
+RA 11032-Based
+Not Available
+Not Available
+Not Available
+The comparison matrix shows that eDOCS focuses on document storage, archiving, and retrieval through centralized records management and OCR but provides limited support for real-time workflow monitoring, intelligent automation, and government-specific processing [9]. Likewise, the Electronic Document Management and Tracking System and the eDALAYON system improve electronic document routing and monitoring but lack automated compliance monitoring and intelligent escalation for processing deadlines [4], [5]. Similarly, Acedo's web-based document tracking system enhances document visibility through QR code technology but does not support automated workflow enforcement or proactive escalation of delayed transactions [6].
+Based on these comparisons, TrackNGo integrates QR code tracking, OCR, SMS notifications, digital signatures, real-time APIs, and an EODB-Compliant Smart Escalation Routing Algorithm to improve workflow automation, transparency, document traceability, and compliance with Republic Act No. 11032 for the Office of the Mayor of Mati [4], [7].
+1.2. Purpose and Description
+TrackNGo is a web-responsive document management and monitoring system developed for the Office of the Mayor of Mati to improve the efficiency, security, transparency, and accountability of document processing. The system digitizes document routing through a centralized workflow, enabling users to submit, route, review, approve, monitor, and archive documents electronically. It supports the Mayor, Department Heads, Executive Assistants and Administrators, Records Officers and Receiving Clerks, and CART Personnel by streamlining document handling and promoting compliance with government processing timelines.
+To enhance document management, TrackNGo integrates Optical Character Recognition (OCR) to convert scanned documents into searchable digital records [15], QR code-based document tracking for real-time monitoring, digital signatures for secure approvals, SMS notifications for timely updates, and an EODB-Compliant Smart Escalation Routing Algorithm, QR code-based document tracking for real-time monitoring, digital signatures for secure approvals, SMS notifications for timely updates, and an EODB-Compliant Smart Escalation Routing Algorithm to improve accountability and support compliance with Republic Act No. 11032. The development of TrackNGo also supports Sustainable Development Goal (SDG) 9, which promotes resilient infrastructure, innovation, and the adoption of technology to improve public services and foster sustainable development [12].
+1.3. Objectives
+1.3.1 General Objectives
+The aim of this study is to develop a web responsive document management and monitoring system under the Laravel framework and MySQL. This system introduces processes that will be advantageous to the citizens of the City of Mati such as workflow tracking, QR code and SMS integration for document tracking, digital document integration, Smart Escalation feature and Password-Gated Document to enhance the accountability, transparency, security and accessibility of their overall document and monitoring process.
+1.3.2 Specific Objectives 
+To achieve the general objective, the proponents will specifically:
+1.3.2.1. Develop a centralized document management and tracking module using the Laravel Framework to register, categorize, route, track, and securely store document records for the Office of the Mayor of Mati.
+1.3.2.2. Implement a workflow management module based on the Finite State Machine (FSM)-Based Document Lifecycle Management Model to regulate document routing, processing, approvals, revisions, comments, and releases throughout the document lifecycle.
+1.3.2.3.  Integrate QR code tracking, Optical Character Recognition (OCR), and SMS notifications to enhance document identification, digitization, real-time status monitoring, and stakeholder communication.  
+1.3.2.4. Implement digital signature integration and password-gated document export to ensure secure document approval, authentication, and protection against unauthorized document access.
+1.3.2.5. Develop an EODB-Compliant Smart  Escalation Routing Algorithm that monitors document processing periods based on Republic Act No. 11032 and automatically notifies designated oversight personnel of overdue transactions. 
+1.3.2.6. Evaluate the system in terms of functionality, performance efficiency, security, and usability for the personnel and clients of the Office of the Mayor of Mati. 
+- To create a profile module for digital signature setup using Laravel framework and MySQL.
+-To track the internal and external document from submission to completion using Laraval framework in app and QR.
+- To monitor the status of the forwarded document and show the comment of the receiving department using Laravel framework.
+- To notify the receiving clerk and department to respond to submitted document through SMS and in-app notifications.
+-To generate reports on completed and pending documents using ChartJS.
+
+1.4. Scope and Limitations
+This study describes the development and implementation of TrackNGo, a web-responsive Document Tracking and Management System for the Office of the Mayor of Mati, Davao Oriental. The system is developed using the Laravel Framework and provides a centralized platform for managing documents throughout their lifecycle, from submission to archiving. Its core modules include centralized document management for uploading, storing, organizing, and retrieving files; an FSM-Based Workflow Routing and Document Lifecycle module; real-time document tracking; QR code-based document monitoring; digital signature authentication; automated SMS notifications; Smart Escalation for monitoring document processing timelines; password-gated document export; Optical Character Recognition (OCR) for digitizing and extracting searchable text from scanned physical documents; and monitoring and reporting dashboards. The OCR module assists receiving personnel by automatically extracting printed text from scanned documents, reducing manual data entry, improving document indexing, and enabling full-text search across the document repository [15]. The system is intended to be used by authorized personnel, including the City Mayor, Department Heads, Executive Assistants and Administrators, Records Officers and Receiving Clerks, CART Personnel (Oversight and Compliance Officers), and external clients who need to monitor the status of their submitted documents. The deployment, implementation, and evaluation of the system are limited to the Office of the Mayor of Mati and its administrative jurisdiction. Furthermore, the system is designed to manage official government records such as requests, endorsements, permits, memoranda, reports, correspondence, and transaction logs generated from the date of deployment onward.
+Despite its capabilities, the study has several operational limitations and boundaries. TrackNGo is a web-based application that requires a stable internet connection for users to access the system, monitor document status, perform workflow transactions, and receive real-time updates. Although the system supports digital signatures for document approval and authentication, these signatures are intended for internal organizational use and do not replace legally recognized digital certificates issued by accredited certification authorities unless integrated with such external services. Likewise, the Smart Escalation feature operates based on predefined workflow rules, processing timelines, and configurable parameters established by authorized system administrators in accordance with organizational policies and applicable regulations. The OCR functionality is intended only for printed documents with readable text and may produce lower recognition accuracy when processing handwritten documents, damaged files, or low-quality scanned images. The system evaluation is limited to authorized users within the Office of the Mayor of Mati, including employees and administrators who directly utilize the application in their daily operations. Consequently, the evaluation results reflect the experiences and operational requirements of the target organization and may not be directly generalizable to other local government units or institutions with different document management procedures, organizational structures, or workflow requirements. As such, TrackNGo is specifically developed to address the document management, monitoring, and compliance needs of the Office of the Mayor of Mati.
+2. METHODS 
+
+
+                              
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 1.  Agile Methodology
+
+The development of TrackNGo followed the Agile Software Development Methodology, consisting of six iterative phases: Requirements Gathering, Analysis, Design, Development, Testing, and Deployment, as shown in Figure 1. The researchers first identified the functional and non-functional requirements of the Office of the Mayor of Mati through interviews, observations, and consultations. These requirements were analyzed and translated into the system architecture, database, workflow models, and user interface designs before implementing the system using the Laravel Framework. The developed modules, including centralized document management, FSM-based workflow monitoring, QR code tracking, SMS notifications, digital signatures, OCR, Password-Gated Document Export, and the EODB-Compliant Smart Escalation Routing Algorithm, were tested to ensure functionality, security, and reliability before deployment. Agile was adopted because its iterative development approach supports continuous stakeholder feedback, accommodates changing requirements, and enables incremental system improvement throughout the development process [13].
+
+2.1. Data Gathering
+The Proponents are going to collect data from the Office of the Mayor of Mati. They want to learn how electronic workflows work. They will go through papers like routing slips and records and documents processed by the office, including requests, endorsements, permits, memoranda and reports. The proponents want to see the papers shuffling around the office. They will talk to office staff, like clerks and supervisors to learn how long things take to process. They want to know what causes the delays and how the office is run. The idea is to get a sense of how the office operates now. The information will be used by the proponents to build a model of the workflows. They will focus on the Office of the Mayor of Mati and its daily work. Through the data gathering process, they will be able to know the office's needs. The study is to improve the office's workflows. They will review the data they gather to determine the areas for improvement. And the Office of the Mayor of Mati will be the beneficiary of this study.
+2.2. Analysis
+The Analysis phase focuses on examining the information gathered during the Reverse Pitching to identify the functional and non-functional requirements of the proposed TrackNGo system. During this phase, the proponents analyzed the existing document management procedures, identified workflow bottlenecks, evaluated user responsibilities, and determined the technological resources required to support the system. The results of the analysis served as the basis for defining the system's user requirements, hardware and software requirements, functional and non-functional requirements, and feasibility requirements. Through this analysis, the proponents ensured that the proposed system addresses the operational needs of the Office of the Mayor of Mati while supporting efficient, secure, and transparent document management. The proposed system does not replace or alter the existing document processing procedures of the Office of the Mayor of Mati; instead, it digitizes and automates the current manual workflow while preserving the established policies, approval hierarchy, and operational practices, allowing personnel to continue following existing procedures with the support of a centralized digital system.
+
+2.2.1. User Requirements
+The Office of the Mayor of Mati personnel are the primary users of the TrackNGo system. The following user requirements describe the functions that authorized users can access through the proposed document management and monitoring system.
+2.2.1.1 To allow authorized personnel to register, classify, digitize, route, track, and securely store documents using QR codes and Optical Character Recognition (OCR).
+2.2.1.2 To allow Department Heads and the Mayor to review, comment, endorse, approve, digitally sign, and monitor documents throughout the workflow.
+2.2.1.3 To allow Executive Administrators to manage document workflows, user accounts, document categories, and system settings.
+2.2.1.4 To allow authorized users to receive real-time SMS notifications and monitor document status and processing progress.
+2.2.1.5 To allow Oversight and Compliance Officers (CART Personnel) to monitor processing timelines, receive Smart Escalation alerts, and generate compliance reports.
+2.2.1.6 To allow authorized users to generate reports, view audit trails, and securely export documents through password-protected document export.
+2.2.2. Hardware / software requirement 
+
+Table 2.  Hardware Requirementsa
+
+Hardware
+Minimum Specification
+Purpose
+Desktop Computer
+Dual-Core Processor or higher, 8 GB RAM, 256 GB SSD/HDD, Modern Web Browser
+Used by administrators, receiving clerks, department heads, and other personnel to access and manage the web-based document tracking and management system.
+Printer
+Laser or Inkjet Printer
+Used to print routing slips, reports, official documents, and other generated outputs from the system.
+Hardware
+Minimum Specification
+Purpose
+Internet Connection
+Stable Broadband Connection (Minimum 10 Mbps Recommended)
+Required for accessing the web application, synchronizing document updates, processing workflows, and enabling real-time notifications.
+Table 2 presents the minimum hardware requirements needed to develop, deploy, and operate the TrackNGo system. These specifications ensure stable system performance for document processing, workflow management, and daily operations.
+Table 3.  Software Requirements
+Software
+Version
+Purpose
+Visual Studio Code
+1.127.0
+Primary source code editor used for developing, debugging, and maintaining the system.
+Laravel Framework
+12.x
+PHP web application framework used to develop the system following the Model-View-Controller (MVC) architecture.
+PHP
+8.3
+Server-side scripting language used to execute the Laravel application.
+MySQL
+8.4
+Relational database management system used to store and manage system and document records.
+Amazon S3 (AWS Cloud Storage)
+Latest
+Cloud storage service used to securely store uploaded documents and provide reliable backup and file accessibility.
+Software
+Version
+Purpose
+Composer
+2.8
+Dependency manager used to install and maintain Laravel packages and libraries.
+JavaScript
+ES2024
+Provides client-side interactivity and dynamic functionality 
+for the web application.
+Tailwind CSS
+4.x
+Utility-first CSS framework used to create responsive and user-friendly interfaces.
+Vite
+7.x
+Frontend build tool used to compile and optimize application assets.
+
+Table 3 presents the minimum software requirements for developing, deploying, and running the TrackNGo system. These software components provide the necessary environment for application development, database management, and web-based document processing. 
+2.2.3. Functional and Non Functional Requirement
+2.2.3.1 Functional  Requirements
+2.2.3.1.1 Login Page - The Login page is to serve as the access point of the system wherein, every member/users who register to the system and gets to log-in via username, and password then be able to gain entry to the said system that automatically redirect the member to the respective areas assigned to his role with module to access that is permitted, to him/her, to follow and adhere as a member of Office of the Mayor of Mati. 
+2.2.3.1.2 User Management Module - This module allows the Executive Administrator to be able to insert a new user, modify details of a user, to delete an existing user or to block/deactivate a user as well to insert new departments, edit/modify departments, insert new categories and edit/modify of categories. He/She must be able to define the setting of the system to manage all available functions of a document management process and to be aware of who a user would fall in one position in the office.
+2.2.3.1.3 Document Registration and Management Module - The module that would serve as responsible in registering, cataloguing, storing, sorting, withdrawing, returning, withdrawing, updating and archiving of any and all documents which may be involved in the database or repository. During the act of registering an original document; a unique system reference number, a tracking number as well as QR code will be automatic. Original documents' detail will be accompanied by the new records along their lifecycle.
+2.2.3.1.4 OCR Document Recognition Module- During document registration with automatic document registration and automatic scanning of documents using OCR This system recognizes scanned images with OCR and extracts printed information and converted to storable data in the database, and displays extracted information in the temporary view for verification of a receiving department and is stored in the database. Also supports automatic metadata generation, automatic indexing of keywords, and document classification.  
+2.2.3.1.5 Document Routing  Page - This document would serve as responsible to hand over/ deliver documents to another office with an automatic system generated electronic routing slip which contained original document details, sender and receiver's information, designated receiving office, instruction and status. The user is to send a document, forward document, to reject document, to return document, or to endorse the said original document.
+2.2.3.1.6 Document Workflow Management Module - This module handles documents through the Finite State Machine (FSM)-Based Document Lifecycle Management (DLCM). In FSM-Based DLCM, states define possible documents' conditions while transitions represent documents' moves in the entire lifecycle of any document. The FSM-Based DLCM restricts documents on an invalid move from one state to another.
+2.2.3.1.7 Document Approval Page - An interface for the approved individuals, in any status the document reaches, to be able to electronically sign, approve, reject or return documents according to the defined workflow. The screen would show all approvals made by the individual officials with their e-signatures. 
+2.2.3.1.8 Document Monitoring Dashboard - Screen to provide a quick and summary look on how the documents are at any given time including the current physical location, assigned office, in which stage, pending documents from an office or an official, which document is late with a defined time-frame and a listing of the approved documents.
+2.2.3.1.9 Notification and Smart Escalation Module - This module sends SMS to the sender as well as the relevant individuals as designated when status is changed. Moreover, it continuously monitors if any document surpassed the set timeline based on Republic Act 11032 and sends notification when there is an escalation or delay. 
+2.2.3.1.10 Audit Trail Module - This Module which would keep logs of every activity that happened in the system including user actions, status changes of any document, timestamps, document details, workflow moves and file export details for all of the transactions and for the document export transactions.
+2.2.3.1.11 Reports Dashboard Page - This page presents various reports developed from different modules of the system, providing a single view for monitoring document transactions, workflow processes, office performance, processing status, pending items, escalation history and so on. The dashboard allows the designated user to overlook the entire process, analyze system efficiency and examine office performance so as to facilitate management decisions and ensure procedure conformity.
+2.2.3.2. Non Functional Requirements
+2.2.3.2.1 Performance - The system shall have good performance and response time when handling document transactions such as registering, routing, tracking, approval, and generating reports/queries. Various authorized users should be able to perform simultaneous transactions without degrading the performance of the whole system.
+2.2.3.2.2 Security - The system shall have an adequate degree of information security through adequate use of authentication, secure storing of usersΓÇÖ passwords, rights to function/documents based on role, comprehensive logs, and access control to sensitive information and configurations.
+2.2.3.2.3 Reliability - The system shall provide accuracy, completeness, and consistency of documentsΓÇÖ records through the lifecycle; the process transaction, including workflow process without compromise; and document/user histories are maintained accurately during the life of heavy day-to-day use.
+2.2.3.2.4 Availability - The system will be available to authorized users whenever there is a connection to the Internet so that authorized users may perform document management function when itΓÇÖs needed when working inside the Office of the Mayor of Mati.
+2.2.3.2.5 Usability- The system will be user-friendly, easy to use and provide an interface that requires minimum or no training. The navigation will be direct and the workflow forms and the information of instructions to be clear and consistent to all modules in the system.
+2.2.3.2.6 Accessibility - The system should be accessible through widely used Web browsers on a variety of computer platforms including laptops, desktop computers, tablets and cell phones. Flexible user interfaces that dynamically respond to changing window dimensions for optimal visibility will be employed, ensuring ease of reading.
+2.2.3.2.7 Scalability - The System shall be designed to grow gracefully with increases in user, department, document, and workflow volume. Minor modifications to the architectural system design should not be required as the system grows.
+2.2.3.2.8 Maintainability - The System shall be tolerant of system modification necessitated by design, features or workflow updates during the life cycle of the system without adversely impacting architecture, functionality, or performance. This objective is achieved by the utilization of a modular architectural approach.
+2.2.3.2.9 Data Integrity - All documents, histories and audit records shall be completely and accurately recorded, maintained, stored, secured and be protected from any loss or unlawful modification. Scanned documents should be maintained while making the original document view accessible with no alterations to the document image 
+2.2.3.2.10 Compatibility - The system must be completely compatible with, and fully functioning with, commonly used Web browsers. The System must seamlessly interface with current applications utilized by the Office of the Mayor of Mati, to include the SMS Gateway and the digital signature application.
+2.2.4. Feasibility requirements
+2.2.4.1 Operational feasibility - The operational feasibility of TrackNGo Mati evaluates whether the system can effectively support the daily document management operations of the Office of the Mayor of Mati and whether its intended users are prepared to adopt a digital document workflow. Since the current document processing relies on paper-based routing slips and manual monitoring, the implementation of TrackNGo Mati will require personnel to transition to a centralized digital document management and monitoring system with automated workflow tracking, Smart Escalation Monitoring, QR code-based document tracking, SMS notifications, and digital signature integration. These functionalities are designed to improve efficiency, transparency, accountability, and compliance with the prescribed government service timelines under Republic Act No. 11032 [7].
+Table 4. Operational Considerations and Measures 
+Operational Consideration
+Measure
+Office Personnel Preparedness
+Conduct orientation and hands-on training on document registration, routing, monitoring, approval, and report generation.
+Approving Authorities Preparedness
+Provide training on digital document approval, digital signature integration, and document verification.
+Transition to Digital Document Processing
+Provide implementation guidelines and standard operating procedures for migrating from paper-based to digital workflows.
+Ease of Use
+Develop a user-friendly and responsive interface with clear navigation for all user roles.
+Smart Escalation and Compliance Monitoring
+Train personnel on Smart Escalation Monitoring to ensure compliance with the prescribed service timelines under Republic Act No. 11032 [7].
+Operational Consideration
+Measure
+User Support
+Provide user manuals, technical assistance, and system maintenance throughout implementation and operation.
+
+The intended users, including the Records Officer, Receiving Clerk, Department Heads, Executive Administrator, Mayor, Oversight and Compliance Officer, and other authorized office personnel, are expected to possess basic computer literacy and familiarity with common digital devices such as desktop computers, laptops, and smartphones. These skills are sufficient to perform the core functions of the system, including document registration, workflow routing, QR code scanning, document tracking, approval, monitoring, digital signature processing, and report generation. Prior to full deployment, orientation sessions and hands-on training will be conducted to familiarize users with their respective system functions and facilitate the transition from manual document processing to a centralized digital workflow. User manuals and technical support will also be provided to assist users during implementation and regular system operation. Based on the identified operational requirements, the readiness of the intended users, and the proposed implementation measures, TrackNGo Mati is considered operationally feasible. Its implementation is expected to improve document processing efficiency, reduce delays through Smart Escalation Monitoring, enhance document traceability using QR code-based tracking, strengthen accountability through audit trails, support compliance with Republic Act No. 11032 [7], and provide secure and centralized document management for the Office of the Mayor of Mati. These operational benefits contribute to faster service delivery, improved transparency, increased accountability, and more efficient government document processing.
+2.2.4.2 Technical feasibility - The proposed system is technically feasible because it is developed using widely adopted web technologies that are compatible with the existing information technology environment of the Office of the Mayor of Mati. TrackNGo is built using the Laravel Framework with PHP, MySQL, and Amazon Web Services (AWS) S3 cloud storage, enabling secure document management, reliable data storage, and web-based accessibility through standard internet browsers on desktop computers, laptops, tablets, and smartphones. The integration of QR code tracking, SMS notifications, digital signatures, and the FSM-Based Document Lifecycle Management Model further enhances document monitoring, workflow automation, and secure document processing using established and proven technologies for modern document management systems [1], [5], [14]. 
+2.2.4.3 Economic feasibility - The table below presents the estimated implementation and operational costs, together with the expected benefits of implementing the TrackNGo Mati system. The estimated costs are based on the resources and services required to develop, deploy, operate, and maintain the system, while the expected benefits are aligned with the operational needs of the Office of the Mayor of Mati.
+Table 5: Estimated Project Cost and Benefits
+Item
+Type
+Estimated Cost / Expected Benefit
+Development Team Cost
+Project Manager
+Direct
+Γé▒72,000.00
+Junior Backend Developer
+Direct
+Γé▒108,000.00
+Junior Frontend Developer
+Direct
+Γé▒93,600.00
+Subtotal                                       Γé▒273,600.00
+Resources and Services Cost
+Domain Registration (.com)
+Direct
+Γé▒900.00/year
+Cloud Hosting (Web Server)
+Direct
+Γé▒1,500.00/month
+AWS S3 Cloud Storage
+Direct
+Γé▒500.00/month (Estimated Usage)
+SMS API Service
+Direct
+Γé▒1,000.00/month (Estimated Usage)
+AI Development Assistant Subscription (e.g., ChatGPT Plus)
+Direct
+Γé▒1,200.00/month
+Resources and Services Cost
+SSL Certificate
+Indirect
+Γé▒500.00/year
+System Maintenance and Monitoring
+Indirect
+Γé▒1,500.00/month
+Subtotal                                           Γé▒7,100.00
+Effort Cost
+Internet Connection (Development Period)
+Indirect
+Γé▒2,000.00
+Electricity (Development Period)
+Indirect
+Γé▒2,500.00
+Documentation and Printing
+Indirect
+Γé▒1,000.00
+Food and Meals
+Indirect
+Γé▒9,000.00
+Transportation
+Indirect
+Γé▒6,000.00
+Contingency Fund
+Indirect
+Γé▒1,000.00
+Subtotal                                        Γé▒21,500.00
+Total Estimated Project Cost     Γé▒302,200.00
+Expected Benefits
+Type
+Description
+Reduced paper-based document processing
+Tangible
+Reduces printing, routing slips, and document handling costs.
+Faster document routing and approval
+Tangible
+Reduces processing time through automated workflow management.
+Automated SMS notifications
+Tangible
+Minimizes manual follow-ups and improves communication with stakeholders.
+QR code-based document tracking
+Tangible
+Enables faster document tracking and document verification.
+Centralized document management
+Intangible
+Improves document organization, accessibility, and retrieval efficiency.
+Smart Escalation Monitoring
+Intangible
+Supports compliance with Republic Act No. 11032 by automatically monitoring delayed document transactions.
+Expected Benefits
+Type
+Description
+Digital Signature Integration
+Intangible
+Enhances document authenticity,
+
+
+
+ 
+Audit Trail and Monitoring Reports
+Intangible
+Strengthens transparency, accountability, and management decision-making.
+Cloud-based Document Storage
+Intangible
+Provides secure, reliable, and accessible document storage with backup and recovery capabilities.
+
+2.2.4.4 Schedule Feasibility
+
+Figure 2. Schedule Feasibility
+Figure 2 represents the schedule of tasks to be performed for the creation of the TrackNGo Document Tracking and Management system, which lasts from June to December. Officially the project started from June, which was the time when the topic was proposed and approved. Even though initial data collection and requirements elicitation had already begun before the official start of the project timeline, yet some more data collections and consultations with stakeholders took place from June to July, in order to further refine and verify the collected requirements of the system as the project advanced. Hence, system analysis has been performed between June to July so that the proponents would be able to analyze the current document management process and simultaneously incorporate new findings into the research work.
+Following that is system design and database design together with system architecture has been implemented between July to August. The development of the system with actual coding has been scheduled between August to October. The period of October to November was set aside for testing and debugging. By November user evaluation was carried out with revisions in the system, while in November to December, documentation preparation, presentation, and submission would have already been finalized and submitted
+
+
+
+
+
+
+2.3 Design
+2.3.1 Conceptual Framework
+
+Figure 3. Conceptual Framework
+
+Figure 2 illustrates the Input-Process-Output (IPO) conceptual framework of the proposed TrackNGo system. The framework shows how user information, documents, and transaction data are collected as inputs, processed 
+through the system's document management and workflow modules, and transformed into real-time monitoring dashboards, reports, notifications, and securely processed documents. It demonstrates the overall flow of data from document submission to final output.
+2.3.1.1 Input - This phase represents the data required to initiate document processing in the TrackNGo system. It includes user information, system configurations, uploaded documents, and transaction details entered by authorized personnel and clients. These inputs are validated and stored in the database before being forwarded to the workflow process, ensuring that complete and accurate information is available for document management.
+2.3.1.2 Process - This phase represents the core operations of the TrackNGo system. Documents are registered, digitized using Optical Character Recognition (OCR), assigned QR codes, and routed through an FSM-Based Document Lifecycle Management Model. Throughout the workflow, the system manages document tracking, digital signatures, SMS notifications, password-protected document export, and the EODB-Compliant Smart Escalation Routing Algorithm to monitor processing timelines and automatically notify designated personnel of overdue transactions.
+2.3.1.3 Output -This phase represents the information and services produced after document processing. The system generates real-time dashboards, monitoring reports, audit trails, SMS notifications, and QR code-verified documents with digital signatures. These outputs improve document traceability, transparency, accountability, and communication while supporting efficient document management in the Office of the Mayor of Mati.
+
+2.3.2.  EODB-Compliant Smart Escalation Algorithm
+
+The EODB-Compliant Smart Escalation Routing Algorithm is the primary innovation and capstone element of the proposed TrackNGo system. Within the conceptual framework presented in Figure 3, the algorithm is implemented as one of the major components of the Process phase together with the Finite State Machine (FSM)-Based Document Workflow, QR Code Generation, Digital Signature Processing, and SMS Gateway Integration. While the FSM governs valid document transitions throughout the workflow lifecycle, the Smart Escalation Routing Algorithm continuously monitors the processing time of every active document to ensure compliance with the service delivery standards prescribed under Republic Act No. 11032, otherwise known as the Ease of Doing Business and Efficient Government Service Delivery Act [7].
+The processing pipeline begins immediately after user information, uploaded documents, organizational settings, and transaction details are collected during the Input phase of the system. These inputs pass through the data ingestion layer before being processed by the Laravel application. Documents are then registered, assigned to the appropriate office, and routed through the FSM workflow. During document processing, the Smart Escalation Routing Algorithm continuously computes the elapsed working days of each active document and compares them with the corresponding ARTA processing period of 3, 7, or 20 working days. If the processing period remains within the allowable limit, the FSM continues routing the document through the normal workflow states of Submission, Review, Approval, Forwarding, Return, Rejection, and Completion. However, once the prescribed processing period has been exceeded, the algorithm automatically interrupts the normal workflow by locking further processing, recording the escalation event, updating the document status to Escalated, notifying responsible personnel through the integrated SMS Gateway, and automatically rerouting the document to the Office of the Mayor for immediate administrative action.
+The algorithm also integrates with the Audit Trail module by permanently recording every escalation event, notification, workflow transition, and administrative action performed after escalation. Consequently, the proposed approach extends beyond traditional document management and tracking systems by actively enforcing compliance with Republic Act No. 11032 instead of merely recording document status. Unlike the systems developed by Jaca [4], Bermeo et al. [5], and Acedo et al. [6], which primarily focus on document routing, monitoring, and tracking, the proposed TrackNGo system automatically enforces processing deadlines through workflow interruption, document locking, intelligent escalation, and automatic rerouting to higher management whenever processing periods are violated.
+As illustrated in the IPO conceptual framework, the outputs generated from this processing pipeline include updated workflow dashboards, administrative reports, downloadable transaction histories, automated SMS notifications, QR-code verified documents, and audit trail records that collectively improve transparency, accountability, and regulatory compliance. Through this integrated processing mechanism, the Smart Escalation Routing Algorithm directly addresses the problems identified in Section 1.1, including prolonged document processing, limited workflow visibility, lack of accountability for delayed transactions, and the absence of automated mechanisms for enforcing EODB and ARTA processing standards [7].
+Figure 3 illustrates that the Smart Escalation Routing Algorithm forms an integral component of the processing pipeline of the proposed TrackNGo system. After user information, uploaded documents, organizational settings, workflow requests, and transaction details are collected during the Input phase, the information passes through the system's Data Ingestion Layer, where it is validated before entering the Laravel application. The application then performs the necessary operations and forwards each document to the Finite State Machine (FSM)-Based Document Workflow, which governs all valid workflow state transitions.
+While the FSM controls document movement throughout the workflow, the Smart Escalation Routing Algorithm executes simultaneously as a background monitoring service. It continuously retrieves active documents from the Documents table together with their assigned processing dates and corresponding ARTA processing thresholds of 3, 7, or 20 working days, as prescribed under Republic Act No. 11032 [7]. This continuous workflow monitoring enables organizations to monitor document processing performance, identify delays, and improve compliance with government service delivery standards through automated process monitoring and intervention [8].
+The first stage of the algorithm calculates the total number of working days elapsed between the assigned processing date and the current working date using Equation (1).
+Equation (1). Working Days Elapsed
+WD=D current ΓêÆ D assignedΓÇï
+Where:
+WD = Working Days Elapsed
+Dcurrent = Current Working Date
+Dassigned = Date the document was assigned for processing
+Sample Computation (Document ID: 1001)
+Assigned Date = June 1, 2026
+Current Date = June 5, 2026
+Working Days Elapsed
+WD=5ΓêÆ1
+WD=4 working days
+The computed value (WD = 4) is compared with the allowable processing period under Republic Act No. 11032.
+Equation (2). Escalation Decision
+E={1, ΓÇïWD>L
+       0, WDΓëñLΓÇï
+Where:
+E = Escalation Flag
+WD = Working Days Elapsed
+L = Allowable Processing Period (3, 7, or 20 working days)
+Sample Computation (Document ID: 1001)
+WD = 4
+L = 3
+Since
+4>3
+then
+E=1
+Interpretation: The document exceeded the allowable processing period and must proceed to the Smart Escalation process.
+If E = 0, the document remains within the prescribed processing period and continues through the normal FSM workflow. The system allows authorized personnel to continue reviewing, forwarding, approving, or completing the document while recording every activity in the Audit Trail.
+If E = 1, the document has exceeded its allowable processing period. The algorithm then computes the number of overdue working days before determining the corresponding escalation severity level.
+Equation (3). Overdue Days
+OD=WDΓêÆL
+Where:
+OD = Overdue Days
+WD = Working Days Elapsed
+L = Allowable Processing Period (3, 7, or 20 working days)
+Then classify the severity based on the overdue days.
+Sample Computation (Document ID: 1001)
+WD = 4
+L = 3
+OD=4ΓêÆ3
+OD=1
+The document is overdue by 1 working day.
+Equation (4). Escalation Level
+SL={ Warning,1ΓëñODΓëñ2
+          Critical, 3ΓëñODΓëñ5
+          Overdue, OD>5
+Where:
+SL = Escalation Severity Level
+OD = Number of Overdue Days
+Sample Computation (Document ID: 1001)
+OD = 1
+Since
+1Γëñ1Γëñ2
+the escalation level is
+SL=Warning
+After determining that a document has exceeded its allowable processing period, the algorithm computes the number of overdue working days and assigns the corresponding escalation severity level. This approach classifies delays according to the extent by which the document exceeded its prescribed processing period rather than the original ARTA processing category. Consequently, the escalation mechanism is applied consistently to all document types regardless of whether their allowable processing period is 3, 7, or 20 working days.
+Once the escalation level has been determined, the algorithm automatically executes a sequence of system-controlled operations. The affected document is immediately locked to prevent further processing or modification by the office responsible for the delay, thereby preserving the integrity of the document during the escalation process. The document status is then updated to Escalated, and the complete escalation details including the allowable processing period, elapsed working days, overdue working days, escalation level, notification status, and timestamp are recorded in the ARTA_Escalations table.
+After recording the escalation event, the integrated SMS Gateway automatically sends notifications to the designated oversight personnel regarding the delayed transaction. The system subsequently reroutes the document to the Office of the Mayor for administrative review and appropriate action. Throughout the escalation process, every workflow transition, notification, routing activity, status update, and administrative action is permanently recorded in the Audit Trail module to ensure transparency, accountability, and traceability of all system activities.
+Upon completion of the Smart Escalation process, the updated document status becomes immediately available through the system dashboards and monitoring reports. The generated outputs including escalation notifications, administrative reports, audit logs, updated workflow dashboards, and document status reports provide decision-makers with real-time information for monitoring document processing performance and ensuring compliance with the service delivery periods mandated by Republic Act No. 11032.
+To demonstrate the implementation of the proposed algorithm, a sample dataset consisting of five document records is presented in Table 6. The dataset illustrates how the algorithm computes the elapsed working days, determines the number of overdue working days, compares the results against the prescribed
+ARTA processing periods, and automatically decides whether escalation should be initiated. The corresponding computed results are presented in Table 4, showing the calculated escalation decisions and escalation severity levels generated by the Smart Escalation Routing Algorithm.
+Table 6.  Sample Dataset Used by the SmartEscalation Routing Algorithm
+Document ID
+Reference No.
+Assigned Date
+Current Date
+Threshold (L)
+WD
+1001
+TNG-2026-0001
+June 1, 2026
+June 5, 2026
+3
+4
+1002
+TNG-2026-0002
+June 1, 2026
+June 8, 2026
+7
+7
+1003
+TNG-2026-0003
+June 1, 2026
+June 13, 2026
+7
+10
+1004
+TNG-2026-0004
+June 1, 2026
+June 30, 2026
+20
+27
+1005
+TNG-2026-0005
+June 1, 2026
+June 3, 2026
+3
+2
+
+Table 7.  Computed Results of the Smart Escalation Routing Algorithm
+Document ID
+WD
+L
+WD > L
+OD = WD ΓêÆ L
+Escalated
+1001
+4
+3
+Yes
+1
+Yes
+1002
+7
+7
+No
+0
+No
+1003
+10
+7
+Yes
+3
+Yes
+1004
+27
+20
+Yes
+7
+Yes
+1005
+2
+3
+No
+-1
+No
+
+2.3.3 Data Models
+2.3.3.1 Use Case Diagram
+
+Figure #: Use Case Diagram
+The use case diagram represents the relationship of functions between the various users of the system and the TrackNGo Document Tracking and Management System. It also showcases  the different stakeholders for the system and their respective roles and responsibilities throughout the process of handling documents. The CLIENT starts the workflow by submitting physical documents to the Receiving Office, and then using the tracking number given, track the status of the physical documents in the system.
+The Receiving Officer will register and log the documents into the system and issue a tracking number for each document and generate the Routing slip and QR Code that is to be used for document tracking purposes.
+After registration, the document is passed to the Department Head to review the documents, either forward it to the next office, endorse it, add comments, or return it for correction. The document is passed to the Mayor as the final approver where he reviews and approves the document through his 
+
+Digital Signature, releases the document and can monitor the documents processing activity thru the Dashboard. The Executive Administrator manages the system and user administration including 
+configuration and monitors all document processing activities. While the CART Personnel monitors the document system to ensure compliance with EODB
+Act thru supervising the ARTA escalation notices, and report generation for audit purposes. The diagram emphasizes how TrackNGo plays a role in establishing the centralized, systematic process of handling documents from the creation, to endorsement, approval, monitoring and archiving with regards to the specified timeframes of RA No.11032 (Ease of Doing Business and Efficient Government Service Delivery Act
+
+2.3.3.2 Entity Relationship Diagram
+Figure 5. Entity Relationship Diagram
+2.3.4  Data Dictionary
+Table 8: Roles
+Field Name
+Data Type
+Description
+role _ id
+(PK)
+INT
+Unique identifier for each role
+role _ name
+VARCHAR
+Name of the role (e.g. Administrator, Department Head)
+position
+VARCHAR
+Position title associated with the role
+
+Manages user roles, user role, role id, access based upon role_id.
+
+
+Table 9: Users
+Field Name
+Data Type
+Description
+user_id
+(PK)
+INT
+Unique identifier for each user
+full_name
+VARCHAR
+Full name of the user
+email
+VARCHAR
+Login email address
+password_hash
+VARCHAR
+Encrypted password
+role_id
+(FK)
+INT
+Role assigned to the user
+Field Name
+Data Type
+Description
+department_id
+(FK)
+INT
+Department the user belongs to
+mobile_number
+VARCHAR
+Mobile number for SMS notifications
+Is_active
+int
+status
+User account details, login information and user department information for user authentication and access into the system
+
+Table 10: Departments
+
+Field Name
+Data Type
+Description
+department_id
+(PK)
+INT
+Unique identifier for each department
+department_name
+VARCHAR
+Full name of the department
+Manages store department details and also helps in document routing and users.
+Table 11: Document_Types
+Field Name
+Data Type
+Description
+type_id
+(PK)
+INT
+Unique identifier for document type
+type_name
+VARCHAR
+Name: Research Incentive, Travel Order, Leave Application, etc.
+arta_days
+INT
+Baseline processing days (3, 7, 20)
+
+Records the categories of the documents along with their associated workflows processes.
+
+
+Table 12: Documents
+Field Name
+Data Type
+Description
+document_id
+(PK)
+INT
+Unique identifier
+reference_number
+VARCHAR
+System-generated Tracking ID
+title
+VARCHAR
+Document Subject / Title
+submitted_by
+INT
+User who registered the document
+department_id
+(FK)
+INT
+Target routing department
+type_id
+(FK)
+INT
+Document category classification
+attachment_path
+VARCHAR
+Server path to the scanned file
+current_step_index
+INT
+Current FSM stage (1 to 5)
+is_escalated
+BIT
+ARTA violation flag
+date_filed
+DATETIME
+Timestamp of registration
+
+This table stores all the documents that are submitted and includes details about the documents such as document number, type of documents, which department, status of documents etc. This table acts as the primary table in the system.
+Table 13: Digital_Signatures
+Field Name
+Data Type
+Description
+signature_id
+(PK)
+INT
+Unique identifier
+document_id
+(FK)
+INT
+The document being signed
+signed_by_user_id
+INT
+Official who provided signature
+signature_image
+VARCHAR
+Base64/Path of visual signature
+signature_hash
+VARCHAR
+SHA-256 integrity hash
+action_type
+VARCHAR
+e.g., "Endorsed", "Approved"
+signed_at
+DATETIME
+Timestamp of signing event
+signature_id
+(PK)
+INT
+Unique identifier
+document_id
+(FK)
+INT
+The document being signed
+The Digital_Signatures table is where a cryptographic signature or attestation for every digital signature of a document is stored. It associates each signature file image with the SHA-256 hash that validates it.
+Table 14: Audit_Trail
+Field Name
+Data Type
+Description
+audit_id
+(PK)
+INT
+Unique identifier
+Field Name
+Data Type
+Description
+document_id
+(FK)
+INT
+The document being tracked
+user_id
+(FK)
+INT
+User who performed the action
+action
+VARCHAR
+Short action descriptor
+details
+TEXT
+Specific system logs
+timestamp
+DATETIME
+Exact time the action occurred
+audit_id
+(PK)
+INT
+Unique identifier
+document_id
+(FK)
+INT
+The document being tracked
+This Audit Trail is an immutable history book that records all actions that are taken on a document and who is performing that action. It is the record that serves as our back-stop and the record we use to audit, verify or settle a claim. 
+Table 15: Report_Logs
+Field Name
+Data Type
+Description
+report_id
+(PK)
+INT
+Unique identifier for each report record
+generated_by
+INT
+User who generated the report
+report_type
+VARCHAR
+Type: Document Summary, Department Performance, Workflow Report
+date_from
+DATE
+Start date of the report period
+date_to
+DATE
+End date of the report period
+generated_at
+DATETIME
+Date and time the report was generated
+report_id
+(PK)
+INT
+Unique identifier for each report record
+ 
+
+ReportLogs The ReportLogs table keeps track of the reports being generated by authorized users including type and time period. It has a generated by foreign key relating to the Users table. It allows reporting and auditing of generated reports.
+Table 16: Routing_Slips
+Field Name
+Data Type
+Description
+slip_id
+(PK)
+INT
+Unique identifier for each routing slip
+document_id
+(FK)
+INT
+Document this routing slip is attached to
+tracking_number
+VARCHAR
+System-generated tracking number assigned upon document receipt
+received_by
+INT
+Receiving clerk who accepted and recorded the document
+date_received
+DATETIME
+Date and time the document was physically received
+Field Name
+Data Type
+Description
+sender_name
+VARCHAR
+Name of the client or originating office that submitted the document
+action_instruction
+TEXT
+Instructions noted on the routing slip (e.g. For Signature, For Review)
+target_department_id
+INT
+Department the document is being routed to
+noted_by
+INT
+Mayor or City 
+Administrator who noted the routing slip
+
+slip_status
+VARCHAR
+Current status of the slip: Active, Completed, Returned
+created_at
+DATETIME
+Date and time the routing slip was created in the system
+
+RoutingSlips The RoutingSlips table records the physical document circulation of documents that have arrived at the counter and records the name of the sender, the clerk who received the document, the procedure or instruction, the department which the document is targeted to. This table references the Documents table and Users and Departments tables in more than one place as a foreign key.
+
+Table 17:  ARTA_Escalations
+
+Field Name
+Data Type
+Description
+escalation_id
+(PK)
+INT
+Unique identifier for each escalation record
+document_id
+(FK)
+INT
+Document that triggered the escalation
+Arta
+_threshold
+INT
+ARTA processing day limit breached: 3, 7, or 20 working days
+Days
+_elapsed
+INT
+Number of working days elapsed since document submission
+escalation_level
+VARCHAR
+Severity level: Warning, Critical, Overdue
+Notified
+_user_id
+INT
+Oversight or compliance officer notified of the escalation
+Notification
+_sent
+BIT
+Whether the alert 
+
+
+notification was sent: 1 = Sent, 0 = Pending
+resolved
+BIT
+Whether the escalation has been resolved: 1 = Resolved, 0 = Unresolved
+escalated_at
+DATETIME
+Date and time the escalation was triggered
+resolved_at
+DATETIME
+Date and time the escalation was resolved
+
+
+
+
+
+
+
+
+
+2.3.5 Architecture Design
+    
+ 
+Figure 6. TrackNGo System Architecture   
+
+
+This section describes the proposed architecture of the TrackNGo system. The proposed architecture follows the client-server paradigm, wherein clients communicate with the server through HTTPS using web applications on their desktops, tablets, and mobile devices. Figure 6 depicts the overall architecture, which consists of a Presentation Layer, an Application Layer, a Database Layer, and External Services.
+The Presentation Layer is the client side, used by internal users (Mayor, Department Heads, Executive Administrators, Records Officers, CART Personnel) and external users (clients and requesting parties). It provides a Web Dashboard for document registration and monitoring, and a Mobile and QR Portal for QR scanning and SMS alerts. 
+The Application Layer is the server side, built on the Laravel PHP Framework [12]. Nginx handles HTTPS requests, backed by the Laravel server, which runs the FSM-based workflow engine defining document states and transitions. Core modules include Authentication and RBAC (access security), the FSM Workflow Engine (state transitions), OCR Engine (document digitization), Digital Signature (approval authentication), Smart Escalation (ARTA deadline monitoring), and Notification Service (real-time alerts). The Audit Trail logs all workflow actions, while the SMS Gateway and QR Verification module handles external API-based communication and code validation. 
+The Database Layer uses MySQL (via XAMPP/phpMyAdmin), storing Core Records (Users, Roles, Departments, Documents, Document_Types) and Workflow and Compliance records (Digital_Signatures, Audit_Trail, ARTA_Escalations, Routing_Slips, Report_Logs), with a separate File Share for scanned attachments and signed files.
+The Notification Service also connects to External Services via API, including the SMS Gateway, QR Code generator/validator, and digital signature API.Recent studies support the core technologies behind this design. Authentication and access-control governance frameworks reinforce the importance of TrackNGo's RBAC module for securing user access [16]. OCR-based digitization research shows that scanned document pipelines can reliably convert legacy records into searchable digital formats, supporting the OCR Engine [17]. Studies on real-time alert systems show that layered architectures with multi-channel notification (mobile, SMS, dashboard) achieve low-latency, reliable delivery, aligning with TrackNGo's Smart Escalation and Notification Service [18]. 
+
+
+
+
+2.3.6 Prototypes
+Figure 7. Login Page
+Registered users get here to log in securely. It's used for students and administrators only, authentication should result in role-based dashboards.
+
+
+Figure 8. Monitoring Reports & Dashboard 
+
+This screen shows the overall document activity across 52 departments. Administrators and management use it to track completion rates, overdue items, and pending reviews. The system behavior includes highlighting SLA breaches, showing bottlenecks by stage, and allowing exports in PDF or CSV format. 
+
+                                     
+                                                 Figure 9. Document Submission &  Routing Slip  
+This screen is used by the receiving office to create a routing slip for new documents. Staff upload files, mark urgency, and select the destination department. The system behavior includes capturing submission details, applying OCR, and forwarding the document with routing instructions for processing. 
+  
+
+                                                            Figure 10. All Documents Interface 
+
+The page for administrators to view all the records submitted to the 52 departments, which mostly will be HR and IT Admins to view document type, owner, status steps, ARTA compliance status and so on. The actual functionality you are looking for is filtered based on record types, department, status, and date range, which should provide ability to secure details page access, QR code tracking and password protected download for the confidential data.
+
+
+
+                                                        Figure 11. Document Status Tracking
+This screen shows the current status of a submitted document within the workflow process. Employees use it to monitor progress, while administrators review and approve submissions. The system behavior includes updating the tracker to show stages such as In Progress, displaying full document details, maintaining a tracer log of actions, and recording an audit trail with comments for transparency.
+
+Figure 12. Document Signing and Forwarding  
+This screen shows the receiving office applying a digital signature to a submitted document. Employees use it to confirm authenticity before forwarding the record to the department head. The system behavior includes capturing the signature hash, validating the sign-off, and enabling secure forwarding within the workflow process. 
+
+
+                                             Figure 13. Department Head Endorsements   
+
+This screen shows incoming documents that have been forwarded to the department head for review. Department heads use it to check pending submissions, returned items, and compliance with ARTA deadlines. The system behavior includes filtering by type, department, status, or date range, exporting records, and opening each document to endorse or return. It also tracks progress through workflow stages, showing whether a document is pending, in progress, or overdue. 
+
+
+Figure 14. Department Head Review and Actions  
+
+This screen shows the document after being forwarded from the receiving office to the department head. The department head can review the submission and then choose to sign and endorse, return, reassign, or reject it. The system behavior includes displaying the documentΓÇÖs workflow status, showing full metadata, and recording actions in the audit trail. Once endorsed, the document is automatically forwarded to the mayor for final approval.                                                  Figure 15. Mayor Review and Approval
+This screen shows the document after endorsement by the department head, now forwarded to the Office of the Mayor. The mayor uses it to review the submission, check metadata, and verify compliance with deadlines. The system behavior includes approving the document for completion, or alternatively returning, rejecting, or reassigning it. All actions are logged in the audit trail to ensure transparency and accountability in the workflow process. 
+
+
+Figure 16. Audit Trail and System Activities  
+
+This screen provides a comprehensive log of all user actions and document events across the system. Administrators use it to monitor logins, approvals, escalations, registrations, and endorsements, ensuring compliance with ARTA deadlines and internal policies. The system behavior includes timestamping each activity, recording the user and their department, linking actions to specific document references, and capturing IP addresses for security. 
+
+                                                      Figure 17. Arta Monitoring Dashboard
+This screen provides administrators with a centralized view of all documents in relation to ARTA deadlines. It highlights overdue submissions, pending items, and progress stages across departments. The system behavior includes filtering by type, department, status, or date range, exporting data, and generating ARTA compliance reports. Overdue records are flagged in red for immediate attention, ensuring accountability and timely escalation when SLA limits are exceeded.
+ 
+                                                              Figure 18. QR-Code Tracking
+This screen generates a unique QR code for each submitted document. Both employees and clients can scan the code to instantly check the current status of their submission without logging into the system. The system behavior includes encoding the document reference into the QR code, linking it directly to the live tracking page, and allowing quick access to progress updates and workflow details. 
+
+                                                        Figure 19. SMS Notifications Dashboard 
+This screen shows the automated SMS notification system that alerts clients about the status of their documents. Administrators use it to track sent messages, including recipient names, mobile numbers, document references, and delivery status. The system behavior includes generating real-time updates such as ΓÇ£Document Submitted,ΓÇ¥ ΓÇ£Document Accepted,ΓÇ¥ ΓÇ£Document Returned,ΓÇ¥ or ΓÇ£Document Completed,ΓÇ¥ and sending them directly to the clientΓÇÖs phone. Each notification is logged with a timestamp and preview ensuring transparency and efficient communication between the office and the public.
+
+References:
+[1] Gamido, M. V., Gamido, H. V., & Macaspac, D. J. P. (2023). Electronic document management    system for local area network-based organizations. Indonesian Journal of Electrical Engineering and Computer Science, 31(2), 1154ΓÇô1163. https://doi.org/10.11591/ijeecs.v31.i2.pp1154-1163
+[2] Chowdhury, R. H. (2024). Digital transformation in governance: The impact of e-governance on public administration and transparency. Journal of Computer Science and Technology Studies, 6(2), 45ΓÇô58. https://doi.org/10.32996/jcsts.2024.6.2.5
+[3] Romero, E. R. (2021). Standardization of records management system in local government units (Phase 1: Assessment of the records management system of local government units). International Journal of Research Publications, 87(1), 33ΓÇô43. https://doi.org/10.47119/IJRP1008711020212366
+[4] Jaca, V. M., Jr. (2022). Electronic Document Management and Tracking System [Capstone project, University of the Philippines Open University]. University of the Philippines Open University Repository. https://hdl.handle.net/20.500.13073/1593
+[5] Rodriguez III, B. A., Verallo, C. J. A., Aquiatan, V. T., Agpad, S. B., De Loyola, R. C., & Bibangco, E. P. (2024). eDALAYON: A document management and monitoring system for the Department of the Interior and Local Government, Philippines. Philippine Journal of Science Engineering and Technology, 1(1), 34ΓÇô41. https://doi.org/10.63179/pjset.v1i1.57
+[6] Acedo, G. G., Bola, J. G. M., & Morales, A. S. (2025). Web-based document tracking system for Catanduanes State University with QR-code technology: In alignment with Republic Act No. 11032. Journal of Information Systems Engineering and Management, 10(6s). https://doi.org/10.52783/jisem.v10i6s.745
+[7] Anti-Red Tape Authority. (2024). Citizen's charter handbook and ARTA compliance guidelines. Anti-Red Tape Authority. https://arta.gov.ph
+[8] Fahrenkrog-Petersen, S., Tax, N., Teinemaa, I., Dumas, M., de Leoni, M., Maggi, F. M., & Weidlich, M. (2022). Fire now, fire later: Alarm-based systems for prescriptive process monitoring. Knowledge and Information Systems, 64(2), 559ΓÇô587. https://doi.org/10.1007/s10115-021-01633-w
+[9] Dres, O. A., & Rabut, B. A. (2025). eDOCS: A Web-Based File Management System for Efficient File Organization. Psychology and Education: A Multidisciplinary Journal, 37(3). https://doi.org/10.5281/zenodo.15719188
+[10] Kubrak, K., Milani, F., Nolte, A., & Dumas, M. (2022). Prescriptive process monitoring: Quo vadis? PeerJ Computer Science, 8, e1097. https://doi.org/10.7717/peerj-cs.1097 
+[11] Korobeinikova, T. (2024). Searching for solutions for server implementation of digital signature in an automated document management system. European Science, sge33-01, 84ΓÇô95. https://doi.org/10.30890/2709-2313.2024-33-00-010 
+[12] United Nations. (2024). Goal 9: Build resilient infrastructure, promote inclusive and sustainable industrialization and foster innovation. United Nations Department of Economic and Social Affairs. https://sdgs.un.org/goals/goal9 
+[13] Kuhrmann, M., Tell, P., Hebig, R., Kl├╝nder, J., M├╝nch, J., Linssen, O., Pfahl, D., Felderer, M., Prause, C. R., MacDonell, S. G., Nakatumba-Nabende, J., Raffo, D., Beecham, S., T├╝z├╝n, E., L├│pez, G., Paez, N., Fontdevila, D., Licorish, S. A., K├╝pper, S., ... Richardson, I. (2022). What makes agile software development agile? IEEE Transactions on Software Engineering, 48(9), 3523ΓÇô3539. https://doi.org/10.1109/TSE.2021.3099532
+[14] Amazon Web Services. (2024). Amazon Simple Storage Service (Amazon S3) user guide. Amazon Web Services. https://docs.aws.amazon.com/AmazonS3/latest/userguide/ 
+[15] Hegghammer, T. (2022). OCR with Tesseract, Amazon Textract, and Google Document AI: A benchmarking experiment. Journal of Computational Social Science, 5(1), 861ΓÇô882. https://doi.org/10.1007/s42001-021-00149-1 
+[16] Kamariotou, M., & Kitsios, F. (2023). Information systems strategy and security policy: A conceptual framework. Electronics, 12(2), 382. https://doi.org/10.3390/electronics1202038
+[17] Lafia, S., Bleckley, D. A., & Alexander, J. T. (2023). Digitizing and parsing semi-structured historical administrative documents from the G.I. Bill mortgage guarantee program. Journal of Documentation, 79(7), 1619ΓÇô1638. https://doi.org/10.1108/JD-03-2023-0055 
+[18] Zhang, H., Zhang, R., & Sun, J. (2025). Developing real-time IoT-based public safety alert and emergency response systems. Scientific Reports, 15, Article 29056. https://doi.org/10.1038/s41598-025-13465-7
+

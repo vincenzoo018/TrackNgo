@@ -1,0 +1,258 @@
+@import 'tailwindcss';
+
+@import 'tw-animate-css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── Google Font: Inter ──────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@theme {
+    --font-sans:
+        'Inter', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ── TrackNGo Light Theme ────────────────────────────────────────── */
+:root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    --primary: #1e40af;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #1e293b;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #eff6ff;
+    --accent-foreground: #1e40af;
+    --destructive: #ef4444;
+    --destructive-foreground: #ef4444;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #3b82f6;
+    --chart-1: #2563eb;
+    --chart-2: #10b981;
+    --chart-3: #f59e0b;
+    --chart-4: #8b5cf6;
+    --chart-5: #ef4444;
+    --radius: 0.625rem;
+
+    /* Sidebar – white with blue accents */
+    --sidebar: #ffffff;
+    --sidebar-foreground: #334155;
+    --sidebar-primary: #1e40af;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #eff6ff;
+    --sidebar-accent-foreground: #1e40af;
+    --sidebar-border: #e2e8f0;
+    --sidebar-ring: #3b82f6;
+
+    /* TrackNGo custom tokens */
+    --tng-blue-50: #eff6ff;
+    --tng-blue-100: #dbeafe;
+    --tng-blue-200: #bfdbfe;
+    --tng-blue-500: #3b82f6;
+    --tng-blue-600: #2563eb;
+    --tng-blue-700: #1d4ed8;
+    --tng-blue-800: #1e40af;
+    --tng-blue-900: #1e3a5f;
+    --tng-green-500: #22c55e;
+    --tng-green-600: #16a34a;
+    --tng-amber-500: #f59e0b;
+    --tng-amber-600: #d97706;
+    --tng-red-500: #ef4444;
+    --tng-red-600: #dc2626;
+    --tng-slate-50: #f8fafc;
+    --tng-slate-100: #f1f5f9;
+    --tng-slate-200: #e2e8f0;
+    --tng-slate-400: #94a3b8;
+    --tng-slate-500: #64748b;
+    --tng-slate-600: #475569;
+    --tng-slate-700: #334155;
+    --tng-slate-800: #1e293b;
+    --tng-slate-900: #0f172a;
+}
+
+.dark {
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card: #1e293b;
+    --card-foreground: #f1f5f9;
+    --popover: #1e293b;
+    --popover-foreground: #f1f5f9;
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+    --secondary: #334155;
+    --secondary-foreground: #f1f5f9;
+    --muted: #334155;
+    --muted-foreground: #94a3b8;
+    --accent: #1e3a5f;
+    --accent-foreground: #93c5fd;
+    --destructive: #b91c1c;
+    --destructive-foreground: #fca5a5;
+    --border: #334155;
+    --input: #334155;
+    --ring: #3b82f6;
+    --chart-1: #60a5fa;
+    --chart-2: #34d399;
+    --chart-3: #fbbf24;
+    --chart-4: #a78bfa;
+    --chart-5: #f87171;
+    --sidebar: #1e293b;
+    --sidebar-foreground: #e2e8f0;
+    --sidebar-primary: #3b82f6;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #1e3a5f;
+    --sidebar-accent-foreground: #93c5fd;
+    --sidebar-border: #334155;
+    --sidebar-ring: #3b82f6;
+}
+
+/* ── Base Styles ─────────────────────────────────────────────────── */
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* ── TrackNGo Animations ─────────────────────────────────────────── */
+@keyframes tng-fade-in {
+    0% { opacity: 0; transform: translateY(8px); }
+    99% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 1; transform: none; }
+}
+
+@keyframes tng-slide-in-left {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes tng-slide-in-right {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes tng-scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes tng-count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tng-pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@keyframes tng-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.tng-fade-in {
+    animation: tng-fade-in 0.4s ease-out both;
+}
+
+.tng-slide-left {
+    animation: tng-slide-in-left 0.3s ease-out both;
+}
+
+.tng-slide-right {
+    animation: tng-slide-in-right 0.3s ease-out both;
+}
+
+.tng-scale-in {
+    animation: tng-scale-in 0.3s ease-out both;
+}
+
+.tng-stagger > * {
+    animation: tng-fade-in 0.4s ease-out both;
+}
+.tng-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.tng-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.tng-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.tng-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.tng-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.tng-stagger > *:nth-child(6) { animation-delay: 300ms; }
+
+.tng-pulse-overdue {
+    animation: tng-pulse-ring 2s ease-out infinite;
+}
+
+/* ── Scrollbar styling ───────────────────────────────────────────── */
+.tng-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.tng-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.tng-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--tng-slate-200);
+    border-radius: 3px;
+}
+.tng-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--tng-slate-400);
+}

@@ -1,0 +1,62 @@
+@model IEnumerable<TrackNGoMati.Models.DigitalSignature>
+@{
+    ViewData["Title"] = "Digital Signatures";
+}
+
+<div class="page-header animate-fade-in" style="margin-bottom: 24px;">
+    <div class="page-header-left">
+        <h1 class="page-title">Digital Signatures</h1>
+        <p class="page-subtitle">Your cryptographic signature records and approvals</p>
+    </div>
+</div>
+
+<div class="card animate-fade-in" style="border-radius: 8px;">
+    <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+        <div class="search-input" style="width: 100%;">
+            <i data-lucide="search"></i>
+            <input type="text" placeholder="Search signatures..." style="padding-left: 36px; height: 40px;" />
+        </div>
+    </div>
+    
+    <div class="table-wrapper" style="border:none;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="padding-left: 20px;">DOCUMENT REF</th>
+                    <th>SIGNED BY</th>
+                    <th>ACTION TYPE</th>
+                    <th>CRYPTOGRAPHIC HASH</th>
+                    <th>VERIFIED</th>
+                    <th>SIGNED AT</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model)
+                {
+                    <tr>
+                        <td style="padding-left: 20px;"><a href="/DepartmentHead/Document/Details/@s.Document?.TrackingNumber" style="color:var(--brand); font-weight:600;">@s.Document?.TrackingNumber</a></td>
+                        <td>@s.SignedByUser?.FullName</td>
+                        <td>
+                            <span style="display:inline-block; padding:2px 8px; border-radius:4px; background:#F1F5F9; font-size:12px; font-weight:600; color:var(--ink);">@s.ActionType</span>
+                        </td>
+                        <td style="font-family:monospace; font-size:11px; color:var(--ink-muted);">
+                            <div style="max-width:150px; overflow:hidden; text-overflow:ellipsis;" title="@s.SignatureHash">@s.SignatureHash</div>
+                        </td>
+                        <td>
+                            @if(s.IsVerified) {
+                                <span class="badge" style="background:#10B981; color:#fff; border:none;"><i data-lucide="shield-check" style="width:12px; height:12px; margin-right:4px;"></i> Verified</span>
+                            } else {
+                                <span class="badge" style="background:#EF4444; color:#fff; border:none;"><i data-lucide="shield-alert" style="width:12px; height:12px; margin-right:4px;"></i> Invalid</span>
+                            }
+                        </td>
+                        <td>@s.SignedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="6" style="text-align:center; padding:40px; color:var(--ink-muted);">No digital signatures found.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

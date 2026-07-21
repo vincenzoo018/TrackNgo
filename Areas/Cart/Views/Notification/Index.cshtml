@@ -1,0 +1,64 @@
+@model IEnumerable<TrackNGoMati.Models.Smsnotification>
+@{
+    ViewData["Title"] = "Notifications";
+}
+
+<div class="page-header animate-fade-in" style="margin-bottom: 24px;">
+    <div class="page-header-left">
+        <h1 class="page-title">SMS Notifications</h1>
+        <p class="page-subtitle">Track sent automated alerts to clients and officials</p>
+    </div>
+</div>
+
+<div class="card animate-fade-in" style="border-radius: 8px;">
+    <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+        <div class="search-input" style="width: 100%;">
+            <i data-lucide="search"></i>
+            <input type="text" placeholder="Search notifications..." style="padding-left: 36px; height: 40px;" />
+        </div>
+    </div>
+    
+    <div class="table-wrapper" style="border:none;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="padding-left: 20px;">RECIPIENT</th>
+                    <th>NUMBER</th>
+                    <th>DOCUMENT REF</th>
+                    <th>EVENT</th>
+                    <th>MESSAGE</th>
+                    <th>STATUS</th>
+                    <th>QUEUED AT</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var n in Model)
+                {
+                    <tr>
+                        <td style="padding-left: 20px; font-weight:600; color:var(--ink);">@n.RecipientName</td>
+                        <td>@n.RecipientNumber</td>
+                        <td><a href="#" style="color:var(--brand);">@n.Document?.TrackingNumber</a></td>
+                        <td>
+                            <span class="badge" style="background:#E0E7FF; color:#3730A3; border:none;">@n.TriggerEvent</span>
+                        </td>
+                        <td style="max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="@n.MessageContent">@n.MessageContent</td>
+                        <td>
+                            @if(n.Status == 1) {
+                                <span class="badge badge-completed">Delivered</span>
+                            } else if (n.Status == 2) {
+                                <span class="badge badge-returned">Failed</span>
+                            } else {
+                                <span class="badge badge-pending">Queued</span>
+                            }
+                        </td>
+                        <td>@n.QueuedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                    </tr>
+                }
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="7" style="text-align:center; padding:40px; color:var(--ink-muted);">No notifications sent yet.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,623 @@
+@model TrackNGoMati.Models.Document
+@{
+    ViewData["Title"] = "Document Details";
+}
+
+<div style="margin-bottom: 16px; font-size: 13px; color: var(--ink-muted);">
+    <a href="/Mayor/Dashboard" style="color: var(--brand); text-decoration: none;">Home</a> 
+    <i data-lucide="chevron-right" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> 
+    <a href="/Mayor/Document" style="color: var(--brand); text-decoration: none;">My Documents</a>
+    <i data-lucide="chevron-right" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> 
+    <span style="color: var(--ink);">@Model.TrackingNumber</span>
+</div>
+<!-- Page Header -->
+<div class="page-header animate-fade-in" style="align-items:center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; display: flex; justify-content: space-between;">
+    <div class="page-header-left">
+        <h1 class="page-title" style="font-size: 24px;">@Model.TrackingNumber</h1>
+        <p class="page-subtitle" style="font-size: 14px;">@Model.Title — @Model.SubmittedBy</p>
+    </div>
+    <div class="page-header-right">
+        <a href="/Mayor/Document" class="btn btn-secondary" style="padding: 8px 16px; border-color:var(--border);">
+            <i data-lucide="arrow-left"></i> Back to List
+        </a>
+    </div>
+</div>
+
+<!-- Stepper -->
+<div class="animate-fade-in" style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px; padding: 0 40px;">
+    @for (int i = 1; i <= Model.TotalSteps; i++)
+    {
+        var label = i switch { 1 => "Submitted", 2 => "Endorsed", 3 => "Accepted", 4 => "Reviewed", 5 => "Approved", 6 => "Completed", _ => $"Step {i}" };
+        
+        <div style="display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1;">
+            @if (i < Model.CurrentStepIndex) {
+                <div style="width: 32px; height: 32px; border-radius: 50%; background-color: var(--brand); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;">@i</div>
+                <div style="margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--ink);">@label</div>
+            } else if (i == Model.CurrentStepIndex) {
+                <div style="width: 32px; height: 32px; border-radius: 50%; background-color: white; border: 2px solid var(--brand); color: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;">@i</div>
+                <div style="margin-top: 8px; font-size: 11px; font-weight: 600; color: var(--brand);">@label</div>
+            } else {
+                <div style="width: 32px; height: 32px; border-radius: 50%; background-color: white; border: 1px solid var(--border); color: var(--ink-muted); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;">@i</div>
+                <div style="margin-top: 8px; font-size: 11px; font-weight: 500; color: var(--ink-muted);">@label</div>
+            }
+        </div>
+        
+        @if (i < Model.TotalSteps)
+        {
+            <div style="flex: 1; height: 1px; background-color: @(i < Model.CurrentStepIndex ? "var(--brand)" : "var(--border)"); margin: 0 16px; margin-bottom: 20px;"></div>
+        }
+    }
+</div>
+
+<!-- Compact Metadata Strip -->
+<div class="animate-fade-in metadata-strip" style="display: flex; gap: 32px; justify-content: center; align-items: center; background: white; padding: 12px 24px; border-radius: 8px; border: 1px solid var(--border); margin: 0 40px 32px 40px; font-size: 13px; color: var(--ink);">
+    <div><strong style="color: var(--ink-muted);">Tracking No:</strong> @Model.TrackingNumber</div>
+    <div><strong style="color: var(--ink-muted);">Department:</strong> @(Model.OriginatingDepartment ?? "N/A")</div>
+    <div><strong style="color: var(--ink-muted);">Current Holder:</strong> <span class="badge badge-in-progress" style="padding: 2px 6px;">@(Model.CurrentOfficeName ?? "N/A")</span></div>
+</div>
+
+<div class="animate-fade-in" style="display: flex; gap: 24px; align-items: flex-start;">
+    <!-- LEFT COLUMN: Preview & Info -->
+    <div style="flex: 2; display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Expanded Document Metadata (Moved Above Preview) -->
+        <div class="card" style="margin: 0; border-radius: 8px;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 16px 24px;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ink);">Document Metadata</h3>
+            </div>
+            <div class="card-body" style="padding: 24px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;">
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Reference Number</div>
+                            <div style="font-size: 14px; color: var(--ink); font-weight: 500;">@Model.TrackingNumber</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Document Category</div>
+                            <div style="font-size: 14px; color: var(--ink);">@Model.DocumentType</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Sender / Submitted By</div>
+                            <div style="font-size: 14px; color: var(--ink);">@Model.SubmittedBy</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Department</div>
+                            <div style="font-size: 14px; color: var(--ink);">@(Model.OriginatingDepartment ?? "N/A")</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Contact Number</div>
+                            <div style="font-size: 14px; color: var(--ink);">@Model.ContactNumber</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Classification</div>
+                            <div style="font-size: 14px; color: var(--ink);">
+                                @if (Model.IsEscalated) { <span class="badge" style="background:#FEE2E2; color:#B91C1C;">Escalated / High Priority</span> }
+                                else { <span class="badge" style="background:#F1F5F9; color:#475569;">Normal</span> }
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Date Filed</div>
+                            <div style="font-size: 14px; color: var(--ink);">@Model.DateFiled.ToString("MMM dd, yyyy - hh:mm tt")</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Expected Due Date (SLA)</div>
+                            <div style="font-size: 14px; color: var(--ink);">@Model.DateFiled.AddDays(Model.ArtaprocessingDays).ToString("MMM dd, yyyy")</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase;">Linked Document / Version</div>
+                            <div style="font-size: 14px; color: var(--ink);">None / v1.0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Preview Panel with Anchored Commenting -->
+        <div class="card" style="margin: 0; border-radius: 8px; position: relative;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ink);"><i data-lucide="eye" style="width: 16px; height: 16px; display:inline-block; vertical-align:middle; margin-right:6px;"></i> Document Preview</h3>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label style="font-size: 12px; color: var(--ink-muted); display:flex; align-items:center; gap: 4px; margin-right: 12px; cursor: pointer;">
+                        <input type="checkbox" id="toggleResolvedFilter" onchange="renderPins()" /> Show unresolved only
+                    </label>
+                    <button class="btn btn-outline" id="btnTogglePinMode" onclick="togglePinMode()" style="padding: 4px 12px; font-size: 12px; border: 1px solid var(--brand); color: var(--brand); background: transparent;">
+                        <i data-lucide="message-square-plus" style="width:14px; height:14px;"></i> Add Anchored Comment
+                    </button>
+                    <a href="@Model.AttachmentPath" target="_blank" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">Open in New Tab</a>
+                </div>
+            </div>
+            
+            <div class="card-body" style="padding: 0; background: #e5e7eb; display: flex; justify-content: center; align-items: center; min-height: 700px; position: relative; overflow: hidden; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;" id="previewContainer">
+                @if (!string.IsNullOrEmpty(Model.AttachmentPath))
+                {
+                    if (Model.AttachmentPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <iframe src="@Model.AttachmentPath" style="width: 100%; height: 700px; border: none; pointer-events: auto;" id="docIframe"></iframe>
+                    }
+                    else
+                    {
+                        <img src="@Model.AttachmentPath" style="max-width: 100%; max-height: 700px; object-fit: contain;" />
+                    }
+                }
+                else
+                {
+                    <div style="color: var(--ink-muted); text-align: center; padding: 40px;">
+                        <i data-lucide="file-image" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                        <p>No document attachment available.</p>
+                    </div>
+                }
+
+                <!-- Commenting Overlay Layer -->
+                <div id="commentOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;">
+                    <!-- Pins will be dynamically added here -->
+                </div>
+                <!-- Interactive Click Catcher (active only in Pin Mode) -->
+                <div id="clickCatcher" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9; cursor: crosshair; display: none; background: rgba(0,0,0,0.05);" onclick="handleOverlayClick(event)"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RIGHT COLUMN: Actions, Comments, Tracer -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Actions Panel -->
+        <div class="card" style="margin: 0; border-radius: 8px;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 16px 24px; background: #f8fafc; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ink);"><i data-lucide="zap" style="width: 16px; height: 16px; display:inline-block; vertical-align:middle; margin-right:6px; color: #F59E0B;"></i> Actions</h3>
+            </div>
+            <div class="card-body" style="padding: 16px 24px; display: flex; flex-direction: column; gap: 12px;">
+                <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="openModal('signatureModal')">
+                    <i data-lucide="pen-tool"></i> Approve Document
+                </button>
+                <div style="display: flex; gap: 12px; margin-top: 8px;">
+                    <button class="btn btn-secondary" onclick="window.print()" style="flex: 1; justify-content: center;">
+                        <i data-lucide="printer"></i> Print
+                    </button>
+                    <button class="btn btn-secondary" style="flex: 1; justify-content: center;">
+                        <i data-lucide="download"></i> Export
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Tracer / Unified Activity -->
+        <div class="card" style="margin: 0; border-radius: 8px;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="activity" style="width: 18px; height: 18px; color: var(--ink);"></i>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--ink);">Audit Trail & Comments</h3>
+                </div>
+            </div>
+            <div class="card-body" style="padding: 24px;">
+                <div style="position: relative; padding-left: 20px;" id="unifiedTimeline">
+                    <div style="position: absolute; left: 15px; top: 16px; bottom: 0; width: 2px; background: var(--border);"></div>
+
+                    @{
+                        var timelineItems = new List<dynamic>();
+                        if (Model.AuditTrailEntries != null) {
+                            timelineItems.AddRange(Model.AuditTrailEntries.Select(a => new { Type = "Audit", Timestamp = a.Timestamp, User = a.User?.FullName ?? "SYS", Action = a.Action, Details = a.Details, Location = "", Resolved = false, Id = 0, WorkflowState = "" }));
+                        }
+                        if (Model.DocumentComments != null) {
+                            timelineItems.AddRange(Model.DocumentComments.Select(c => new { Type = "Comment", Timestamp = c.PostedAt, User = c.User?.FullName ?? "User", Action = c.RemarkType, Details = c.Content, Location = c.AnchorLocation ?? "", Resolved = c.Resolved, Id = c.Id, WorkflowState = c.WorkflowState ?? "" }));
+                        }
+                    }
+
+                    @if (timelineItems.Any())
+                    {
+                        @foreach (var entry in timelineItems.OrderByDescending(a => a.Timestamp))
+                        {
+                            var initial = entry.User.Length >= 2 ? entry.User.Substring(0, 2).ToUpper() : "SY";
+                            var isComment = entry.Type == "Comment";
+                            var color = isComment ? "#3B82F6" : "var(--brand)";
+
+                            <div style="position: relative; padding-bottom: 24px; padding-left: 24px;" class="timeline-item @(isComment && !entry.Resolved ? "unresolved" : "resolved")">
+                                <div style="position: absolute; left: -16px; top: 0; width: 24px; height: 24px; border-radius: 50%; background: @color; color: white; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: 700; border: 4px solid white; box-sizing: content-box;">
+                                    @if(isComment) { <i data-lucide="message-square" style="width:12px; height:12px;"></i> } else { @initial }
+                                </div>
+                                
+                                <div style="font-weight: 600; font-size: 13px; color: var(--ink); display: flex; justify-content: space-between;">
+                                    <span>@entry.User <span style="font-weight:400; color:var(--ink-muted);">@entry.Action</span></span>
+                                </div>
+
+                                @if (isComment && !string.IsNullOrEmpty(entry.Location))
+                                {
+                                    <div style="margin-top: 4px; display: inline-block; background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer;" onclick="jumpToPin(@entry.Id, '@entry.Location')">
+                                        <i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; display:inline-block; vertical-align:middle;"></i> Pinned on Document @(!string.IsNullOrEmpty(entry.WorkflowState) ? $"({entry.WorkflowState})" : "")
+                                    </div>
+                                }
+                                
+                                <div style="font-size: 12px; color: var(--ink); margin-top: 6px; padding: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px;">@entry.Details</div>
+                                
+                                <div style="font-size: 11px; color: var(--ink-muted); margin-top: 6px; display: flex; justify-content: space-between;">
+                                    <span>@entry.Timestamp.ToString("MMM dd, yyyy \u2014 h:mm tt")</span>
+                                    @if(isComment && !entry.Resolved)
+                                    {
+                                        <button onclick="resolveComment(@entry.Id)" class="btn btn-ghost" style="padding:0; height:auto; color: #10B981; font-weight:600; font-size:11px;">Mark Resolved</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div style="font-size: 12px; color: var(--ink-muted); padding-left: 24px;">No tracking history yet.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Signature Modal -->
+<div class="modal-overlay" id="signatureModal">
+    <div class="modal animate-fade-in" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Sign Document</h3>
+            <button class="modal-close" onclick="closeModal('signatureModal')"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px;">Please provide your digital signature to proceed.</p>
+            <div style="border:2px dashed var(--border); border-radius:4px; background:#FAFAFA; margin-bottom:12px;">
+                <canvas id="sigCanvas" width="460" height="150" style="cursor:crosshair; touch-action:none; width:100%;"></canvas>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <button type="button" class="btn btn-ghost" onclick="clearSig()">
+                    <i data-lucide="trash-2"></i> Clear
+                </button>
+                <div style="font-size:11px; color:var(--ink-muted);" id="hash-preview">Awaiting signature...</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('signatureModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitSignature()">
+                <i data-lucide="check"></i> Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Inline Comment Popup -->
+<div id="inlineCommentPopup" style="display:none; position:absolute; z-index:100; background:white; border:1px solid #CBD5E1; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); width:280px; padding:12px;">
+    <div style="font-weight:600; font-size:12px; margin-bottom:8px; color:var(--ink);">Add Anchored Comment</div>
+    <textarea id="inlineCommentBox" class="form-control" rows="3" placeholder="Type your comment..." style="width:100%; font-size:12px; margin-bottom:8px;"></textarea>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="cancelInlineComment()">Cancel</button>
+        <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="postInlineComment()">Post</button>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var pinMode = false;
+        var pendingPinLocation = null;
+        var currentWorkflowState = '@(Model.CurrentStepIndex switch { 1 => "Submitted", 2 => "Endorsed", 3 => "Accepted", 4 => "Reviewed", 5 => "Approved", 6 => "Completed", _ => "Unknown" })';
+
+        function togglePinMode() {
+            pinMode = !pinMode;
+            var overlay = document.getElementById('clickCatcher');
+            var btn = document.getElementById('btnTogglePinMode');
+            if (pinMode) {
+                overlay.style.display = 'block';
+                btn.style.backgroundColor = 'var(--brand)';
+                btn.style.color = 'white';
+                btn.innerHTML = '<i data-lucide="x" style="width:14px; height:14px;"></i> Cancel Pinning';
+                lucide.createIcons();
+            } else {
+                overlay.style.display = 'none';
+                btn.style.backgroundColor = 'transparent';
+                btn.style.color = 'var(--brand)';
+                btn.innerHTML = '<i data-lucide="message-square-plus" style="width:14px; height:14px;"></i> Add Anchored Comment';
+                lucide.createIcons();
+                cancelInlineComment();
+            }
+        }
+
+        function handleOverlayClick(e) {
+            if (!pinMode) return;
+            var rect = e.target.getBoundingClientRect();
+            var x = ((e.clientX - rect.left) / rect.width) * 100;
+            var y = ((e.clientY - rect.top) / rect.height) * 100;
+            
+            pendingPinLocation = { x: x, y: y };
+            
+            var popup = document.getElementById('inlineCommentPopup');
+            popup.style.display = 'block';
+            
+            var containerRect = document.getElementById('previewContainer').getBoundingClientRect();
+            var popupX = e.clientX - containerRect.left + 15;
+            var popupY = e.clientY - containerRect.top + 15;
+            
+            if (popupX + 280 > containerRect.width) popupX = containerRect.width - 290;
+            
+            popup.style.left = popupX + 'px';
+            popup.style.top = popupY + 'px';
+            
+            document.getElementById('inlineCommentBox').focus();
+        }
+
+        function cancelInlineComment() {
+            document.getElementById('inlineCommentPopup').style.display = 'none';
+            document.getElementById('inlineCommentBox').value = '';
+            pendingPinLocation = null;
+        }
+
+        function postInlineComment() {
+            var content = document.getElementById('inlineCommentBox').value;
+            if (!content || !pendingPinLocation) return;
+
+            fetch('/Mayor/Document/AddAnchoredComment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    TrackingNumber: '@Model.TrackingNumber',
+                    Content: content,
+                    AnchorLocation: JSON.stringify(pendingPinLocation),
+                    WorkflowState: currentWorkflowState
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Comment anchored successfully!', 'success');
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            });
+        }
+
+        function resolveComment(id) {
+            fetch('/Mayor/Document/ResolveComment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ CommentId: id })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Comment resolved!', 'success');
+                    setTimeout(() => window.location.reload(), 500);
+                }
+            });
+        }
+
+        function renderPins() {
+            var overlay = document.getElementById('commentOverlay');
+            overlay.innerHTML = '';
+            var showUnresolvedOnly = document.getElementById('toggleResolvedFilter').checked;
+
+            @if (Model.DocumentComments != null)
+            {
+                foreach (var c in Model.DocumentComments.Where(c => !string.IsNullOrEmpty(c.AnchorLocation)))
+                {
+                    <text>
+                    (function() {
+                        var resolved = @(c.Resolved.ToString().ToLower());
+                        if (showUnresolvedOnly && resolved) return;
+
+                        try {
+                            var loc = JSON.parse('@Html.Raw(c.AnchorLocation)');
+                            var pin = document.createElement('div');
+                            pin.className = 'comment-pin';
+                            pin.style.position = 'absolute';
+                            pin.style.left = loc.x + '%';
+                            pin.style.top = loc.y + '%';
+                            pin.style.transform = 'translate(-50%, -50%)';
+                            pin.style.width = '24px';
+                            pin.style.height = '24px';
+                            pin.style.borderRadius = '50%';
+                            pin.style.backgroundColor = resolved ? '#10B981' : '#EF4444';
+                            pin.style.border = '2px solid white';
+                            pin.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+                            pin.style.cursor = 'pointer';
+                            pin.style.zIndex = '11';
+                            pin.style.pointerEvents = 'auto';
+                            pin.title = '@Html.Raw(c.Content.Replace("'", "\\'").Replace("\n", " "))';
+                            
+                            pin.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; top:3px; left:3px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>';
+
+                            pin.onclick = function(e) {
+                                e.stopPropagation();
+                                alert('Comment from @(c.User?.FullName): \n\n' + '@Html.Raw(c.Content.Replace("'", "\\'").Replace("\n", "\\n"))');
+                            };
+
+                            overlay.appendChild(pin);
+                        } catch(e) {}
+                    })();
+                    </text>
+                }
+            }
+        }
+
+        function jumpToPin(id, locationStr) {
+            try {
+                var loc = JSON.parse(locationStr);
+                document.getElementById('toggleResolvedFilter').checked = false;
+                renderPins();
+                showToast('Highlighted pinned comment', 'success');
+            } catch(e) {}
+        }
+
+        window.addEventListener('load', function() {
+            renderPins();
+            // Move popup inside previewContainer for relative positioning
+            document.getElementById('previewContainer').appendChild(document.getElementById('inlineCommentPopup'));
+        });
+
+        // Original Signature Logic
+        var canvas = document.getElementById('sigCanvas');
+        if(canvas) {
+            var ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#0F172A';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            var drawing = false;
+
+            function getPos(e) {
+                var r = canvas.getBoundingClientRect();
+                var scaleX = canvas.width / r.width;
+                var scaleY = canvas.height / r.height;
+                var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: (clientX - r.left) * scaleX, y: (clientY - r.top) * scaleY };
+            }
+
+            canvas.addEventListener('mousedown', function(e) { drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+            canvas.addEventListener('mousemove', function(e) { if (!drawing) return; var p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); });
+            canvas.addEventListener('mouseup', function() { drawing = false; updateHash(); });
+            canvas.addEventListener('mouseleave', function() { drawing = false; });
+            canvas.addEventListener('touchstart', function(e) { e.preventDefault(); drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, {passive:false});
+            canvas.addEventListener('touchmove', function(e) { e.preventDefault(); if (!drawing) return; var p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }, {passive:false});
+            canvas.addEventListener('touchend', function() { drawing = false; updateHash(); });
+        }
+
+        function clearSig() {
+            if(ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                document.getElementById('hash-preview').textContent = 'Awaiting signature...';
+            }
+        }
+
+        function updateHash() {
+            var blank = document.createElement('canvas');
+            blank.width = canvas.width;
+            blank.height = canvas.height;
+            if (canvas.toDataURL() !== blank.toDataURL()) {
+                var mockHash = 'sha256:' + [...Array(64)].map(() => Math.floor(Math.random()*16).toString(16)).join('');
+                document.getElementById('hash-preview').textContent = mockHash.substring(0, 20) + '...';
+            }
+        }
+
+        function submitSignature() {
+            var signatureData = canvas.toDataURL();
+            fetch('/Mayor/Document/Forward', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'trackingNumber=' + encodeURIComponent('@Model.TrackingNumber') + '&signatureData=' + encodeURIComponent(signatureData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    showToast('Document successfully processed!', 'success');
+                    setTimeout(() => window.location.href = data.redirectUrl, 1500);
+                } else {
+                    showToast(data.message || 'Error processing document', 'error');
+                }
+            })
+            .catch(err => showToast('Network error occurred.', 'error'));
+        }
+    </script>
+}
+
+
+
+
+
+<div class="modal" id="returnModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="modal-title">Return Document</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('returnModal')"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Remarks / Reason for Return</label>
+                <textarea id="returnRemarks" class="form-control" rows="3" placeholder="Explain why the document is being returned..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('returnModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitFsmAction('RETURN', document.getElementById('returnRemarks').value)">Confirm Return</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="rejectModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="modal-title">Reject Document</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('rejectModal')"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Remarks / Reason for Rejection</label>
+                <textarea id="rejectRemarks" class="form-control" rows="3" placeholder="Explain why the document is being rejected..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('rejectModal')">Cancel</button>
+            <button type="button" class="btn" style="background:#EF4444; color:white;" onclick="submitFsmAction('REJECT', document.getElementById('rejectRemarks').value)">Confirm Reject</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="reassignModal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3 class="modal-title">Reassign Document</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('reassignModal')"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Target User ID</label>
+                <input type="number" id="reassignUserId" class="form-control" placeholder="Enter User ID to reassign to..." />
+            </div>
+            <div class="form-group">
+                <label>Remarks</label>
+                <textarea id="reassignRemarks" class="form-control" rows="2" placeholder="Optional remarks..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('reassignModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitFsmAction('REASSIGN', document.getElementById('reassignRemarks').value, document.getElementById('reassignUserId').value)">Confirm Reassign</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function submitFsmAction(action, remarks, targetUserId = null) {
+        const payload = {
+            TrackingNumber: '@Model.TrackingNumber',
+            Action: action,
+            Remarks: remarks,
+            TargetUserId: targetUserId ? parseInt(targetUserId) : null
+        };
+        
+        fetch(window.location.pathname.replace('/Details/', '/Transition'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Highlight mentions
+        document.querySelectorAll('.comment-body').forEach(function(el) {
+            let text = el.innerHTML;
+            let highlighted = text.replace(/@@([a-zA-Z0-9_]+)/g, '<span style="color:#3B82F6; font-weight:600; background:#EFF6FF; padding:2px 6px; border-radius:4px;">@@$1</span>');
+            el.innerHTML = highlighted;
+        });
+    });
+
+    function showReplyForm(commentId) {
+        document.getElementById('reply-form-' + commentId).style.display = 'block';
+    }
+    
+    function hideReplyForm(commentId) {
+        document.getElementById('reply-form-' + commentId).style.display = 'none';
+    }
+</script>

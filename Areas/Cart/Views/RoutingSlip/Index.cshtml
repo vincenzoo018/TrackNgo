@@ -1,0 +1,84 @@
+@model IEnumerable<TrackNGoMati.Models.RoutingSlip>
+@{
+    ViewData["Title"] = "Routing Slips";
+    var groupedSlips = Model.GroupBy(s => s.Document?.TrackingNumber).ToList();
+}
+
+<div class="page-header animate-fade-in" style="margin-bottom: 24px;">
+    <div class="page-header-left">
+        <h1 class="page-title">Routing Slip Timeline</h1>
+        <p class="page-subtitle">Track the entire path a document takes with estimated vs. actual time per hop.</p>
+    </div>
+</div>
+
+<div class="card animate-fade-in" style="border-radius: 8px; margin-bottom: 24px;">
+    <div style="padding: 16px;">
+        <div class="search-input" style="width: 100%; position:relative;">
+            <i data-lucide="search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--ink-muted);"></i>
+            <input type="text" placeholder="Search by reference number..." style="padding-left: 36px; height: 40px; border-radius: 8px; border: 1px solid var(--border); width: 100%;" />
+        </div>
+    </div>
+</div>
+
+@if (!groupedSlips.Any())
+{
+    <div class="card" style="padding: 40px; text-align: center; color: var(--ink-muted);">
+        No routing slips generated yet.
+    </div>
+}
+
+<div class="animate-fade-in" style="display:flex; flex-direction:column; gap:24px;">
+    @foreach (var group in groupedSlips)
+    {
+        var slips = group.OrderBy(s => s.DateReceived).ToList();
+        var doc = slips.First().Document;
+        
+        <div class="card" style="padding:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <div>
+                    <h3 style="margin:0; font-size:16px; color:var(--ink);">Document: <a href="/Cart/Document/Details/@group.Key" style="color:var(--brand); text-decoration:none;">@group.Key</a></h3>
+                    <p style="margin:0; font-size:13px; color:var(--ink-muted); margin-top:4px;">@(doc?.Title ?? "N/A")</p>
+                </div>
+                <div>
+                    <span class="badge badge-completed">@(slips.Count) Hops Recorded</span>
+                </div>
+            </div>
+            
+            <div style="position:relative; padding-left:16px; margin-left:8px; border-left:2px solid var(--border);">
+                @for (int i = 0; i < slips.Count; i++)
+                {
+                    var slip = slips[i];
+                    var nextSlip = (i < slips.Count - 1) ? slips[i + 1] : null;
+                    
+                    var timeSpent = nextSlip != null ? (nextSlip.DateReceived - slip.DateReceived).TotalDays : (DateTime.Now - slip.DateReceived).TotalDays;
+                    var isBottleneck = timeSpent > (doc?.ArtaprocessingDays ?? 3);
+                    
+                    <div style="position:relative; margin-bottom:24px;">
+                        <div style="position:absolute; left:-25px; top:0; width:16px; height:16px; border-radius:50%; background:@(isBottleneck ? "#EF4444" : "var(--brand)"); border:3px solid white; box-shadow:0 0 0 1px @(isBottleneck ? "#EF4444" : "var(--brand)");"></div>
+                        <div style="background:#F8FAFC; border:1px solid @(isBottleneck ? "#FCA5A5" : "var(--border)"); border-radius:8px; padding:16px; margin-left:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <strong style="display:block; font-size:14px; color:var(--ink);">Transferred to @(slip.TargetDepartment?.DepartmentName ?? "N/A")</strong>
+                                    <span style="font-size:12px; color:var(--ink-muted);">Received by: @(slip.ReceivedByUser?.FullName ?? "Unknown") | Sent by: @slip.SenderName</span>
+                                </div>
+                                <div style="text-align:right;">
+                                    <span style="font-size:11px; color:var(--ink-muted); display:block;">@slip.DateReceived.ToString("MMM dd, yyyy HH:mm")</span>
+                                    <span class="badge @(slip.SlipStatus == "Completed" ? "badge-completed" : "badge-in-progress")" style="margin-top:4px;">@slip.SlipStatus</span>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top:12px; font-size:12px; display:flex; gap:16px;">
+                                @if (isBottleneck) {
+                                    <span style="color:#DC2626; font-weight:600; display:flex; align-items:center; gap:4px;"><i data-lucide="alert-triangle" style="width:12px; height:12px;"></i> Sat in queue for @Math.Round(timeSpent, 1) days (SLA: @(doc?.ArtaprocessingDays ?? 3) days)</span>
+                                } else {
+                                    <span style="color:var(--brand); display:flex; align-items:center; gap:4px;"><i data-lucide="check-circle" style="width:12px; height:12px;"></i> Processed in @Math.Round(timeSpent, 1) days</span>
+                                }
+                                <span style="color:var(--ink-muted);"><i data-lucide="file-text" style="width:12px; height:12px;"></i> Slip: @slip.TrackingNumber</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>

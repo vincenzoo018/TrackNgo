@@ -1,0 +1,153 @@
+@{
+    ViewData["Title"] = "ARTA Smart Escalation";
+}
+
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">ARTA Smart Escalation</h1>
+        <p class="page-subtitle">EODB-Compliant Smart Escalation Routing per RA 11032 — Automated compliance monitoring</p>
+    </div>
+</div>
+
+<!-- Algorithm Equations Display -->
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <span class="card-header-title">Smart Escalation Algorithm</span>
+        <span class="text-meta">RA 11032 — Ease of Doing Business</span>
+    </div>
+    <div class="card-body">
+        <div class="escalation-equation">
+            <p><strong>Equation 1: Working Days Elapsed</strong></p>
+            <p style="margin:8px 0;">WD = D<sub>current</sub> − D<sub>assigned</sub>&nbsp;&nbsp;(excluding weekends and holidays)</p>
+            <br/>
+            <p><strong>Equation 2: Escalation Decision</strong></p>
+            <p style="margin:8px 0;">E = 1, if WD &gt; L&nbsp;&nbsp;(Escalate)&nbsp;&nbsp;&nbsp;&nbsp;E = 0, if WD ≤ L&nbsp;&nbsp;(Continue)</p>
+            <br/>
+            <p><strong>Equation 3: Severity Level</strong></p>
+            <p style="margin:4px 0;">SL = <span style="color:var(--brand);">Warning</span>, &nbsp;if L = 3 and WD &gt; 3</p>
+            <p style="margin:4px 0;">SL = <span style="color:var(--destructive);">Critical</span>, &nbsp;if L = 7 and WD &gt; 7</p>
+            <p style="margin:4px 0;">SL = <span style="color:var(--destructive);font-weight:700;">Overdue</span>, &nbsp;&nbsp;if L = 20 and WD &gt; 20</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+            <div class="stat-card">
+                <div class="stat-card-info" style="text-align:center; width:100%;">
+                    <span class="stat-card-value" style="color:var(--brand);">3</span>
+                    <span class="stat-card-label">Simple Transaction (Working Days)</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-info" style="text-align:center; width:100%;">
+                    <span class="stat-card-value" style="color:var(--brand);">7</span>
+                    <span class="stat-card-label">Complex Transaction (Working Days)</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-info" style="text-align:center; width:100%;">
+                    <span class="stat-card-value" style="color:var(--brand);">20</span>
+                    <span class="stat-card-label">Highly Technical (Working Days)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@model IEnumerable<TrackNGoMati.Models.Document>
+
+<!-- Escalation Stat Cards -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-icon brand"><i data-lucide="check-circle"></i></div>
+        <div class="stat-card-info"><span class="stat-card-value">--</span><span class="stat-card-label">On Track</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon brand"><i data-lucide="alert-circle"></i></div>
+        <div class="stat-card-info"><span class="stat-card-value">--</span><span class="stat-card-label">Warning (Due Soon)</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon destructive"><i data-lucide="alert-triangle"></i></div>
+        <div class="stat-card-info"><span class="stat-card-value">@(Model?.Count() ?? 0)</span><span class="stat-card-label">Overdue / Escalated</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-icon brand"><i data-lucide="lock"></i></div>
+        <div class="stat-card-info"><span class="stat-card-value">@(Model?.Count() ?? 0)</span><span class="stat-card-label">Locked for Escalation</span></div>
+    </div>
+</div>
+
+<!-- Escalation Ledger Table -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-header-title">Escalation Ledger</span>
+    </div>
+    <div class="table-wrapper" style="border:none;">
+        <table>
+            <thead>
+                <tr><th>Ref No</th><th>Title</th><th>ARTA Tier</th><th>Limit</th><th>Elapsed</th><th>Remaining</th><th>Severity</th><th>Status</th><th>Routed To</th></tr>
+            </thead>
+            <tbody>
+                @if(Model == null || !Model.Any())
+                {
+                    <tr><td colspan="9" style="text-align:center; padding:24px;">No escalated documents found. All good!</td></tr>
+                }
+                @foreach(var doc in Model ?? Enumerable.Empty<TrackNGoMati.Models.Document>())
+                {
+                    var elapsed = (int)(DateTime.Now - doc.DateFiled).TotalDays;
+                    var remaining = doc.ArtaprocessingDays - elapsed;
+
+                    <tr class="lock-icon-overlay">
+                        <td>
+                            <i data-lucide="lock" style="width:12px;height:12px;color:var(--destructive);display:inline;vertical-align:middle;margin-right:4px;"></i>
+                            @doc.TrackingNumber
+                        </td>
+                        <td>@doc.Title</td>
+                        <td>@doc.DocumentType</td>
+                        <td>@doc.ArtaprocessingDays days</td>
+                        <td>@elapsed days</td>
+                        <td style="color:var(--destructive);">@remaining days</td>
+                        <td><span class="badge badge-overdue">Overdue</span></td>
+                        <td><span class="badge badge-returned">Escalated</span></td>
+                        <td style="color:var(--brand); font-weight:600;">Office of the Mayor</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Auto-Route Visualization -->
+<div class="card" style="margin-top:24px;">
+    <div class="card-header">
+        <span class="card-header-title">Auto-Escalation Routing Flow</span>
+    </div>
+    <div class="card-body">
+        <div class="fsm-pipeline">
+            <div class="fsm-state">
+                <div class="fsm-state-box">
+                    <i data-lucide="clock" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                    Document Overdue
+                </div>
+            </div>
+            <div class="fsm-arrow done"><i data-lucide="arrow-right"></i></div>
+            <div class="fsm-state">
+                <div class="fsm-state-box done">
+                    <i data-lucide="lock" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                    Auto-Lock
+                </div>
+            </div>
+            <div class="fsm-arrow done"><i data-lucide="arrow-right"></i></div>
+            <div class="fsm-state">
+                <div class="fsm-state-box done">
+                    <i data-lucide="bell" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                    Notify Oversight
+                </div>
+            </div>
+            <div class="fsm-arrow done"><i data-lucide="arrow-right"></i></div>
+            <div class="fsm-state">
+                <div class="fsm-state-box active">
+                    <i data-lucide="building-2" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>
+                    Route to Mayor
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

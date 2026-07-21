@@ -1,0 +1,231 @@
+@model IEnumerable<TrackNGoMati.Models.Document>
+@{
+    ViewData["Title"] = "Executive Signatures";
+    var signedDocs = ViewBag.SignedHistory as IEnumerable<TrackNGoMati.Models.DigitalSignature>;
+}
+
+<div class="page-header animate-fade-in">
+    <div class="page-header-left">
+        <h1 class="page-title">Digital E-Signature</h1>
+        <p class="page-subtitle">Review, approve, and digitally sign documents awaiting executive action</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--brand-soft); border:1px solid var(--brand); border-radius:4px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+        <i data-lucide="check-circle" style="width:16px;height:16px;color:var(--brand);"></i>
+        <span style="color:var(--brand);">@TempData["Success"]</span>
+    </div>
+}
+
+@if (!Model.Any())
+{
+    <div class="card animate-fade-in">
+        <div class="card-body" style="text-align:center; padding:60px;">
+            <i data-lucide="check-circle" style="width:56px;height:56px;color:var(--brand);margin-bottom:16px;"></i>
+            <h3 style="margin-bottom:8px;">All Caught Up!</h3>
+            <p class="text-meta">There are no documents pending your digital signature at this time.</p>
+        </div>
+    </div>
+}
+
+@foreach (var doc in Model)
+{
+    var elapsed = (int)(DateTime.Now - doc.DateFiled).TotalDays;
+    <div class="grid animate-fade-in" style="grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <!-- Signature Panel -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-header-title">
+                    <i data-lucide="pen-tool" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:6px;"></i>
+                    @doc.TrackingNumber — @doc.Title
+                </span>
+                @if (elapsed > doc.ArtaprocessingDays)
+                {
+                    <span class="badge badge-overdue">OVERDUE @elapsed d</span>
+                }
+                else
+                {
+                    <span class="badge badge-on-track">On Track @elapsed/@doc.ArtaprocessingDays d</span>
+                }
+            </div>
+            <div class="card-body">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid var(--border);">
+                    <div><span class="form-label" style="font-size:10px;">Submitted By</span><p>@doc.SubmittedBy</p></div>
+                    <div><span class="form-label" style="font-size:10px;">Department</span><p>@doc.OriginatingDepartment</p></div>
+                    <div><span class="form-label" style="font-size:10px;">Document Type</span><p>@doc.DocumentType</p></div>
+                    <div><span class="form-label" style="font-size:10px;">Date Filed</span><p>@doc.DateFiled.ToString("MMM dd, yyyy")</p></div>
+                </div>
+
+                <!-- Signature Canvas -->
+                <p style="margin-bottom:10px; font-size:var(--fs-body);">Draw your signature below to electronically sign and approve this document:</p>
+                <canvas id="sig_@doc.Id" width="520" height="160"
+                        style="border:2px dashed var(--border); border-radius:4px; cursor:crosshair; background:#FAFAFA; touch-action:none; width:100%;"></canvas>
+
+                <div style="display:flex; justify-content:space-between; margin-top:16px; gap:12px; flex-wrap:wrap;">
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-ghost" onclick="clearSig(@doc.Id)">
+                            <i data-lucide="trash-2"></i> Clear
+                        </button>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-secondary"
+                                onclick="openReturnModal(@doc.Id, '@doc.TrackingNumber')">
+                            <i data-lucide="undo-2"></i> Return
+                        </button>
+                        <button type="button" class="btn btn-primary"
+                                onclick="submitSignature(@doc.Id)">
+                            <i data-lucide="lock"></i> Sign &amp; Approve
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hidden form for approve -->
+                <form method="post" action="/Mayor/Signature/Approve" id="approve-form-@doc.Id">
+                    <input type="hidden" name="id" value="@doc.Id" />
+                    <input type="hidden" name="remarks" value="Digitally signed and approved by Mayor." />
+                    <input type="hidden" name="signatureData" id="sig-data-@doc.Id" />
+                </form>
+            </div>
+        </div>
+
+        <!-- Document Info & Integrity Panel -->
+        <div class="card">
+            <div class="card-header"><span class="card-header-title">Integrity Verification</span></div>
+            <div class="card-body">
+                <p class="text-meta" style="margin-bottom:16px;">
+                    All signatures are hashed via SHA-256 for non-repudiation and stored in the
+                    <strong>Digital_Signatures</strong> table.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Signatory</label>
+                    <input type="text" class="form-control" value="@(Context.Session.GetString("FullName") ?? "Mayor")" readonly />
+                </div>
+                <div class="form-group" style="margin-top:12px;">
+                    <label class="form-label">Hash Preview (SHA-256)</label>
+                    <div style="background:#1e293b; color:#e2e8f0; font-family:monospace; padding:12px; border-radius:4px; font-size:11px; word-break:break-all; min-height:60px;" id="hash-preview-@doc.Id">
+                        Awaiting signature input...
+                    </div>
+                </div>
+                @if (doc.AuditTrailEntries.Any())
+                {
+                    <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+                        <span class="form-label" style="font-size:10px; display:block; margin-bottom:8px;">Routing History</span>
+                        @foreach (var entry in doc.AuditTrailEntries.OrderByDescending(a => a.Timestamp).Take(3))
+                        {
+                            <div style="display:flex; gap:8px; margin-bottom:8px; align-items:flex-start;">
+                                <span style="background:var(--brand); color:white; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">
+                                    @(entry.User?.FullName?.FirstOrDefault())
+                                </span>
+                                <div>
+                                    <div style="font-size:11px; font-weight:600;">@entry.Action</div>
+                                    <div style="font-size:10px; color:var(--ink-muted);">@entry.Timestamp.ToString("MMM dd, HH:mm")</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Return Modal -->
+<div class="modal-overlay" id="returnModal">
+    <div class="modal animate-fade-in">
+        <div class="modal-header">
+            <h3 class="modal-title">Return Document</h3>
+            <button class="modal-close" onclick="closeModal('returnModal')"><i data-lucide="x"></i></button>
+        </div>
+        <form method="post" action="/Mayor/Signature/Return">
+            <input type="hidden" name="id" id="return-doc-id" />
+            <div class="modal-body">
+                <p style="margin-bottom:12px;">Return <strong id="return-doc-ref"></strong> with remarks:</p>
+                <div class="form-group">
+                    <label class="form-label form-label-required">Return Remarks</label>
+                    <textarea class="form-control" name="remarks" rows="4"
+                              placeholder="Explain the reason for returning this document..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('returnModal')">Cancel</button>
+                <button type="submit" class="btn btn-danger"><i data-lucide="undo-2"></i> Confirm Return</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Signature pad instances per document
+        var sigPads = {};
+
+        document.querySelectorAll('canvas[id^="sig_"]').forEach(function (canvas) {
+            var docId = canvas.id.replace('sig_', '');
+            var ctx   = canvas.getContext('2d');
+            ctx.strokeStyle = '#0F172A';
+            ctx.lineWidth   = 2;
+            ctx.lineCap     = 'round';
+            var drawing     = false;
+
+            function getPos(e) {
+                var r = canvas.getBoundingClientRect();
+                var scaleX = canvas.width  / r.width;
+                var scaleY = canvas.height / r.height;
+                var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: (clientX - r.left) * scaleX, y: (clientY - r.top) * scaleY };
+            }
+
+            canvas.addEventListener('mousedown',  function(e){ drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+            canvas.addEventListener('mousemove',  function(e){ if(!drawing) return; var p = getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+            canvas.addEventListener('mouseup',    function()  { drawing = false; updateHash(docId, canvas); });
+            canvas.addEventListener('mouseleave', function()  { drawing = false; });
+            canvas.addEventListener('touchstart', function(e){ e.preventDefault(); drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+            canvas.addEventListener('touchmove',  function(e){ e.preventDefault(); if(!drawing) return; var p = getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
+            canvas.addEventListener('touchend',   function()  { drawing = false; updateHash(docId, canvas); });
+
+            sigPads[docId] = { canvas: canvas, ctx: ctx };
+        });
+
+        function clearSig(docId) {
+            var pad = sigPads[docId];
+            if (pad) { pad.ctx.clearRect(0, 0, pad.canvas.width, pad.canvas.height); }
+            document.getElementById('hash-preview-' + docId).textContent = 'Awaiting signature input...';
+        }
+
+        function updateHash(docId, canvas) {
+            // Show a mock hash preview (real hash computed server-side)
+            var blank = document.createElement('canvas');
+            blank.width  = canvas.width;
+            blank.height = canvas.height;
+            if (canvas.toDataURL() !== blank.toDataURL()) {
+                var mockHash = 'sha256:' + [...Array(64)].map(() => Math.floor(Math.random()*16).toString(16)).join('');
+                document.getElementById('hash-preview-' + docId).textContent = mockHash;
+            }
+        }
+
+        function submitSignature(docId) {
+            var pad = sigPads[docId];
+            if (!pad) { showToast('Signature pad error.', 'error'); return; }
+
+            var blank = document.createElement('canvas');
+            blank.width  = pad.canvas.width;
+            blank.height = pad.canvas.height;
+            if (pad.canvas.toDataURL() === blank.toDataURL()) {
+                showToast('Please draw your signature before approving.', 'error');
+                return;
+            }
+
+            document.getElementById('sig-data-' + docId).value = pad.canvas.toDataURL('image/png');
+            document.getElementById('approve-form-' + docId).submit();
+        }
+
+        function openReturnModal(docId, trackingNo) {
+            document.getElementById('return-doc-id').value      = docId;
+            document.getElementById('return-doc-ref').textContent = trackingNo;
+            openModal('returnModal');
+        }
+    </script>
+}

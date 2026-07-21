@@ -1,0 +1,161 @@
+@model IEnumerable<TrackNGoMati.Models.Document>
+@{
+    ViewData["Title"] = "FSM Workflow Routing";
+    var overdueDocs = Model?.Where(d => (DateTime.Now - d.DateFiled).TotalDays > d.ArtaprocessingDays).Count() ?? 0;
+}
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--brand-soft); border:1px solid var(--brand); border-radius:4px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+        <i data-lucide="check-circle" style="width:16px;height:16px;color:var(--brand);flex-shrink:0;"></i>
+        <span style="color:var(--brand);">@TempData["Success"]</span>
+    </div>
+}
+
+<div class="page-header animate-fade-in">
+    <div class="page-header-left">
+        <h1 class="page-title">FSM Workflow Routing</h1>
+        <p class="page-subtitle">Process documents through the Finite State Machine lifecycle — review, endorse, or return</p>
+    </div>
+</div>
+
+@if (overdueDocs > 0)
+{
+    <div style="background:#FEF2F2; border:1px solid var(--destructive); border-radius:6px; padding:12px 18px; margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+        <i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--destructive);flex-shrink:0;"></i>
+        <div>
+            <strong style="color:var(--destructive);">ARTA Alert:</strong>
+            <span style="color:var(--destructive);"> @overdueDocs document(s) have exceeded their ARTA processing limit. Immediate action required.</span>
+        </div>
+    </div>
+}
+
+@if (Model == null || !Model.Any())
+{
+    <div class="card animate-fade-in">
+        <div class="card-body" style="text-align:center; padding:60px;">
+            <i data-lucide="check-circle" style="width:56px;height:56px;color:var(--brand);margin-bottom:16px;"></i>
+            <h3 style="margin-bottom:8px;">All Caught Up!</h3>
+            <p class="text-meta">There are no documents pending your department's action at this time.</p>
+        </div>
+    </div>
+}
+
+@foreach (var doc in Model ?? Enumerable.Empty<TrackNGoMati.Models.Document>())
+{
+    var elapsed     = (int)(DateTime.Now - doc.DateFiled).TotalDays;
+    var artaPct     = Math.Min(100, (elapsed * 100) / Math.Max(1, doc.ArtaprocessingDays));
+    var isOverdue   = elapsed > doc.ArtaprocessingDays;
+
+    <div class="grid animate-fade-in" style="grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <!-- Document Action Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-header-title">@doc.TrackingNumber — @doc.Title</span>
+                @if (isOverdue)
+                {
+                    <span class="badge badge-overdue">OVERDUE @elapsed d</span>
+                }
+                else
+                {
+                    <span class="badge badge-in-progress">Pending Review</span>
+                }
+            </div>
+            <div class="card-body">
+                <!-- FSM Visualizer -->
+                <div class="fsm-visualizer" style="margin-bottom:20px;">
+                    <div class="fsm-node @(doc.CurrentStepIndex >= 1 ? "completed" : "")">Received</div>
+                    <div class="fsm-arrow @(doc.CurrentStepIndex >= 1 ? "active" : "")"><i data-lucide="arrow-right"></i></div>
+                    <div class="fsm-node active">Dept. Review</div>
+                    <div class="fsm-arrow"><i data-lucide="arrow-right"></i></div>
+                    <div class="fsm-node" style="border-style:dashed;">Mayor Approval</div>
+                    <div class="fsm-arrow"><i data-lucide="arrow-right"></i></div>
+                    <div class="fsm-node" style="border-style:dashed;">Completed</div>
+                </div>
+
+                <!-- Document Info -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+                    <div><span class="form-label" style="font-size:10px;">Submitted By</span><p>@doc.SubmittedBy</p></div>
+                    <div><span class="form-label" style="font-size:10px;">Contact No.</span><p>@doc.ContactNumber</p></div>
+                    <div><span class="form-label" style="font-size:10px;">Document Type</span><p>@doc.DocumentType</p></div>
+                    <div><span class="form-label" style="font-size:10px;">Date Filed</span><p>@doc.DateFiled.ToString("MMM dd, yyyy")</p></div>
+                </div>
+
+                <!-- ARTA Progress Bar -->
+                <div style="margin-bottom:20px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-size:11px; font-weight:600; color:@(isOverdue ? "var(--destructive)" : "var(--brand)");">
+                            ARTA: @elapsed of @doc.ArtaprocessingDays days elapsed
+                        </span>
+                        <span style="font-size:11px; color:var(--ink-muted);">@artaPct%</span>
+                    </div>
+                    <div style="height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:@artaPct%; background:@(isOverdue ? "var(--destructive)" : "var(--brand)"); border-radius:3px; transition:width 0.5s;"></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <form method="post" action="/DepartmentHead/Workflow/Endorse" id="workflow-form-@doc.Id">
+                    <input type="hidden" name="id" value="@doc.Id" />
+                    <input type="hidden" name="actionType" id="action-type-@doc.Id" />
+                    <div class="form-group">
+                        <label class="form-label">Remarks / Annotations</label>
+                        <textarea class="form-control" name="remarks" rows="3"
+                                  placeholder="Enter remarks before endorsing or returning..."></textarea>
+                    </div>
+                    <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-primary"
+                                onclick="submitWorkflow(@doc.Id, 'Endorse')">
+                            <i data-lucide="check-circle"></i> Endorse to Mayor
+                        </button>
+                        <button type="button" class="btn btn-secondary"
+                                onclick="submitWorkflow(@doc.Id, 'Return')">
+                            <i data-lucide="corner-down-left"></i> Return for Correction
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Allowed Actions Sidebar -->
+        <div class="card">
+            <div class="card-header"><span class="card-header-title">Allowed Actions</span></div>
+            <div class="card-body">
+                <p class="text-meta" style="margin-bottom:16px;">
+                    Current FSM State: <strong>Department Review</strong><br/>
+                    Allowed transitions per Workflow_Steps table:
+                </p>
+                <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
+                    <li style="display:flex; align-items:flex-start; gap:10px;">
+                        <i data-lucide="check-circle" style="color:var(--brand); width:16px; flex-shrink:0; margin-top:2px;"></i>
+                        <div><strong>Endorse</strong> → Advances to Mayor Approval (Status 2)</div>
+                    </li>
+                    <li style="display:flex; align-items:flex-start; gap:10px;">
+                        <i data-lucide="corner-down-left" style="color:var(--ink-muted); width:16px; flex-shrink:0; margin-top:2px;"></i>
+                        <div><strong>Return</strong> → Sends back to Originating Department (Status 4) with remarks</div>
+                    </li>
+                    <li style="display:flex; align-items:flex-start; gap:10px; opacity:0.5;">
+                        <i data-lucide="x-circle" style="color:var(--destructive); width:16px; flex-shrink:0; margin-top:2px;"></i>
+                        <div><strike>Reject — Not allowed at this workflow step</strike></div>
+                    </li>
+                </ul>
+                @if (doc.ContactNumber != null)
+                {
+                    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-muted);">
+                        <i data-lucide="message-square" style="width:13px;height:13px;display:inline;vertical-align:middle;"></i>
+                        SMS notification will be sent to <strong>@doc.ContactNumber</strong> upon action.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function submitWorkflow(docId, actionType) {
+            document.getElementById('action-type-' + docId).value = actionType;
+            document.getElementById('workflow-form-' + docId).submit();
+        }
+    </script>
+}

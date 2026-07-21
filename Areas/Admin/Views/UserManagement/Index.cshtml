@@ -1,0 +1,391 @@
+@model IEnumerable<TrackNGoMati.Models.User>
+@{
+    ViewData["Title"] = "System Configuration";
+    var activeTab = ViewBag.ActiveTab as string ?? "users";
+    var departments = ViewBag.Departments as IEnumerable<TrackNGoMati.Models.Department> ?? Enumerable.Empty<TrackNGoMati.Models.Department>();
+    var docTypes = ViewBag.DocTypes as IEnumerable<TrackNGoMati.Models.DocumentTypeConfig> ?? Enumerable.Empty<TrackNGoMati.Models.DocumentTypeConfig>();
+
+    string[] roleLabels = ["", "Executive Admin", "Records Officer", "Department Head", "Mayor", "CART Officer"];
+}
+
+@if (TempData["Success"] != null)
+{
+    <div style="background:var(--brand-soft); border:1px solid var(--brand); border-radius:4px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+        <i data-lucide="check-circle" style="width:16px;height:16px;color:var(--brand);flex-shrink:0;"></i>
+        <span style="font-size:var(--fs-body); color:var(--brand);">@TempData["Success"]</span>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div style="background:#FEF2F2; border:1px solid var(--destructive); border-radius:4px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+        <i data-lucide="alert-circle" style="width:16px;height:16px;color:var(--destructive);flex-shrink:0;"></i>
+        <span style="font-size:var(--fs-body); color:var(--destructive);">@TempData["Error"]</span>
+    </div>
+}
+
+<div class="page-header animate-fade-in">
+    <div class="page-header-left">
+        <h1 class="page-title">System Configuration</h1>
+        <p class="page-subtitle">Manage user accounts, departments, and document categories</p>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div style="display:flex; gap:4px; border-bottom:2px solid var(--border); margin-bottom:24px;">
+    <button id="tab-users" onclick="switchTab('users')" class="btn btn-ghost @(activeTab=="users"?"active":"") tab-btn">
+        <i data-lucide="users"></i> Users
+    </button>
+    <button id="tab-departments" onclick="switchTab('departments')" class="btn btn-ghost @(activeTab=="departments"?"active":"") tab-btn">
+        <i data-lucide="building-2"></i> Departments
+    </button>
+    <button id="tab-categories" onclick="switchTab('categories')" class="btn btn-ghost @(activeTab=="categories"?"active":"") tab-btn">
+        <i data-lucide="file-text"></i> Document Types
+    </button>
+</div>
+
+<!-- ═══ USERS TAB ═══ -->
+<div id="content-users" class="tab-content animate-fade-in" style="display:@(activeTab=="users"?"block":"none")">
+    <div class="filter-bar">
+        <div class="search-input">
+            <i data-lucide="search"></i>
+            <input type="text" id="tableSearch" placeholder="Search users..." />
+        </div>
+        <button class="btn btn-primary" onclick="openModal('createUserModal')" style="margin-left:auto;">
+            <i data-lucide="user-plus"></i> Add User
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="table-wrapper" style="border:none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th><th>Email</th><th>Role</th>
+                        <th>Department</th><th>Mobile</th><th>Status</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in Model)
+                    {
+                        <tr>
+                            <td><strong>@u.FullName</strong></td>
+                            <td style="font-family:monospace; font-size:12px;">@u.Username</td>
+                            <td><span class="badge badge-in-progress">@(u.Role < roleLabels.Length ? roleLabels[u.Role] : "Unknown")</span></td>
+                            <td>@u.Department</td>
+                            <td>@u.MobileNumber</td>
+                            <td>
+                                @if (u.IsActive)
+                                {
+                                    <span class="badge badge-completed">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-returned">Inactive</span>
+                                }
+                            </td>
+                            <td class="table-actions">
+                                <button class="btn btn-ghost btn-icon btn-sm"
+                                        onclick="fillEditForm(@u.Id,'@u.FullName',@u.Role,@(u.DepartmentId ?? 0),'@u.MobileNumber','@u.Email')"
+                                        title="Edit">
+                                    <i data-lucide="pencil"></i>
+                                </button>
+                                <form method="post" action="/Admin/UserManagement/ToggleUser" style="display:inline;">
+                                    <input type="hidden" name="id" value="@u.Id" />
+                                    <button type="submit" class="btn btn-ghost btn-icon btn-sm"
+                                            title="@(u.IsActive?"Deactivate":"Activate")">
+                                        <i data-lucide="@(u.IsActive?"user-x":"user-check")"></i>
+                                    </button>
+                                </form>
+                                <button class="btn btn-ghost btn-icon btn-sm"
+                                        onclick="openResetPwd(@u.Id,'@u.FullName')" title="Reset Password">
+                                    <i data-lucide="key"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ DEPARTMENTS TAB ═══ -->
+<div id="content-departments" class="tab-content animate-fade-in" style="display:@(activeTab=="departments"?"block":"none")">
+    <div class="filter-bar">
+        <button class="btn btn-primary" onclick="openModal('createDeptModal')" style="margin-left:auto;">
+            <i data-lucide="plus"></i> Add Department
+        </button>
+    </div>
+    <div class="card">
+        <div class="table-wrapper" style="border:none;">
+            <table>
+                <thead><tr><th>Code</th><th>Department Name</th><th>Head User</th></tr></thead>
+                <tbody>
+                    @foreach (var d in departments)
+                    {
+                        <tr>
+                            <td><span class="badge badge-in-progress">@d.DepartmentCode</span></td>
+                            <td>@d.DepartmentName</td>
+                            <td>@(d.HeadUser?.FullName ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ DOC TYPES TAB ═══ -->
+<div id="content-categories" class="tab-content animate-fade-in" style="display:@(activeTab=="categories"?"block":"none")">
+    <div class="filter-bar">
+        <button class="btn btn-primary" onclick="openModal('createTypeModal')" style="margin-left:auto;">
+            <i data-lucide="plus"></i> Add Document Type
+        </button>
+    </div>
+    <div class="card">
+        <div class="table-wrapper" style="border:none;">
+            <table>
+                <thead><tr><th>Type Name</th><th>ARTA Limit (Days)</th><th>ARTA Tier</th><th>Description</th></tr></thead>
+                <tbody>
+                    @foreach (var t in docTypes)
+                    {
+                        <tr>
+                            <td><strong>@t.TypeName</strong></td>
+                            <td>@t.DefaultProcessingDays days</td>
+                            <td>
+                                @if (t.DefaultProcessingDays <= 3)
+                                { <span class="badge badge-completed">Simple</span> }
+                                else if (t.DefaultProcessingDays <= 7)
+                                { <span class="badge badge-in-progress">Complex</span> }
+                                else
+                                { <span class="badge badge-returned">Highly Technical</span> }
+                            </td>
+                            <td class="text-meta">@t.Description</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Create User Modal -->
+<div class="modal-overlay" id="createUserModal">
+    <div class="modal modal-lg animate-fade-in">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New User</h3>
+            <button class="modal-close" onclick="closeModal('createUserModal')"><i data-lucide="x"></i></button>
+        </div>
+        <form method="post" action="/Admin/UserManagement/CreateUser">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Full Name</label>
+                        <input type="text" class="form-control" name="fullName" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Email / Username</label>
+                        <input type="text" class="form-control" name="username" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Password</label>
+                        <input type="password" class="form-control" name="password" value="password123" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Role</label>
+                        <select class="form-control" name="role" required>
+                            <option value="1">Executive Admin</option>
+                            <option value="2">Records Officer</option>
+                            <option value="3">Department Head</option>
+                            <option value="4">Mayor</option>
+                            <option value="5">CART Officer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Department</label>
+                        <select class="form-control" name="departmentId" required>
+                            @foreach (var d in departments)
+                            {
+                                <option value="@d.Id">@d.DepartmentName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mobile Number</label>
+                        <input type="tel" class="form-control" name="mobileNumber" placeholder="09XX-XXX-XXXX" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createUserModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Save User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal modal-lg animate-fade-in">
+        <div class="modal-header">
+            <h3 class="modal-title">Edit User</h3>
+            <button class="modal-close" onclick="closeModal('editUserModal')"><i data-lucide="x"></i></button>
+        </div>
+        <form method="post" action="/Admin/UserManagement/EditUser">
+            <div class="modal-body">
+                <input type="hidden" name="id" id="edit-id" />
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Full Name</label>
+                        <input type="text" class="form-control" name="fullName" id="edit-name" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label form-label-required">Role</label>
+                        <select class="form-control" name="role" id="edit-role" required>
+                            <option value="1">Executive Admin</option>
+                            <option value="2">Records Officer</option>
+                            <option value="3">Department Head</option>
+                            <option value="4">Mayor</option>
+                            <option value="5">CART Officer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Department</label>
+                        <select class="form-control" name="departmentId" id="edit-dept">
+                            @foreach (var d in departments)
+                            {
+                                <option value="@d.Id">@d.DepartmentName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mobile Number</label>
+                        <input type="tel" class="form-control" name="mobileNumber" id="edit-mobile" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetPwdModal">
+    <div class="modal animate-fade-in">
+        <div class="modal-header">
+            <h3 class="modal-title">Reset Password</h3>
+            <button class="modal-close" onclick="closeModal('resetPwdModal')"><i data-lucide="x"></i></button>
+        </div>
+        <form method="post" action="/Admin/UserManagement/ResetPassword">
+            <div class="modal-body">
+                <p id="reset-name-label" class="text-meta" style="margin-bottom:16px;"></p>
+                <input type="hidden" name="id" id="reset-id" />
+                <div class="form-group">
+                    <label class="form-label form-label-required">New Password</label>
+                    <input type="password" class="form-control" name="newPassword" required minlength="6" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('resetPwdModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i data-lucide="key"></i> Reset Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create Department Modal -->
+<div class="modal-overlay" id="createDeptModal">
+    <div class="modal animate-fade-in">
+        <div class="modal-header">
+            <h3 class="modal-title">Add Department</h3>
+            <button class="modal-close" onclick="closeModal('createDeptModal')"><i data-lucide="x"></i></button>
+        </div>
+        <form method="post" action="/Admin/UserManagement/CreateDepartment">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label form-label-required">Department Code</label>
+                    <input type="text" class="form-control" name="deptCode" placeholder="e.g. HRMO" required maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label form-label-required">Department Name</label>
+                    <input type="text" class="form-control" name="deptName" placeholder="e.g. Human Resource Management Office" required />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createDeptModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Save Department</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create Document Type Modal -->
+<div class="modal-overlay" id="createTypeModal">
+    <div class="modal animate-fade-in">
+        <div class="modal-header">
+            <h3 class="modal-title">Add Document Type</h3>
+            <button class="modal-close" onclick="closeModal('createTypeModal')"><i data-lucide="x"></i></button>
+        </div>
+        <form method="post" action="/Admin/UserManagement/CreateDocType">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label form-label-required">Type Name</label>
+                    <input type="text" class="form-control" name="typeName" placeholder="e.g. Travel Order" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label form-label-required">ARTA Processing Days</label>
+                    <select class="form-control" name="defaultDays" required>
+                        <option value="3">3 days (Simple)</option>
+                        <option value="7">7 days (Complex)</option>
+                        <option value="20">20 days (Highly Technical)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" class="form-control" name="description" placeholder="Brief description" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createTypeModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Save Type</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('content-' + tab).style.display = 'block';
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+
+        function fillEditForm(id, name, role, deptId, mobile, email) {
+            document.getElementById('edit-id').value     = id;
+            document.getElementById('edit-name').value   = name;
+            document.getElementById('edit-role').value   = role;
+            document.getElementById('edit-dept').value   = deptId;
+            document.getElementById('edit-mobile').value = mobile;
+            openModal('editUserModal');
+        }
+
+        function openResetPwd(id, name) {
+            document.getElementById('reset-id').value           = id;
+            document.getElementById('reset-name-label').textContent = 'Resetting password for: ' + name;
+            openModal('resetPwdModal');
+        }
+    </script>
+}

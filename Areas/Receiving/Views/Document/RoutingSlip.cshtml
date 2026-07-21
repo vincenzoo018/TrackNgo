@@ -1,0 +1,103 @@
+@model TrackNGoMati.Models.Document
+@{
+    ViewData["Title"] = "Routing Slip";
+}
+
+<div class="page-header animate-fade-in" style="margin-bottom: 24px;">
+    <div class="page-header-left">
+        <h1 class="page-title">Document Routing Slip</h1>
+        <p class="page-subtitle">Print this slip and attach it to the physical document</p>
+    </div>
+    <div class="page-header-right">
+        <button class="btn btn-secondary" onclick="window.print()" style="padding: 10px 20px;">
+            <i data-lucide="printer"></i> Print Slip
+        </button>
+        <a href="/Receiving/Document" class="btn btn-primary" style="padding: 10px 20px;">Done</a>
+    </div>
+</div>
+
+<div class="card animate-fade-in printable-slip" style="max-width: 800px; margin: 0 auto; padding: 40px; background: white; border-radius: 8px;">
+    <!-- Header with QR -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--border); padding-bottom: 20px; margin-bottom: 24px;">
+        <div>
+            <h2 style="margin: 0 0 4px 0; font-size: 24px; font-weight: 700; color: var(--ink);">ROUTING SLIP</h2>
+            <p style="margin: 0; color: var(--ink-muted); font-size: 14px;">TrackNGo Mati Document Tracking System</p>
+        </div>
+        <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+            <img src="@Model.QrcodePath" alt="QR Code" style="width: 100px; height: 100px; border: 1px solid var(--border); padding: 4px; border-radius: 4px; margin-bottom: 8px;" />
+            <span style="font-weight: 700; font-size: 16px; font-family: monospace; color: var(--brand);">@Model.TrackingNumber</span>
+        </div>
+    </div>
+
+    <!-- Details Grid -->
+    <div style="display: grid; grid-template-columns: 160px 1fr; gap: 16px; margin-bottom: 32px; font-size: 14px;">
+        <div style="font-weight: 600; color: var(--ink-muted);">Subject / Title:</div>
+        <div style="font-weight: 700; color: var(--ink);">@Model.Title</div>
+        
+        <div style="font-weight: 600; color: var(--ink-muted);">Document Type:</div>
+        <div style="color: var(--ink);">@Model.DocumentType</div>
+
+        <div style="font-weight: 600; color: var(--ink-muted);">Originating Dept:</div>
+        <div style="color: var(--ink);">@(Model.OriginatingDepartment ?? "N/A")</div>
+
+        <div style="font-weight: 600; color: var(--ink-muted);">Submitted By:</div>
+        <div style="color: var(--ink);">@Model.SubmittedBy</div>
+
+        <div style="font-weight: 600; color: var(--ink-muted);">Date Filed:</div>
+        <div style="color: var(--ink);">@Model.DateFiled.ToString("MMMM dd, yyyy hh:mm tt")</div>
+    </div>
+
+    <!-- Routing Table -->
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;" border="1">
+        <thead>
+            <tr style="background: #f8fafc;">
+                <th style="padding: 12px; border: 1px solid var(--border); width: 25%; color: var(--ink-muted); font-weight: 600;">Forwarded To</th>
+                <th style="padding: 12px; border: 1px solid var(--border); width: 20%; color: var(--ink-muted); font-weight: 600;">Date/Time</th>
+                <th style="padding: 12px; border: 1px solid var(--border); width: 25%; color: var(--ink-muted); font-weight: 600;">Received By (Sign)</th>
+                <th style="padding: 12px; border: 1px solid var(--border); width: 30%; color: var(--ink-muted); font-weight: 600;">Remarks</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < 8; i++)
+            {
+                <tr>
+                    <td style="padding: 24px 12px; border: 1px solid var(--border);"></td>
+                    <td style="border: 1px solid var(--border);"></td>
+                    <td style="border: 1px solid var(--border);"></td>
+                    <td style="border: 1px solid var(--border);"></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 32px; font-size: 12px; color: var(--ink-muted); text-align: center; font-style: italic;">
+        <p style="margin:0;"><i data-lucide="scan-line" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> Please scan the QR code above at each receiving station to update the document status in the system.</p>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        @@media print {
+            body * {
+                visibility: hidden;
+            }
+            .printable-slip, .printable-slip * {
+                visibility: visible;
+            }
+            .printable-slip {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            table th {
+                background: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+}
