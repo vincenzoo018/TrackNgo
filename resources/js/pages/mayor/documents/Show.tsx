@@ -1,8 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle2, RotateCcw, XCircle, Printer, Download, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, RotateCcw, XCircle, Printer, Download, Sparkles, Building2, User, FileText, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
+import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
@@ -141,18 +142,7 @@ export default function MayorDocumentShow() {
                             </div>
                         </div>
 
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
-                            <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">✨ Audit Trail</h2>
-                            <div className="space-y-4">
-                                {trail.map((entry) => (
-                                    <div key={entry.id} className="relative pl-5 before:absolute before:left-1.5 before:top-2 before:h-2 before:w-2 before:rounded-full before:bg-[var(--tng-blue-500)] after:absolute after:left-[9px] after:top-5 after:h-full after:w-px after:bg-[var(--tng-slate-200)] last:after:hidden">
-                                        <p className="text-sm font-medium text-[var(--tng-slate-800)]">{entry.action}</p>
-                                        <p className="text-xs text-[var(--tng-slate-500)]">{entry.description}</p>
-                                        <p className="mt-1 text-[10px] text-[var(--tng-slate-400)]">{entry.user} · {new Date(entry.timestamp).toLocaleString()}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <AuditTrailTimeline entries={trail} />
                     </div>
                 </div>
             </div>

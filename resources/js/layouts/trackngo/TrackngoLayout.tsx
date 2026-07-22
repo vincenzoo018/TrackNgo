@@ -14,6 +14,7 @@ import { receivingNav } from '@/config/nav/receiving.nav';
 import { departmentHeadNav } from '@/config/nav/departmentHead.nav';
 import { mayorNav } from '@/config/nav/mayor.nav';
 import { cartNav } from '@/config/nav/cart.nav';
+import { hrNav } from '@/config/nav/hr.nav';
 import type { NavItem } from '@/types';
 import type { UserRole } from '@/types/trackngo';
 import { ROLE_LABELS } from '@/types/trackngo';
@@ -25,6 +26,7 @@ const NAV_MAP: Record<string, NavItem[]> = {
     department_head: departmentHeadNav,
     mayor: mayorNav,
     cart: cartNav,
+    hr: hrNav,
 };
 
 // ── Role avatar colors ──────────────────────────────────────────────
@@ -34,6 +36,7 @@ const ROLE_COLORS: Record<string, string> = {
     department_head: 'bg-emerald-600',
     mayor: 'bg-amber-600',
     cart: 'bg-rose-600',
+    hr: 'bg-teal-600',
 };
 
 const ROLE_INITIALS: Record<string, string> = {
@@ -42,6 +45,7 @@ const ROLE_INITIALS: Record<string, string> = {
     department_head: 'DH',
     mayor: 'M',
     cart: 'C',
+    hr: 'HR',
 };
 
 type TrackngoLayoutProps = {
@@ -57,7 +61,7 @@ export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayout
     // Infer role from URL for frontend mocking
     const urlSegment = url.split('/')[1] || 'receiving';
     const mappedSegment = urlSegment === 'department-head' ? 'department_head' : urlSegment;
-    const isValidRole = ['admin', 'receiving', 'department_head', 'mayor', 'cart'].includes(mappedSegment);
+    const isValidRole = ['admin', 'receiving', 'department_head', 'mayor', 'cart', 'hr'].includes(mappedSegment);
     const inferredRole = isValidRole ? (mappedSegment as UserRole) : 'receiving';
 
     const userRole = props.auth?.user?.role ?? inferredRole;
@@ -68,7 +72,8 @@ export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayout
         receiving: 'Receiving Clerk',
         department_head: 'Engr. John Doe',
         mayor: 'Hon. Mayor',
-        cart: 'CART Officer'
+        cart: 'CART Officer',
+        hr: 'HR Manager'
     };
     const userName = props.auth?.user?.name ?? mockNames[userRole] ?? 'User';
     
@@ -85,7 +90,7 @@ export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayout
     }, [url]);
 
     const isActive = (href: string) => {
-        if (href === `/${userRole}` || href === '/admin' || href === '/receiving' || href === '/mayor' || href === '/cart' || href === '/department-head') {
+        if (href === `/${userRole}` || href === '/admin' || href === '/receiving' || href === '/mayor' || href === '/cart' || href === '/department-head' || href === '/hr') {
             return url === href;
         }
         return url.startsWith(href);

@@ -37,15 +37,35 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        // Map the DB role_name to the frontend key used in TypeScript
+        $roleMap = [
+            'admin'           => 'admin',
+            'mayor'           => 'mayor',
+            'department head' => 'department_head',
+            'cart'            => 'cart',
+            'receiving clerk' => 'receiving',
+            'hr'              => 'hr',
+        ];
+
+        $userData = null;
+        if ($user) {
+            $user->load('role');
+            $roleName = strtolower($user->role->role_name ?? '');
+            $userData = [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+                'role'  => $roleMap[$roleName] ?? 'receiving',
+            ];
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $user,
+                'user' => $userData,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
-            'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
         ];
     }
 }

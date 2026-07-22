@@ -1,16 +1,20 @@
-import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Forward, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowLeft, Forward, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
+import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
 import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
-export default function ReceivingDocumentShow() {
-    const doc = mockDocuments[0]; // TNG-2026-0004
-    const trail = mockAuditTrail.filter((a) => a.document_ref === doc.reference_number);
+export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
+    const doc = dbDocument || mockDocuments[0];
+    const trail = dbAuditTrail || mockAuditTrail.filter((a: any) => a.document_ref === doc.reference_number);
+    const comments = dbComments || [];
+    const departments = dbDepartments || [];
+    const users = dbUsers || [];
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     
     // Feature Modals
@@ -24,6 +28,81 @@ export default function ReceivingDocumentShow() {
     const [aiTemplateOpen, setAiTemplateOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'audit' | 'discussion'>('audit');
+
+    // Anchored Comments State
+    const [selectedOcrText, setSelectedOcrText] = useState('');
+    const [anchorModalOpen, setAnchorModalOpen] = useState(false);
+    const [anchorCommentText, setAnchorCommentText] = useState('');
+    const [normalCommentText, setNormalCommentText] = useState('');
+
+    const handleTextSelection = () => {
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim().length > 0) {
+            setSelectedOcrText(selection.toString().trim());
+        }
+    };
+
+    const handleEndorse = (destType: string, destId: string, rem: string) => {
+        router.post(`/receiving/documents/${doc.document_id}/endorse`, {
+            destination_type: destType,
+            destination_id: destId,
+            remarks: rem
+        }, {
+            onSuccess: () => {
+                showToast('Document endorsed successfully');
+                setForwardModalOpen(false);
+            }
+        });
+    };
+
+    const handleEscalate = () => {
+        const just = (document.getElementById('escalateJustification') as HTMLTextAreaElement)?.value;
+        if (!just) return alert('Justification required');
+        router.post(`/receiving/documents/${doc.document_id}/escalate`, {
+            justification: just
+        }, {
+            onSuccess: () => {
+                showToast('Document successfully escalated to CART!');
+                setEscalateModalOpen(false);
+            }
+        });
+    };
+
+    const handleLink = () => {
+        const tk = (document.getElementById('linkTrackingNo') as HTMLInputElement)?.value;
+        if (!tk) return alert('Tracking No required');
+        router.post(`/receiving/documents/${doc.document_id}/link`, {
+            tracking_number: tk
+        }, {
+            onSuccess: () => {
+                showToast('Document linked successfully!');
+                setLinkModalOpen(false);
+            }
+        });
+    };
+
+    const handleAddComment = (e?: React.FormEvent, isAnchored = false) => {
+        if (e) e.preventDefault();
+        const text = isAnchored ? anchorCommentText : normalCommentText;
+        if (!text) return;
+        
+        router.post(`/receiving/documents/${doc.document_id}/comments`, {
+            comment: text,
+            quoted_text: isAnchored ? selectedOcrText : null
+        }, {
+            onSuccess: () => {
+                showToast('Comment added!');
+                if (isAnchored) {
+                    setAnchorModalOpen(false);
+                    setAnchorCommentText('');
+                    setSelectedOcrText('');
+                } else {
+                    setNormalCommentText('');
+                }
+                setActiveTab('discussion');
+            }
+        });
+    };
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -62,7 +141,7 @@ export default function ReceivingDocumentShow() {
                             <SpClearedBadge />
                         </div>
                         <p className="text-sm text-[var(--tng-slate-500)]">
-                            {doc.title} — {doc.sender ?? doc.submitted_by}
+                            {doc.title} — {doc.sender ?? doc.submitter?.name ?? 'Unknown'}
                         </p>
                     </div>
                     <Link
@@ -75,20 +154,24 @@ export default function ReceivingDocumentShow() {
                 </div>
 
                 {/* Step Progress */}
-                <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
-                    <StepProgress currentStep={doc.step_progress} totalSteps={doc.total_steps} />
+                <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 pb-12">
+                    <StepProgress 
+                        currentStep={doc.current_step_index ?? 1} 
+                        totalSteps={doc.total_steps ?? 5} 
+                        currentHolderName={doc.currentHolderDepartment?.department_name ?? doc.currentHolder?.name ?? undefined} 
+                    />
                 </div>
 
                 {/* Current Holder Banner */}
                 <div className="flex items-center justify-center gap-4 rounded-xl border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] px-4 py-3 text-sm text-[var(--tng-slate-600)]">
-                    <span>Tracking No: <strong>{doc.reference_number}</strong></span>
+                    <span>Tracking No: <strong>{doc.tracking_number ?? doc.reference_number}</strong></span>
                     <span className="text-[var(--tng-slate-300)]">|</span>
-                    <span>Department: <strong>{doc.department.name}</strong></span>
+                    <span>Department: <strong>{doc.department?.department_name ?? 'N/A'}</strong></span>
                     <span className="text-[var(--tng-slate-300)]">|</span>
                     <span>
                         Current Holder:{' '}
                         <span className="inline-flex rounded-md border border-[var(--tng-slate-300)] bg-white px-2.5 py-1 text-xs font-semibold text-[var(--tng-slate-700)] uppercase">
-                            {doc.current_holder ?? 'N/A'}
+                            {doc.currentHolderDepartment?.department_name ?? doc.currentHolder?.name ?? 'N/A'}
                         </span>
                     </span>
                 </div>
@@ -103,9 +186,9 @@ export default function ReceivingDocumentShow() {
                                 AI Executive Briefing
                             </h2>
                             <ul className="space-y-3 text-sm text-[var(--tng-slate-700)]">
-                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Summary:</b> This resolution requests a supplementary budget of ₱1,500,000 for emergency disaster relief funds in Brgy. Dahican.</li>
-                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Legal Basis:</b> Supported by SP Resolution No. 45-2026 and aligned with LGU Disaster Risk Reduction directives.</li>
-                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Endorsements:</b> Fully cleared by City Budget Office, Accounting, and Legal. Ready for final Mayoral Signature.</li>
+                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Summary:</b> This document was submitted and recognized by our real-time OCR processor.</li>
+                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Status:</b> Currently pending endorsement/action from the appropriate personnel.</li>
+                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Endorsements:</b> Waiting for further routing slips to be generated.</li>
                             </ul>
                         </div>
 
@@ -114,20 +197,20 @@ export default function ReceivingDocumentShow() {
                                 Document Metadata
                             </h2>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-3">
-                                <MetaField label="Tracking Number" value={doc.reference_number} />
-                                <MetaField label="Department" value={doc.department.name} />
+                                <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
+                                <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
                                 <MetaField
                                     label="Date Filed"
-                                    value={new Date(doc.submitted_at).toLocaleDateString('en-US', {
+                                    value={new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                         month: 'short',
                                         day: '2-digit',
                                         year: 'numeric',
-                                    }) + ' - ' + new Date(doc.submitted_at).toLocaleTimeString('en-US', {
+                                    }) + ' - ' + new Date(doc.date_filed || doc.created_at).toLocaleTimeString('en-US', {
                                         hour: '2-digit',
                                         minute: '2-digit',
                                     })}
                                 />
-                                <MetaField label="Document Category" value={doc.document_type.name} />
+                                <MetaField label="Document Category" value={doc.type?.type_name ?? 'N/A'} />
                                 <MetaField label="Contact Number" value={doc.contact_number ?? 'N/A'} />
                                 <MetaField
                                     label="Expected Due Date (SLA)"
@@ -139,12 +222,12 @@ export default function ReceivingDocumentShow() {
                                           })
                                         : 'N/A'}
                                 />
-                                <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitted_by} />
+                                <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
                                 <MetaField
                                     label="Classification"
                                     value={
                                         <span className={doc.classification === 'urgent' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-                                            {doc.classification.toUpperCase()}
+                                            {(doc.classification ?? 'NORMAL').toUpperCase()}
                                         </span>
                                     }
                                 />
@@ -153,51 +236,76 @@ export default function ReceivingDocumentShow() {
                         </div>
 
                         {/* Document Preview */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
+                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col min-h-[800px]">
                             <div className="mb-4 flex items-center justify-between">
                                 <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--tng-slate-800)]">
-                                    👁️ Document Preview
+                                    👁️ Digitalized Document Preview (OCR)
                                 </h2>
                                 <div className="flex items-center gap-2">
                                     <label className="flex items-center gap-1.5 text-xs text-[var(--tng-slate-500)]">
                                         <input type="checkbox" className="h-3.5 w-3.5 rounded border-[var(--tng-slate-300)]" />
                                         Show unresolved only
                                     </label>
-                                    <button className="rounded-md border border-[var(--tng-blue-300)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--tng-blue-600)] transition-colors hover:bg-[var(--tng-blue-50)]">
-                                        📋 Add Anchored Comment
+                                    <button
+                                        onClick={() => {
+                                            if (!selectedOcrText) return alert('Please highlight text in the OCR preview first.');
+                                            setAnchorModalOpen(true);
+                                        }}
+                                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${selectedOcrText ? 'border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] text-[var(--tng-blue-700)]' : 'border-[var(--tng-blue-300)] bg-white text-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-50)]'}`}
+                                    >
+                                        📋 Add Anchored Comment {selectedOcrText && '(Text Selected)'}
                                     </button>
                                     <button className="rounded-md border border-[var(--tng-blue-300)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--tng-blue-600)] transition-colors hover:bg-[var(--tng-blue-50)]">
-                                        Open in New Tab
+                                        Open Original PDF
                                     </button>
                                 </div>
                             </div>
-                            <div className="relative flex h-[600px] w-full flex-col bg-slate-50 shadow-inner border border-slate-300 rounded-lg p-8 overflow-hidden select-none">
-                                {/* Mock Document Content */}
-                                <div className="flex-1 bg-white border border-slate-200 shadow-sm p-12 relative overflow-hidden">
-                                    <div className="h-4 bg-slate-100 rounded w-3/4 mb-6"></div>
-                                    <div className="h-4 bg-slate-100 rounded w-full mb-6"></div>
-                                    <div className="h-4 bg-slate-100 rounded w-5/6 mb-6"></div>
-                                    <div className="h-4 bg-slate-100 rounded w-full mb-6"></div>
-                                    <div className="h-4 bg-slate-100 rounded w-2/3 mb-12"></div>
-                                    
-                                    {/* Signatures Section at the bottom */}
-                                    <div className="absolute bottom-12 left-12 right-12 flex justify-between">
+                            
+                            {/* PDF side-by-side with OCR or just OCR */}
+                            <div className="flex-1 flex gap-4 h-full relative overflow-hidden">
+                                {doc.attachment_path && (
+                                    <div className="w-1/2 h-[700px] border border-slate-300 rounded-lg overflow-hidden bg-slate-100 hidden md:block">
+                                        <iframe 
+                                            src={`/storage/${doc.attachment_path}`} 
+                                            className="w-full h-full"
+                                            title="Original Document PDF"
+                                        />
+                                    </div>
+                                )}
+                                <div className={`flex-1 h-[700px] bg-slate-50 shadow-inner border border-slate-300 rounded-lg p-8 overflow-y-auto ${doc.attachment_path ? 'md:w-1/2 w-full' : 'w-full'}`}>
+                                    <div className="bg-white border border-slate-200 shadow-sm p-12 min-h-[800px] relative" onMouseUp={handleTextSelection}>
+                                        {doc.ocr_text ? (
+                                            <div className="whitespace-pre-wrap text-sm text-slate-700 font-serif leading-relaxed">
+                                                {doc.ocr_text}
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="h-4 bg-slate-100 rounded w-3/4 mb-6 animate-pulse"></div>
+                                                <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
+                                                <div className="h-4 bg-slate-100 rounded w-5/6 mb-6 animate-pulse"></div>
+                                                <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
+                                                <div className="h-4 bg-slate-100 rounded w-2/3 mb-12 animate-pulse"></div>
+                                            </>
+                                        )}
                                         
-                                        {/* Sender */}
-                                        <div className="text-center relative w-48">
-                                            <div className="h-16"></div> {/* Space for signature */}
-                                            <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">{doc.sender ?? doc.submitted_by}</div>
-                                            <div className="text-xs text-slate-500">Prepared By</div>
-                                        </div>
+                                        {/* Signatures Section at the bottom */}
+                                        <div className="mt-24 flex justify-between border-t border-slate-100 pt-12">
+                                            
+                                            {/* Sender */}
+                                            <div className="text-center relative w-48">
+                                                <div className="h-16"></div> {/* Space for signature */}
+                                                <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
+                                                <div className="text-xs text-slate-500">Prepared By</div>
+                                            </div>
 
-                                        {/* Authenticated User */}
-                                        <div className="text-center relative w-48">
-                                            <DraggableSignature />
-                                            <div className="h-16"></div> {/* Space for signature */}
-                                            <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">System Admin (You)</div>
-                                            <div className="text-xs text-slate-500">Approved / Forwarded By</div>
+                                            {/* Authenticated User */}
+                                            <div className="text-center relative w-48">
+                                                <DraggableSignature />
+                                                <div className="h-16"></div> {/* Space for signature */}
+                                                <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">System Admin (You)</div>
+                                                <div className="text-xs text-slate-500">Approved / Forwarded By</div>
+                                            </div>
                                         </div>
-
                                     </div>
                                 </div>
                             </div>
@@ -324,47 +432,45 @@ export default function ReceivingDocumentShow() {
 
                             <div className="p-6 flex-1 overflow-y-auto tng-scrollbar">
                                 {activeTab === 'audit' ? (
-                                    trail.length > 0 ? (
-                                        <div className="space-y-4">
-                                            {trail.map((entry) => (
-                                                <div key={entry.id} className="relative pl-5 before:absolute before:left-1.5 before:top-2 before:h-2 before:w-2 before:rounded-full before:bg-[var(--tng-blue-500)] after:absolute after:left-[9px] after:top-5 after:h-full after:w-px after:bg-[var(--tng-slate-200)] last:after:hidden">
-                                                    <p className="text-sm font-medium text-[var(--tng-slate-800)]">
-                                                        {entry.action}
-                                                    </p>
-                                                    <p className="text-xs text-[var(--tng-slate-500)]">
-                                                        {entry.description}
-                                                    </p>
-                                                    <p className="mt-1 text-[10px] text-[var(--tng-slate-400)]">
-                                                        {entry.user} · {new Date(entry.timestamp).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-[var(--tng-slate-400)]">No tracking history yet.</p>
-                                    )
+                                    <div className="pt-2 pb-8">
+                                        <AuditTrailTimeline entries={trail} className="border-none shadow-none p-0" />
+                                    </div>
                                 ) : (
                                     <div className="flex flex-col h-full">
                                         <div className="flex-1 space-y-4 mb-4">
-                                            <div className="flex gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)]">HR</div>
-                                                <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-sm text-[var(--tng-slate-800)]">
-                                                    <p className="font-semibold text-xs text-[var(--tng-slate-500)] mb-1">Human Resources · 2h ago</p>
-                                                    Please ensure the supplementary files are attached before the Mayor signs.
+                                            {comments.length > 0 ? comments.map((comment: any) => (
+                                                <div key={comment.id} className="flex gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)] shrink-0">
+                                                        {comment.user_name.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-sm text-[var(--tng-slate-800)]">
+                                                        <p className="font-semibold text-xs text-[var(--tng-slate-500)] mb-1">
+                                                            {comment.user_name} ({comment.user_role}) · {new Date(comment.created_at).toLocaleString()}
+                                                        </p>
+                                                        {comment.is_anchored && comment.quoted_text && (
+                                                            <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
+                                                                "{comment.quoted_text}"
+                                                            </div>
+                                                        )}
+                                                        {comment.comment}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex gap-3 flex-row-reverse">
-                                                <div className="h-8 w-8 rounded-full bg-[var(--tng-blue-600)] flex items-center justify-center text-xs font-bold text-white">RC</div>
-                                                <div className="flex-1 rounded-lg bg-[var(--tng-blue-50)] border border-[var(--tng-blue-100)] p-3 text-sm text-[var(--tng-blue-900)]">
-                                                    <p className="font-semibold text-xs text-[var(--tng-blue-500)] mb-1">Receiving Clerk · 1h ago</p>
-                                                    Yes, they have been uploaded as a linked document.
-                                                </div>
-                                            </div>
+                                            )) : (
+                                                <p className="text-sm text-[var(--tng-slate-400)] text-center mt-4">No discussion yet. Be the first to comment!</p>
+                                            )}
                                         </div>
-                                        <div className="mt-auto relative">
-                                            <input type="text" placeholder="Type a message..." className="w-full rounded-lg border border-[var(--tng-slate-200)] pr-10 pl-3 py-2 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" />
-                                            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--tng-blue-600)]"><MessageSquare className="h-4 w-4" /></button>
-                                        </div>
+                                        <form onSubmit={(e) => handleAddComment(e, false)} className="mt-auto relative">
+                                            <input 
+                                                type="text" 
+                                                value={normalCommentText}
+                                                onChange={e => setNormalCommentText(e.target.value)}
+                                                placeholder="Type a message..." 
+                                                className="w-full rounded-lg border border-[var(--tng-slate-200)] pr-10 pl-3 py-2 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
+                                            />
+                                            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-700)]">
+                                                <Send className="h-4 w-4" />
+                                            </button>
+                                        </form>
                                     </div>
                                 )}
                             </div>
@@ -376,7 +482,9 @@ export default function ReceivingDocumentShow() {
             <ForwardModal
                 open={forwardModalOpen}
                 onClose={() => setForwardModalOpen(false)}
-                onConfirm={(dest, rem) => { showToast('Document endorsed successfully'); setForwardModalOpen(false); }}
+                departments={departments}
+                users={users}
+                onConfirm={(destType, destId, rem) => handleEndorse(destType, destId, rem)}
             />
 
             {/* Modals for new features */}
@@ -477,6 +585,35 @@ export default function ReceivingDocumentShow() {
                             </label>
                         </div>
                         <button onClick={() => { showToast('Privacy settings updated'); setPrivacyModalOpen(false); }} className="mt-6 w-full rounded-lg bg-[var(--tng-slate-900)] px-4 py-2 text-sm font-medium text-white">Save Changes</button>
+                    </div>
+                </div>
+            )}
+
+            {anchorModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAnchorModalOpen(false)} />
+                    <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Add Anchored Comment</h3>
+                        <p className="text-sm text-[var(--tng-slate-500)] mb-4">Attach your feedback to the specific selected text.</p>
+                        
+                        <div className="mb-4 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-3 text-sm text-[var(--tng-slate-700)] italic rounded-r-lg max-h-32 overflow-y-auto">
+                            "{selectedOcrText}"
+                        </div>
+                        
+                        <form onSubmit={(e) => handleAddComment(e, true)}>
+                            <textarea 
+                                value={anchorCommentText}
+                                onChange={(e) => setAnchorCommentText(e.target.value)}
+                                rows={3} 
+                                placeholder="Type your comment here..." 
+                                className="w-full rounded-lg border border-[var(--tng-slate-200)] p-3 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
+                                autoFocus
+                            />
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button type="button" onClick={() => setAnchorModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]">Cancel</button>
+                                <button type="submit" className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)]">Save Comment</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

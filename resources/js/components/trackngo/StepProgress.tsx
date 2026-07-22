@@ -6,9 +6,10 @@ type StepProgressProps = {
     currentStep: number; // 1-indexed
     totalSteps?: number;
     className?: string;
+    currentHolderName?: string;
 };
 
-export function StepProgress({ currentStep, totalSteps = 5, className }: StepProgressProps) {
+export function StepProgress({ currentStep, totalSteps = 5, className, currentHolderName }: StepProgressProps) {
     const steps = WORKFLOW_STEPS.slice(0, totalSteps);
 
     return (
@@ -22,7 +23,7 @@ export function StepProgress({ currentStep, totalSteps = 5, className }: StepPro
                 return (
                     <div key={step.key} className="flex flex-1 items-center">
                         {/* Step Circle + Label */}
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center relative">
                             <div
                                 className={cn(
                                     'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300',
@@ -43,6 +44,11 @@ export function StepProgress({ currentStep, totalSteps = 5, className }: StepPro
                             >
                                 {step.label}
                             </span>
+                            {isCurrent && currentHolderName && (
+                                <span className="absolute top-[48px] text-[10px] font-medium text-[var(--tng-slate-500)] whitespace-nowrap bg-white px-1.5 py-0.5 rounded-full border border-[var(--tng-slate-200)] shadow-sm">
+                                    Held by: {currentHolderName}
+                                </span>
+                            )}
                         </div>
 
                         {/* Connector Line */}

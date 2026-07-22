@@ -9,15 +9,15 @@ import { mockDocuments } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import type { Document } from '@/types/trackngo';
 
-export default function ReceivingDocumentsIndex() {
-    const documents = mockDocuments;
+export default function ReceivingDocumentsIndex({ dbDocuments }: any) {
+    const documents = dbDocuments || [];
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     
-    const filteredDocs = documents.filter((doc) =>
-        doc.reference_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.submitted_by.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredDocs = documents.filter((doc: any) =>
+        (doc.reference_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doc.submitter?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const toggleSelect = (id: number) => {
@@ -146,52 +146,53 @@ export default function ReceivingDocumentsIndex() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredDocs.map((doc, idx) => (
+                                {filteredDocs.map((doc: any, idx: number) => (
                                     <tr
-                                        key={doc.id}
+                                        key={doc.document_id}
                                         className="group transition-colors hover:bg-[var(--tng-blue-50)]/50"
                                         style={{ animationDelay: `${idx * 40}ms` }}
                                     >
                                         <td className="px-4 py-3">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedIds.includes(doc.id)}
-                                                onChange={() => toggleSelect(doc.id)}
+                                                checked={selectedIds.includes(doc.document_id)}
+                                                onChange={() => toggleSelect(doc.document_id)}
                                                 className="h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
                                             />
                                         </td>
                                         <td className="px-4 py-3">
                                             <Link
-                                                href={`/receiving/documents/${doc.id}`}
+                                                href={`/receiving/documents/${doc.document_id}`}
                                                 className="text-sm font-semibold text-[var(--tng-blue-600)] hover:underline"
                                             >
                                                 {doc.reference_number}
                                             </Link>
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-700)]">
-                                            {doc.document_type.name}
+                                            {doc.type?.type_name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-700)]">
-                                            {doc.submitted_by}
+                                            {doc.submitter?.name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
-                                            {doc.department.name}
+                                            {doc.department?.department_name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
-                                            {new Date(doc.submitted_at).toLocaleDateString('en-US', {
+                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <StepDots current={doc.step_progress} total={doc.total_steps} />
+                                            <StepDots current={doc.current_step_index} total={doc.total_steps || 5} />
                                         </td>
                                         <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />
                                         </td>
                                         <td className="px-4 py-3">
-                                            <ArtaBadge daysLeft={doc.arta_days_left} threshold={doc.arta_threshold} />
+                                            {/* We mock arta_days_left if none exists on model to avoid crash */}
+                                            <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <button className="rounded-md p-1.5 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-blue-600)]">
@@ -200,7 +201,7 @@ export default function ReceivingDocumentsIndex() {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <Link
-                                                href={`/receiving/documents/${doc.id}`}
+                                                href={`/receiving/documents/${doc.document_id}`}
                                                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
                                             >
                                                 <Eye className="h-3.5 w-3.5" />

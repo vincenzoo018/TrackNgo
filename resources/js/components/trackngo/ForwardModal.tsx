@@ -5,25 +5,34 @@ import { useState } from 'react';
 type ForwardModalProps = {
     open: boolean;
     onClose: () => void;
-    onConfirm: (destinationId: string, remarks: string) => void;
+    onConfirm: (destinationType: string, destinationId: string, remarks: string) => void;
+    departments: any[];
+    users: any[];
 };
 
-// Mock data for departments and users
-const destinations = [
-    { id: 'dept-1', type: 'department', name: 'Office of the Mayor', description: 'Final Approvals' },
-    { id: 'dept-2', type: 'department', name: 'City Engineering Office', description: 'Infrastructure & Planning' },
-    { id: 'dept-3', type: 'department', name: 'City Budget Office', description: 'Financial Clearances' },
-    { id: 'user-1', type: 'user', name: 'Juan Dela Cruz', description: 'Technical Reviewer (Engineering)' },
-    { id: 'user-2', type: 'user', name: 'Maria Santos', description: 'Admin Assistant (Mayor)' },
-];
-
-export function ForwardModal({ open, onClose, onConfirm }: ForwardModalProps) {
+export function ForwardModal({ open, onClose, onConfirm, departments, users }: ForwardModalProps) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'all' | 'department' | 'user'>('all');
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [selectedType, setSelectedType] = useState<string | null>(null);
     const [remarks, setRemarks] = useState('');
 
     if (!open) return null;
+
+    const destinations = [
+        ...departments.map(d => ({
+            id: d.department_id,
+            type: 'department',
+            name: d.department_name,
+            description: d.description || 'Department'
+        })),
+        ...users.map(u => ({
+            id: u.id,
+            type: 'user',
+            name: u.name,
+            description: `${u.role_name || 'Staff'} (${u.department_name || 'No Dept'})`
+        }))
+    ];
 
     const filteredDestinations = destinations.filter(dest => {
         const matchesSearch = dest.name.toLowerCase().includes(search.toLowerCase()) || dest.description.toLowerCase().includes(search.toLowerCase());
@@ -102,20 +111,20 @@ export function ForwardModal({ open, onClose, onConfirm }: ForwardModalProps) {
                         ) : (
                             filteredDestinations.map((dest) => (
                                 <label
-                                    key={dest.id}
+                                    key={`${dest.type}-${dest.id}`}
                                     className={cn(
                                         "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
                                         selectedId === dest.id
                                             ? "border-[var(--tng-blue-500)] bg-[var(--tng-blue-50)]"
                                             : "border-transparent bg-white hover:border-[var(--tng-slate-200)] hover:bg-[var(--tng-slate-100)]"
                                     )}
-                                    onClick={() => setSelectedId(dest.id)}
+                                    onClick={() => { setSelectedId(dest.id); setSelectedType(dest.type); }}
                                 >
                                     <input
                                         type="radio"
                                         name="destination"
                                         checked={selectedId === dest.id}
-                                        onChange={() => setSelectedId(dest.id)}
+                                        onChange={() => { setSelectedId(dest.id); setSelectedType(dest.type); }}
                                         className="mt-1 h-4 w-4 border-gray-300 text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
                                     />
                                     <div className="flex-1">
@@ -154,7 +163,7 @@ export function ForwardModal({ open, onClose, onConfirm }: ForwardModalProps) {
                         Cancel
                     </button>
                     <button
-                        onClick={() => selectedId && onConfirm(selectedId, remarks)}
+                        onClick={() => selectedId && selectedType && onConfirm(selectedType, selectedId, remarks)}
                         disabled={!selectedId}
                         className={cn(
                             "flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium text-white transition-all",

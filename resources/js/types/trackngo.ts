@@ -1,5 +1,5 @@
 // ── User Roles ──────────────────────────────────────────────────────
-export type UserRole = 'admin' | 'mayor' | 'department_head' | 'receiving' | 'cart' | 'client';
+export type UserRole = 'admin' | 'mayor' | 'department_head' | 'receiving' | 'cart' | 'hr' | 'client';
 
 export const ROLE_LABELS: Record<UserRole, string> = {
     admin: 'System Administrator',
@@ -7,6 +7,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
     department_head: 'Department Head',
     receiving: 'Receiving Office',
     cart: 'CART Personnel',
+    hr: 'Human Resources',
     client: 'Client',
 };
 
