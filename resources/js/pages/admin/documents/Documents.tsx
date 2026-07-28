@@ -1,24 +1,53 @@
-import { Head, Link } from '@inertiajs/react';
-import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { StepDots } from '@/components/trackngo/StepProgress';
-import { mockDocuments } from '@/lib/mock-data';
-import { cn } from '@/lib/utils';
-import type { Document } from '@/types/trackngo';
 
 export default function AdminDocumentsIndex() {
-    const documents = mockDocuments;
+    const { props } = usePage();
+    const documents = (props.dbDocuments || []) as any[];
+    const departments = (props.dbDepartments || []) as any[];
+    const documentTypes = (props.dbDocumentTypes || []) as any[];
+
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    
-    const filteredDocs = documents.filter((doc) =>
-        doc.reference_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.submitted_by.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const [filterType, setFilterType] = useState('');
+    const [filterDept, setFilterDept] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+    const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed'];
+
+    const filteredDocs = useMemo(() => {
+        let result = documents.filter((doc: any) => {
+            const q = searchQuery.toLowerCase();
+            const matchesSearch = !q ||
+                (doc.reference_number || '').toLowerCase().includes(q) ||
+                (doc.tracking_number || '').toLowerCase().includes(q) ||
+                (doc.title || '').toLowerCase().includes(q) ||
+                (doc.department?.department_name || '').toLowerCase().includes(q) ||
+                (doc.status || '').toLowerCase().includes(q);
+
+            const matchesType = !filterType || String(doc.type_id) === filterType;
+            const matchesDept = !filterDept || String(doc.department_id) === filterDept;
+            const matchesStatus = !filterStatus || doc.status === filterStatus;
+
+            return matchesSearch && matchesType && matchesDept && matchesStatus;
+        });
+
+        result.sort((a: any, b: any) => {
+            const refA = a.reference_number || '';
+            const refB = b.reference_number || '';
+            return sortDir === 'asc' ? refA.localeCompare(refB) : refB.localeCompare(refA);
+        });
+
+        return result;
+    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir]);
+
+    const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
 
     const toggleSelect = (id: number) => {
         setSelectedIds((prev) =>
@@ -30,8 +59,15 @@ export default function AdminDocumentsIndex() {
         if (selectedIds.length === filteredDocs.length) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(filteredDocs.map((d) => d.id));
+            setSelectedIds(filteredDocs.map((d: any) => d.document_id));
         }
+    };
+
+    const clearFilters = () => {
+        setFilterType('');
+        setFilterDept('');
+        setFilterStatus('');
+        setSearchQuery('');
     };
 
     return (
@@ -46,7 +82,8 @@ export default function AdminDocumentsIndex() {
                             All Documents
                         </h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
-                            {documents.length} total records across 52 departments
+                            {filteredDocs.length} of {documents.length} records
+                            {activeFilterCount > 0 && <span className="ml-1 text-[var(--tng-blue-600)]">({activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active)</span>}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -69,7 +106,7 @@ export default function AdminDocumentsIndex() {
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
                     <input
                         type="text"
-                        placeholder="Search by reference number, type, or name..."
+                        placeholder="Search by reference number, tracking number, title, department, or status..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="h-12 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-12 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
@@ -78,19 +115,48 @@ export default function AdminDocumentsIndex() {
 
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-3">
-                    {['Document Type', 'Department', 'Status'].map((filter) => (
-                        <div
-                            key={filter}
-                            className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] cursor-pointer hover:border-[var(--tng-blue-300)] transition-colors"
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Document Types</option>
+                        {documentTypes.map((t: any) => (
+                            <option key={t.type_id} value={t.type_id}>{t.type_name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterDept}
+                        onChange={(e) => setFilterDept(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Departments</option>
+                        {departments.map((d: any) => (
+                            <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Statuses</option>
+                        {statusOptions.map((s) => (
+                            <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                        ))}
+                    </select>
+
+                    {activeFilterCount > 0 && (
+                        <button
+                            onClick={clearFilters}
+                            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
                         >
-                            <span>{filter}</span>
-                            <span className="text-[var(--tng-slate-400)]">▾</span>
-                        </div>
-                    ))}
-                    <div className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)]">
-                        <span>May 1, 2026 — May 29, 2026</span>
-                        <span className="text-[var(--tng-slate-400)]">▾</span>
-                    </div>
+                            <X className="h-3.5 w-3.5" />
+                            Clear Filters
+                        </button>
+                    )}
 
                     <button className="ml-auto flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]">
                         <Download className="h-4 w-4" />
@@ -113,14 +179,17 @@ export default function AdminDocumentsIndex() {
                                             className="h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
                                         />
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
-                                        Ref No.
+                                    <th
+                                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                                    >
+                                        <span className="flex items-center gap-1">
+                                            Ref No.
+                                            {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                                        </span>
                                     </th>
                                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
                                         Document Type
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
-                                        Submitted By
                                     </th>
                                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
                                         Department
@@ -146,52 +215,50 @@ export default function AdminDocumentsIndex() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredDocs.map((doc, idx) => (
+                                {filteredDocs.map((doc: any, idx: number) => (
                                     <tr
-                                        key={doc.id}
+                                        key={doc.document_id}
                                         className="group transition-colors hover:bg-[var(--tng-blue-50)]/50"
                                         style={{ animationDelay: `${idx * 40}ms` }}
                                     >
                                         <td className="px-4 py-3">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedIds.includes(doc.id)}
-                                                onChange={() => toggleSelect(doc.id)}
+                                                checked={selectedIds.includes(doc.document_id)}
+                                                onChange={() => toggleSelect(doc.document_id)}
                                                 className="h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
                                             />
                                         </td>
                                         <td className="px-4 py-3">
                                             <Link
-                                                href={`/admin/documents/${doc.id}`}
+                                                href={`/admin/documents/${doc.document_id}`}
                                                 className="text-sm font-semibold text-[var(--tng-blue-600)] hover:underline"
                                             >
                                                 {doc.reference_number}
                                             </Link>
+                                            <p className="text-[10px] text-[var(--tng-slate-400)] mt-0.5">{doc.tracking_number}</p>
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-700)]">
-                                            {doc.document_type.name}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-700)]">
-                                            {doc.submitted_by}
+                                            {doc.type?.type_name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
-                                            {doc.department.name}
+                                            {doc.department?.department_name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
-                                            {new Date(doc.submitted_at).toLocaleDateString('en-US', {
+                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <StepDots current={doc.step_progress} total={doc.total_steps} />
+                                            <StepDots current={doc.current_step_index} total={doc.total_steps || 5} />
                                         </td>
                                         <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />
                                         </td>
                                         <td className="px-4 py-3">
-                                            <ArtaBadge daysLeft={doc.arta_days_left} threshold={doc.arta_threshold} />
+                                            <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <button className="rounded-md p-1.5 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-blue-600)]">
@@ -200,7 +267,7 @@ export default function AdminDocumentsIndex() {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <Link
-                                                href={`/admin/documents/${doc.id}`}
+                                                href={`/admin/documents/${doc.document_id}`}
                                                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
                                             >
                                                 <Eye className="h-3.5 w-3.5" />
@@ -219,18 +286,15 @@ export default function AdminDocumentsIndex() {
                             <p className="mt-3 text-sm text-[var(--tng-slate-500)]">
                                 No documents found matching your search.
                             </p>
+                            {activeFilterCount > 0 && (
+                                <button onClick={clearFilters} className="mt-2 text-sm text-[var(--tng-blue-600)] hover:underline">
+                                    Clear all filters
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
             </div>
-
-             />
-            )}
         </TrackngoLayout>
     );
 }
-
-// Dummy import to prevent unused reference
-import { FileText } from 'lucide-react';
-
-

@@ -18,8 +18,16 @@ Route::middleware(['auth'])->group(function () {
     // Admin Routes
     Route::prefix('admin')->middleware('role:Admin')->group(function () {
         Route::get('/', fn() => Inertia::render('admin/Dashboard'));
-        Route::get('/documents', fn() => Inertia::render('admin/documents/Documents'));
-        Route::get('/documents/create', fn() => Inertia::render('admin/documents/Create'));
+        Route::get('/documents', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->orderBy('reference_number', 'asc')
+                ->get();
+            return Inertia::render('admin/documents/Documents', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
         Route::get('/users/create', fn() => Inertia::render('admin/users/Create'));
         Route::get('/users', fn() => Inertia::render('admin/users/Index'));
         Route::get('/system', fn() => Inertia::render('admin/system/SystemConfiguration'));
@@ -32,11 +40,22 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('receiving')->middleware('role:Receiving Clerk')->group(function () {
         Route::get('/', fn() => Inertia::render('receiving/Dashboard'));
         Route::get('/documents', function () {
+            $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->orderBy('created_at', 'desc')
+                ->where(function ($query) use ($user) {
+                    if ($user->department_id) {
+                        $query->where('current_holder_department_id', $user->department_id);
+                    }
+                    $query->orWhere('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id)
+                          ->orWhere('status', 'pending_registration');
+                })
+                ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('receiving/documents/Documents', [
-                'dbDocuments' => $documents
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
             ]);
         });
         Route::get('/documents/create', function () {
@@ -48,6 +67,16 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            
+            // Hide contents if confidential
+            if (strtolower($document->classification) === 'confidential') {
+                $document->is_confidential_hidden = true;
+                $document->ocr_text = null;
+                $document->attachment_path = null;
+            } else {
+                $document->is_confidential_hidden = false;
+            }
+
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
                 'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
@@ -68,6 +97,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents/{id}/location-map', fn() => Inertia::render('receiving/documents/LocationMap'));
         
         // Document Actions
+        Route::post('/documents/{id}/register', [\App\Http\Controllers\DocumentController::class, 'register']);
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
         Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate']);
         Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link']);
@@ -82,25 +112,29 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('department-head')->middleware('role:Department Head')->group(function () {
         Route::get('/', fn() => Inertia::render('department-head/Dashboard'));
         Route::get('/documents', function () {
-            // Find the department headed by the current user
             $user = auth()->user();
-            $department = \App\Models\Department::where('head_id', $user->id)->first();
-            $departmentId = $department ? $department->department_id : null;
             
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->where(function ($query) use ($departmentId, $user) {
-                    if ($departmentId) {
-                        $query->where('current_holder_department_id', $departmentId);
+                ->where(function ($query) use ($user) {
+                    if ($user->department_id) {
+                        $query->where('current_holder_department_id', $user->department_id);
                     }
-                    $query->orWhere('current_holder_id', $user->id);
+                    $query->orWhere('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id);
                 })
-                ->orderBy('created_at', 'desc')
+                ->orderBy('reference_number', 'asc')
                 ->get();
                 
             return Inertia::render('department-head/documents/Endorsements', [
-                'dbDocuments' => $documents,
-                'departments' => \App\Models\Department::all(),
-                'document_types' => \App\Models\DocumentType::all(),
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::get('/documents/create', function () {
+            return Inertia::render('department-head/documents/Create', [
+                'departments' => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'document_types' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
             ]);
         });
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
@@ -120,7 +154,9 @@ Route::middleware(['auth'])->group(function () {
                     ->get()
             ]);
         });
+        // Document Actions
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
+        Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/workflow', fn() => Inertia::render('department-head/workflow/Index'));
@@ -132,17 +168,41 @@ Route::middleware(['auth'])->group(function () {
     // Mayor Routes
     Route::prefix('mayor')->middleware('role:Mayor')->group(function () {
         Route::get('/', fn() => Inertia::render('mayor/Dashboard'));
-        Route::get('/documents', fn() => Inertia::render('mayor/documents/FinalApproval'));
+        Route::get('/documents', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->orderBy('reference_number', 'asc')
+                ->get();
+            return Inertia::render('mayor/documents/FinalApproval', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
         Route::get('/documents/{id}', fn() => Inertia::render('mayor/documents/Show'));
         Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('mayor/routing-slips/RoutingSlips'));
         Route::get('/reports', fn() => Inertia::render('mayor/reports/Index'));
+        
+        // Document Actions
+        Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
+        Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
+        Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
+        Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
     });
 
     // CART Routes
     Route::prefix('cart')->middleware('role:CART')->group(function () {
         Route::get('/', fn() => Inertia::render('cart/Dashboard'));
-        Route::get('/documents', fn() => Inertia::render('cart/documents/Documents'));
+        Route::get('/documents', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->orderBy('reference_number', 'asc')
+                ->get();
+            return Inertia::render('cart/documents/Documents', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
         Route::get('/documents/create', fn() => Inertia::render('cart/documents/Create'));
         Route::get('/escalations', fn() => Inertia::render('cart/escalations/ArtaEscalations'));
         Route::get('/escalations/documents', fn() => Inertia::render('cart/escalations/Documents'));
@@ -151,15 +211,48 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit-trail', fn() => Inertia::render('cart/audit-trail/AuditTrail'));
         Route::get('/reports', fn() => Inertia::render('cart/reports/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('cart/routing-slips/RoutingSlips'));
+        
+        // Document Actions
+        Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
+        Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
+        Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
+        Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
     });
 
     // HR Routes
     Route::prefix('hr')->middleware('role:HR')->group(function () {
         Route::get('/', fn() => Inertia::render('hr/Dashboard'));
-        Route::get('/documents', fn() => Inertia::render('hr/documents/Documents'));
-        Route::get('/employees', fn() => Inertia::render('hr/employees/Index'));
+        Route::get('/documents', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->orderBy('reference_number', 'asc')
+                ->get();
+            return Inertia::render('hr/documents/Documents', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        
+        Route::get('/employees', [\App\Http\Controllers\HR\EmployeeController::class, 'index'])->name('hr.employees.index');
+        Route::get('/employees/create', [\App\Http\Controllers\HR\EmployeeController::class, 'create'])->name('hr.employees.create');
+        Route::post('/employees', [\App\Http\Controllers\HR\EmployeeController::class, 'store'])->name('hr.employees.store');
+        Route::get('/employees/{employee}/edit', [\App\Http\Controllers\HR\EmployeeController::class, 'edit'])->name('hr.employees.edit');
+        Route::put('/employees/{employee}', [\App\Http\Controllers\HR\EmployeeController::class, 'update'])->name('hr.employees.update');
+        Route::delete('/employees/{employee}', [\App\Http\Controllers\HR\EmployeeController::class, 'destroy'])->name('hr.employees.destroy');
+        
+        Route::get('/departments', [\App\Http\Controllers\HR\DepartmentController::class, 'index'])->name('hr.departments.index');
+        Route::post('/departments', [\App\Http\Controllers\HR\DepartmentController::class, 'store'])->name('hr.departments.store');
+        Route::put('/departments/{department}', [\App\Http\Controllers\HR\DepartmentController::class, 'update'])->name('hr.departments.update');
+        Route::delete('/departments/{department}', [\App\Http\Controllers\HR\DepartmentController::class, 'destroy'])->name('hr.departments.destroy');
+
         Route::get('/leave', fn() => Inertia::render('hr/leave/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('hr/routing-slips/RoutingSlips'));
         Route::get('/reports', fn() => Inertia::render('hr/reports/Index'));
+        
+        // Document Actions
+        Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
+        Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
+        Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
+        Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
     });
 });

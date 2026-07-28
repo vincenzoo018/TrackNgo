@@ -116,21 +116,40 @@ export default function MayorDocumentShow() {
                         <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
                             <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">⚡ Final Actions</h2>
                             <div className="space-y-3">
-                                <button
-                                    onClick={() => setForwardModalOpen(true)}
-                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)]"
-                                >
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    Endorse Document
-                                </button>
-                                <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100">
-                                    <RotateCcw className="h-4 w-4" />
-                                    Return for Revisions
-                                </button>
-                                <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100">
-                                    <XCircle className="h-4 w-4" />
-                                    Veto / Reject
-                                </button>
+                                {doc.status === 'routed' ? (
+                                    <button 
+                                        onClick={() => {
+                                            router.post(`/mayor/documents/${doc.document_id}/receive`, {}, {
+                                                onSuccess: () => {
+                                                    setToastMessage('Document received successfully!');
+                                                    setTimeout(() => setToastMessage(null), 3000);
+                                                }
+                                            });
+                                        }}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
+                                    >
+                                        <QrCode className="h-4 w-4" />
+                                        Acknowledge Receipt
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => setForwardModalOpen(true)}
+                                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)]"
+                                        >
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            Endorse Document
+                                        </button>
+                                        <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100">
+                                            <RotateCcw className="h-4 w-4" />
+                                            Return for Revisions
+                                        </button>
+                                        <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100">
+                                            <XCircle className="h-4 w-4" />
+                                            Veto / Reject
+                                        </button>
+                                    </>
+                                )}
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] hover:bg-[var(--tng-slate-50)]">
                                         <Printer className="h-4 w-4" /> Print

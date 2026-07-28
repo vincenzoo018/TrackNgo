@@ -1,14 +1,19 @@
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export type DocumentStatus = 'submitted' | 'received' | 'in_progress' | 'escalated' | 'approved' | 'rejected' | 'archived';
+export type DocumentStatus = 'pending_registration' | 'submitted' | 'received' | 'in_progress' | 'in_review' | 'endorsed' | 'escalated' | 'approved' | 'completed' | 'rejected' | 'archived' | 'routed';
 
 const STATUS_CONFIG: Record<DocumentStatus, { label: string; bg: string; text: string; dot: string }> = {
+    pending_registration: { label: 'PENDING REG.', bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500 animate-pulse' },
     submitted: { label: 'SUBMITTED', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
     received: { label: 'RECEIVED', bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },
     in_progress: { label: 'IN PROGRESS', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+    in_review: { label: 'IN REVIEW', bg: 'bg-indigo-100', text: 'text-indigo-700', dot: 'bg-indigo-500' },
+    endorsed: { label: 'ENDORSED', bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500' },
+    routed: { label: 'ROUTED', bg: 'bg-cyan-100', text: 'text-cyan-700', dot: 'bg-cyan-500' },
     escalated: { label: 'ESCALATED', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500 animate-pulse' },
     approved: { label: 'APPROVED', bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+    completed: { label: 'COMPLETED', bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
     rejected: { label: 'REJECTED', bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500' },
     archived: { label: 'ARCHIVED', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
 };

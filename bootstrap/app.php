@@ -13,11 +13,28 @@ use Illuminate\Http\Request;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        $middleware->redirectUsersTo(function (Request $request) {
+            $user = $request->user();
+            if (!$user) return '/login';
+            
+            $roleName = strtolower($user->role->role_name ?? '');
+            return match ($roleName) {
+                'admin'           => '/admin',
+                'mayor'           => '/mayor',
+                'department head' => '/department-head',
+                'cart'            => '/cart',
+                'receiving clerk' => '/receiving',
+                'hr'              => '/hr',
+                default           => '/login',
+            };
+        });
 
         $middleware->alias([
             'role' => CheckRole::class,

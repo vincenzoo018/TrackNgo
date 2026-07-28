@@ -1,33 +1,68 @@
-import { Head, Link } from '@inertiajs/react';
-import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { StepDots } from '@/components/trackngo/StepProgress';
-import { mockDocuments } from '@/lib/mock-data';
-import { cn } from '@/lib/utils';
-import type { Document } from '@/types/trackngo';
 
 export default function MayorFinalApproval() {
-    const documents = mockDocuments;
+    const { props } = usePage();
+    const documents = (props.dbDocuments || []) as any[];
+    const departments = (props.dbDepartments || []) as any[];
+    const documentTypes = (props.dbDocumentTypes || []) as any[];
+
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+    const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
 
-    const pendingApprovals = mockDocuments.filter(doc => doc.status === 'pending');
+    const [filterType, setFilterType] = useState('');
+    const [filterDept, setFilterDept] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+    const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed'];
+
+    const filteredDocs = useMemo(() => {
+        let result = documents.filter((doc: any) => {
+            const q = searchQuery.toLowerCase();
+            const matchesSearch = !q ||
+                (doc.reference_number || '').toLowerCase().includes(q) ||
+                (doc.tracking_number || '').toLowerCase().includes(q) ||
+                (doc.title || '').toLowerCase().includes(q) ||
+                (doc.department?.department_name || '').toLowerCase().includes(q) ||
+                (doc.status || '').toLowerCase().includes(q);
+
+            const matchesType = !filterType || String(doc.type_id) === filterType;
+            const matchesDept = !filterDept || String(doc.department_id) === filterDept;
+            const matchesStatus = !filterStatus || doc.status === filterStatus;
+
+            return matchesSearch && matchesType && matchesDept && matchesStatus;
+        });
+
+        result.sort((a: any, b: any) => {
+            const refA = a.reference_number || '';
+            const refB = b.reference_number || '';
+            return sortDir === 'asc' ? refA.localeCompare(refB) : refB.localeCompare(refA);
+        });
+
+        return result;
+    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir]);
+
+    const pendingApprovals = filteredDocs.filter((doc: any) => doc.status === 'endorsed' || doc.status === 'in_review');
+    const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedDocs(pendingApprovals.map(d => d.id as unknown as string));
+            setSelectedDocs(pendingApprovals.map((d: any) => d.document_id));
         } else {
             setSelectedDocs([]);
         }
     };
 
-    const toggleDocSelection = (id: string) => {
+    const toggleDocSelection = (id: number) => {
         setSelectedDocs(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
     };
 
@@ -38,11 +73,12 @@ export default function MayorFinalApproval() {
         setTimeout(() => setToastMessage(null), 3000);
     };
 
-    const filteredDocs = documents.filter((doc) =>
-        doc.reference_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.submitted_by.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const clearFilters = () => {
+        setFilterType('');
+        setFilterDept('');
+        setFilterStatus('');
+        setSearchQuery('');
+    };
 
     return (
         <TrackngoLayout role="mayor">
@@ -87,11 +123,57 @@ export default function MayorFinalApproval() {
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
                     <input
                         type="text"
-                        placeholder="Search by reference number, type, or name..."
+                        placeholder="Search by reference number, tracking number, type, or name..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="h-12 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-12 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     />
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap items-center gap-3">
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Document Types</option>
+                        {documentTypes.map((t: any) => (
+                            <option key={t.type_id} value={t.type_id}>{t.type_name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterDept}
+                        onChange={(e) => setFilterDept(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Departments</option>
+                        {departments.map((d: any) => (
+                            <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Statuses</option>
+                        {statusOptions.map((s) => (
+                            <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                        ))}
+                    </select>
+
+                    {activeFilterCount > 0 && (
+                        <button
+                            onClick={clearFilters}
+                            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            Clear Filters
+                        </button>
+                    )}
                 </div>
 
                 {/* Table */}
@@ -101,11 +183,18 @@ export default function MayorFinalApproval() {
                             <thead className="bg-[var(--tng-slate-50)] text-xs uppercase text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
                                     <th className="px-6 py-4 font-semibold">
-                                        <input type="checkbox" onChange={handleSelectAll} checked={selectedDocs.length === pendingApprovals.length && pendingApprovals.length > 0} className="rounded border-[var(--tng-slate-300)]" />
+                                        <input type="checkbox" onChange={handleSelectAll} checked={selectedDocs.length === pendingApprovals.length && pendingApprovals.length > 0} className="rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]" />
                                     </th>
-                                    <th className="px-6 py-4 font-semibold">Ref No.</th>
+                                    <th
+                                        className="px-6 py-4 font-semibold cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                                    >
+                                        <span className="flex items-center gap-1">
+                                            Ref No.
+                                            {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                                        </span>
+                                    </th>
                                     <th className="px-6 py-4 font-semibold">Document Type</th>
-                                    <th className="px-6 py-4 font-semibold">Submitted By</th>
                                     <th className="px-6 py-4 font-semibold">Department</th>
                                     <th className="px-6 py-4 font-semibold">Date Filed</th>
                                     <th className="px-6 py-4 font-semibold">Progress</th>
@@ -114,45 +203,55 @@ export default function MayorFinalApproval() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredDocs.map((doc, idx) => (
+                                {filteredDocs.map((doc: any, idx: number) => (
                                     <tr
-                                        key={doc.id}
+                                        key={doc.document_id}
                                         className="group transition-colors hover:bg-[var(--tng-blue-50)]/50"
+                                        style={{ animationDelay: `${idx * 40}ms` }}
                                     >
                                         <td className="px-6 py-4">
-                                            <input type="checkbox" checked={selectedDocs.includes(doc.id.toString())} onChange={() => toggleDocSelection(doc.id.toString())} className="rounded border-[var(--tng-slate-300)]" />
+                                            <input type="checkbox" checked={selectedDocs.includes(doc.document_id)} onChange={() => toggleDocSelection(doc.document_id)} className="rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]" />
                                         </td>
                                         <td className="px-6 py-4 font-semibold text-[var(--tng-blue-600)]">
-                                            <Link href={`/mayor/documents/${doc.id}`} className="hover:underline">{doc.reference_number}</Link>
+                                            <Link href={`/mayor/documents/${doc.document_id}`} className="hover:underline">{doc.reference_number}</Link>
+                                            <p className="text-[10px] text-[var(--tng-slate-400)] mt-0.5 font-normal">{doc.tracking_number}</p>
                                         </td>
-                                        <td className="px-6 py-4">{doc.document_type.name}</td>
-                                        <td className="px-6 py-4">{doc.submitted_by}</td>
-                                        <td className="px-6 py-4">{doc.department.name}</td>
+                                        <td className="px-6 py-4">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-6 py-4">{doc.department?.department_name || 'N/A'}</td>
                                         <td className="px-6 py-4">
-                                            {new Date(doc.submitted_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
+                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <StepDots current={doc.step_progress} total={doc.total_steps} />
+                                            <StepDots current={doc.current_step_index} total={doc.total_steps || 5} />
                                         </td>
                                         <td className="px-6 py-4">
                                             <SeverityPill status={doc.status} />
                                         </td>
                                         <td className="px-6 py-4">
-                                            <Link href={`/mayor/documents/${doc.id}`} className="text-[var(--tng-blue-600)] font-medium hover:underline text-xs">Review</Link>
+                                            <Link href={`/mayor/documents/${doc.document_id}`} className="text-[var(--tng-blue-600)] font-medium hover:underline text-xs">Review</Link>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
+
+                    {filteredDocs.length === 0 && (
+                        <div className="py-12 text-center">
+                            <FileText className="mx-auto h-12 w-12 text-[var(--tng-slate-300)]" />
+                            <p className="mt-3 text-sm text-[var(--tng-slate-500)]">
+                                No documents found matching your search.
+                            </p>
+                            {activeFilterCount > 0 && (
+                                <button onClick={clearFilters} className="mt-2 text-sm text-[var(--tng-blue-600)] hover:underline">
+                                    Clear all filters
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Create Document Modal */}
-            {showCreateModal && (
-                <CreateDocumentModal onClose={() => setShowCreateModal(false)} />
-            )}
-            
             {/* Forward Modal for Batch Action */}
             <ForwardModal
                 open={forwardModalOpen}
@@ -160,176 +259,5 @@ export default function MayorFinalApproval() {
                 onConfirm={handleBulkEndorse}
             />
         </TrackngoLayout>
-    );
-}
-
-function CreateDocumentModal({ onClose }: { onClose: () => void }) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between border-b border-[var(--tng-slate-100)] px-6 py-5 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--tng-blue-50)] text-[var(--tng-blue-600)]">
-                            <Plus className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-[var(--tng-slate-900)]">
-                                Approve Document
-                            </h2>
-                            <p className="text-xs text-[var(--tng-slate-500)]">
-                                Upload a document and create its initial routing slip
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="rounded-lg p-2 text-[var(--tng-slate-400)] hover:bg-[var(--tng-slate-50)] hover:text-[var(--tng-slate-600)] transition-colors"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                    <section>
-                        <h3 className="text-sm font-semibold text-[var(--tng-slate-900)] mb-4 flex items-center gap-2">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--tng-slate-100)] text-[10px] text-[var(--tng-slate-600)]">1</span>
-                            Document Details
-                        </h3>
-                        <div className="space-y-5 pl-7">
-                            <div className="group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] py-8 transition-colors hover:border-[var(--tng-blue-400)] hover:bg-[var(--tng-blue-50)]">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm group-hover:bg-[var(--tng-blue-100)] group-hover:text-[var(--tng-blue-600)] transition-colors">
-                                    <ScanLine className="h-5 w-5 text-[var(--tng-slate-400)] group-hover:text-[var(--tng-blue-600)]" />
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm font-medium text-[var(--tng-slate-700)]">Click to upload or drag and drop</p>
-                                    <p className="text-xs text-[var(--tng-slate-500)]">PDF, PNG, JPG (max. 10MB)</p>
-                                </div>
-                            </div>
-                            
-                            <div className="rounded-lg border border-[var(--tng-blue-100)] bg-[var(--tng-blue-50)] p-4">
-                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--tng-blue-600)] flex items-center gap-1.5">
-                                    ✨ Auto-filled by OCR
-                                </p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                            Title
-                                        </label>
-                                        <input
-                                            type="text"
-                                            defaultValue="Executive Order No. 12"
-                                            className="h-9 w-full rounded-md border border-[var(--tng-blue-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                            Document Category
-                                        </label>
-                                        <select className="h-9 w-full rounded-md border border-[var(--tng-blue-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]">
-                                            <option>Executive Order</option>
-                                            <option>Memorandum</option>
-                                            <option>Travel Order</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                        Originating Department
-                                    </label>
-                                    <select className="h-9 w-full rounded-md border border-[var(--tng-slate-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]">
-                                        <option>Select department...</option>
-                                        <option>Admin Office</option>
-                                        <option>HR Department</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                        Submitted By
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Name of submitter"
-                                        className="h-9 w-full rounded-md border border-[var(--tng-slate-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Urgency */}
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                                <label className="flex items-start gap-3 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="mt-1 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
-                                    />
-                                    <div>
-                                        <span className="block text-sm font-semibold text-amber-800">
-                                            Mark as Urgent / Rush
-                                        </span>
-                                        <span className="block text-xs text-amber-700/80 mt-0.5">
-                                            Halves the ARTA SLA threshold for this document type. Requires justification.
-                                        </span>
-                                    </div>
-                                </label>
-                                <div className="mt-3">
-                                    <input
-                                        type="text"
-                                        placeholder="Reason for urgency..."
-                                        className="h-9 w-full rounded-md border border-amber-200 bg-white px-3 text-sm text-[var(--tng-slate-900)] placeholder:text-amber-400/70 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50 disabled:bg-amber-50/50"
-                                        disabled
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Section 2: Routing Slip */}
-                    <section>
-                        <h3 className="text-sm font-semibold text-[var(--tng-slate-900)] mb-4 flex items-center gap-2">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--tng-slate-100)] text-[10px] text-[var(--tng-slate-600)]">2</span>
-                            Initial Routing Slip
-                        </h3>
-                        <div className="space-y-4 pl-7">
-                            <div>
-                                <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                    Forward To (Destination)
-                                </label>
-                                <select className="h-9 w-full rounded-md border border-[var(--tng-slate-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]">
-                                    <option>Select Destination Department...</option>
-                                    <option>Office of the Mayor</option>
-                                    <option>City Engineering Office</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                    Instruction / Remarks
-                                </label>
-                                <textarea
-                                    placeholder="Enter instructions for the recipient..."
-                                    rows={3}
-                                    className="w-full rounded-md border border-[var(--tng-slate-200)] bg-white p-3 text-sm text-[var(--tng-slate-900)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]"
-                                />
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-3 border-t border-[var(--tng-slate-100)] bg-[var(--tng-slate-50)] px-6 py-4 rounded-b-2xl shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-200)]"
-                    >
-                        Cancel
-                    </button>
-                    <button className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-6 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
-                        Generate Routing Slip & Submit
-                    </button>
-                </div>
-            </div>
-        </div>
     );
 }

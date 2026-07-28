@@ -5,12 +5,14 @@ import {
     Users,
     CalendarDays,
     BarChart3,
+    Building2,
 } from 'lucide-react';
 import type { NavItem } from '@/types';
 
 export const hrNav: NavItem[] = [
     { title: 'Dashboard', href: '/hr', icon: LayoutDashboard },
     { title: 'HR Documents', href: '/hr/documents', icon: FileText },
+    { title: 'Departments', href: '/hr/departments', icon: Building2 },
     { title: 'Employee Records', href: '/hr/employees', icon: Users },
     { title: 'Leave Management', href: '/hr/leave', icon: CalendarDays },
     { title: 'Routing Slips', href: '/hr/routing-slips', icon: Route },

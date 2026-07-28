@@ -1,29 +1,63 @@
-import { Head } from '@inertiajs/react';
-import { FileText, Search, Filter, Plus } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { FileText, Search, Plus, ArrowUp, ArrowDown, X, Download, Lock } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
-
-const mockDocuments = [
-    { id: 1, ref: 'HR-DOC-2026-001', title: 'Employee Handbook v2.0', type: 'Policy', status: 'approved', date: '2026-07-15' },
-    { id: 2, ref: 'HR-DOC-2026-002', title: 'Leave Policy Amendment', type: 'Policy', status: 'submitted', date: '2026-07-18' },
-    { id: 3, ref: 'HR-DOC-2026-003', title: 'Performance Review Template', type: 'Template', status: 'endorsed', date: '2026-07-19' },
-    { id: 4, ref: 'HR-DOC-2026-004', title: 'Salary Adjustment Memo - Q3', type: 'Memo', status: 'submitted', date: '2026-07-20' },
-    { id: 5, ref: 'HR-DOC-2026-005', title: 'New Hire Orientation Checklist', type: 'Checklist', status: 'approved', date: '2026-07-21' },
-];
-
-const statusStyles: Record<string, string> = {
-    submitted: 'bg-blue-100 text-blue-700',
-    endorsed: 'bg-amber-100 text-amber-700',
-    approved: 'bg-emerald-100 text-emerald-700',
-    returned: 'bg-red-100 text-red-700',
-};
+import { SeverityPill } from '@/components/trackngo/SeverityPill';
 
 export default function HrDocuments() {
+    const { props } = usePage();
+    const documents = (props.dbDocuments || []) as any[];
+    const departments = (props.dbDepartments || []) as any[];
+    const documentTypes = (props.dbDocumentTypes || []) as any[];
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterType, setFilterType] = useState('');
+    const [filterDept, setFilterDept] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+    const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed', 'returned'];
+
+    const filteredDocs = useMemo(() => {
+        let result = documents.filter((doc: any) => {
+            const q = searchQuery.toLowerCase();
+            const matchesSearch = !q ||
+                (doc.reference_number || '').toLowerCase().includes(q) ||
+                (doc.title || '').toLowerCase().includes(q) ||
+                (doc.department?.department_name || '').toLowerCase().includes(q) ||
+                (doc.status || '').toLowerCase().includes(q);
+
+            const matchesType = !filterType || String(doc.type_id) === filterType;
+            const matchesDept = !filterDept || String(doc.department_id) === filterDept;
+            const matchesStatus = !filterStatus || doc.status === filterStatus;
+
+            return matchesSearch && matchesType && matchesDept && matchesStatus;
+        });
+
+        result.sort((a: any, b: any) => {
+            const refA = a.reference_number || '';
+            const refB = b.reference_number || '';
+            return sortDir === 'asc' ? refA.localeCompare(refB) : refB.localeCompare(refA);
+        });
+
+        return result;
+    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir]);
+
+    const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
+
+    const clearFilters = () => {
+        setFilterType('');
+        setFilterDept('');
+        setFilterStatus('');
+        setSearchQuery('');
+    };
+
     return (
         <TrackngoLayout>
             <Head title="HR Documents — TrackNGo Mati" />
 
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-[var(--tng-slate-900)]">HR Documents</h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
@@ -36,50 +70,128 @@ export default function HrDocuments() {
                     </button>
                 </div>
 
+                {/* Search */}
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
+                    <input
+                        type="text"
+                        placeholder="Search by reference number, tracking number, type, or name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-12 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-12 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    />
+                </div>
+
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative flex-1 min-w-[250px] max-w-md">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
-                        <input
-                            type="text"
-                            placeholder="Search documents..."
-                            className="h-10 w-full rounded-lg border border-[var(--tng-slate-200)] bg-white pl-9 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                        />
-                    </div>
-                    <button className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]">
-                        <Filter className="h-4 w-4" />
-                        Filters
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Document Types</option>
+                        {documentTypes.map((t: any) => (
+                            <option key={t.type_id} value={t.type_id}>{t.type_name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterDept}
+                        onChange={(e) => setFilterDept(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Departments</option>
+                        {departments.map((d: any) => (
+                            <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value="">All Statuses</option>
+                        {statusOptions.map((s) => (
+                            <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                        ))}
+                    </select>
+
+                    {activeFilterCount > 0 && (
+                        <button
+                            onClick={clearFilters}
+                            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            Clear Filters
+                        </button>
+                    )}
+
+                    <button className="ml-auto flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]">
+                        <Download className="h-4 w-4" />
+                        Export
+                        <Lock className="h-3 w-3 text-[var(--tng-amber-500)]" />
                     </button>
                 </div>
 
                 {/* Documents Table */}
                 <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-sm overflow-hidden">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Reference</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Title</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Type</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                            {mockDocuments.map((doc) => (
-                                <tr key={doc.id} className="transition-colors hover:bg-[var(--tng-slate-50)] cursor-pointer">
-                                    <td className="px-6 py-4 text-sm font-semibold text-[var(--tng-blue-600)]">{doc.ref}</td>
-                                    <td className="px-6 py-4 text-sm font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
-                                    <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">{doc.type}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${statusStyles[doc.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                                            {doc.status}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-[var(--tng-slate-50)]">
+                                <tr className="border-b border-[var(--tng-slate-200)]">
+                                    <th
+                                        className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                                    >
+                                        <span className="flex items-center gap-1">
+                                            Reference No.
+                                            {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                                         </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-[var(--tng-slate-500)]">{doc.date}</td>
+                                    </th>
+                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Title</th>
+                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Type</th>
+                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Status</th>
+                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Date</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--tng-slate-100)]">
+                                {filteredDocs.map((doc: any, idx: number) => (
+                                    <tr key={doc.document_id} className="transition-colors hover:bg-[var(--tng-slate-50)] cursor-pointer">
+                                        <td className="px-6 py-4 text-sm font-semibold text-[var(--tng-blue-600)]">
+                                            {doc.reference_number}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
+                                        <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-6 py-4">
+                                            <SeverityPill status={doc.status} />
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-[var(--tng-slate-500)]">
+                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: '2-digit',
+                                                year: 'numeric',
+                                            })}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {filteredDocs.length === 0 && (
+                        <div className="py-12 text-center">
+                            <FileText className="mx-auto h-12 w-12 text-[var(--tng-slate-300)]" />
+                            <p className="mt-3 text-sm text-[var(--tng-slate-500)]">
+                                No documents found matching your search.
+                            </p>
+                            {activeFilterCount > 0 && (
+                                <button onClick={clearFilters} className="mt-2 text-sm text-[var(--tng-blue-600)] hover:underline">
+                                    Clear all filters
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </TrackngoLayout>

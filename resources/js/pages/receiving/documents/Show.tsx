@@ -1,5 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Forward, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
@@ -10,6 +10,7 @@ import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill'
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
+    const { auth } = usePage<any>().props;
     const doc = dbDocument || mockDocuments[0];
     const trail = dbAuditTrail || mockAuditTrail.filter((a: any) => a.document_ref === doc.reference_number);
     const comments = dbComments || [];
@@ -64,6 +65,14 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             onSuccess: () => {
                 showToast('Document successfully escalated to CART!');
                 setEscalateModalOpen(false);
+            }
+        });
+    };
+
+    const handleRegister = () => {
+        router.post(`/receiving/documents/${doc.document_id}/register`, {}, {
+            onSuccess: () => {
+                showToast('Document registered and routed successfully!');
             }
         });
     };
@@ -158,7 +167,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     <StepProgress 
                         currentStep={doc.current_step_index ?? 1} 
                         totalSteps={doc.total_steps ?? 5} 
-                        currentHolderName={doc.currentHolderDepartment?.department_name ?? doc.currentHolder?.name ?? undefined} 
+                        currentHolderName={doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? undefined} 
                     />
                 </div>
 
@@ -171,7 +180,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     <span>
                         Current Holder:{' '}
                         <span className="inline-flex rounded-md border border-[var(--tng-slate-300)] bg-white px-2.5 py-1 text-xs font-semibold text-[var(--tng-slate-700)] uppercase">
-                            {doc.currentHolderDepartment?.department_name ?? doc.currentHolder?.name ?? 'N/A'}
+                            {doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? 'N/A'}
                         </span>
                     </span>
                 </div>
@@ -179,19 +188,6 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Document Metadata (2 cols) */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Executive Briefing (Mayor Feature) */}
-                        <div className="rounded-xl border border-[var(--tng-purple-200)] bg-[var(--tng-purple-50)]/50 p-6 shadow-sm">
-                            <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-[var(--tng-purple-900)]">
-                                <Sparkles className="h-5 w-5 text-[var(--tng-purple-600)]" />
-                                AI Executive Briefing
-                            </h2>
-                            <ul className="space-y-3 text-sm text-[var(--tng-slate-700)]">
-                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Summary:</b> This document was submitted and recognized by our real-time OCR processor.</li>
-                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Status:</b> Currently pending endorsement/action from the appropriate personnel.</li>
-                                <li className="flex items-start gap-3"><div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-purple-500)]" /><b>Endorsements:</b> Waiting for further routing slips to be generated.</li>
-                            </ul>
-                        </div>
-
                         <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
                             <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">
                                 Document Metadata
@@ -261,8 +257,20 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                 </div>
                             </div>
                             
-                            {/* PDF side-by-side with OCR or just OCR */}
+                            {/* Confidentiality Guard */}
+                            {doc.is_confidential_hidden ? (
+                                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 border border-slate-300 rounded-lg p-12 text-center h-[700px]">
+                                    <div className="rounded-full bg-red-100 p-6 mb-6">
+                                        <Lock className="h-12 w-12 text-red-600" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Confidential Document</h3>
+                                    <p className="text-slate-500 max-w-md mx-auto">
+                                        This document is marked as highly confidential. As a Receiving Clerk, you are authorized to register and route this document, but not view its contents.
+                                    </p>
+                                </div>
+                            ) : (
                             <div className="flex-1 flex gap-4 h-full relative overflow-hidden">
+                                {/* PDF side-by-side with OCR or just OCR */}
                                 {doc.attachment_path && (
                                     <div className="w-1/2 h-[700px] border border-slate-300 rounded-lg overflow-hidden bg-slate-100 hidden md:block">
                                         <iframe 
@@ -308,7 +316,8 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -320,10 +329,17 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                 ⚡ Core Actions
                             </h2>
                             <div className="space-y-3">
-                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
-                                    <Forward className="h-4 w-4" />
-                                    Endorse Document
-                                </button>
+                                {doc.status === 'pending_registration' ? (
+                                    <button onClick={handleRegister} className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-orange-600/25 transition-all hover:bg-orange-700 hover:shadow-lg">
+                                        <QrCode className="h-4 w-4" />
+                                        Register & Route Document
+                                    </button>
+                                ) : (
+                                    <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
+                                        <Forward className="h-4 w-4" />
+                                        Endorse Document
+                                    </button>
+                                )}
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={() => setQrModalOpen(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
                                         <QrCode className="h-4 w-4" />

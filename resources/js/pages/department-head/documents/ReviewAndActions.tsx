@@ -322,14 +322,30 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 ⚡ Review Actions
                             </h2>
                             <div className="space-y-3">
-                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
-                                    <Forward className="h-4 w-4" />
-                                    Endorse Document
-                                </button>
-                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100">
-                                    <RotateCcw className="h-4 w-4" />
-                                    Return Document
-                                </button>
+                                {doc.status === 'routed' ? (
+                                    <button 
+                                        onClick={() => {
+                                            router.post(`/department-head/documents/${doc.document_id}/receive`, {}, {
+                                                onSuccess: () => setToastMessage('Document received successfully!')
+                                            });
+                                        }}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
+                                    >
+                                        <QrCode className="h-4 w-4" />
+                                        Acknowledge Receipt
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
+                                            <Forward className="h-4 w-4" />
+                                            Endorse Document
+                                        </button>
+                                        <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100">
+                                            <RotateCcw className="h-4 w-4" />
+                                            Return Document
+                                        </button>
+                                    </>
+                                )}
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
                                         <Printer className="h-4 w-4" /> Print

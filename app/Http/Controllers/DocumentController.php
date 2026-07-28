@@ -9,13 +9,37 @@ class DocumentController extends Controller
 {
     public function index()
     {
-        $documents = Document::with(['submitter', 'department', 'type'])->get();
+        $user = auth()->user();
+        
+        $query = Document::with(['submitter', 'department', 'type']);
+        
+        // Admin and Mayor can see all documents, others are restricted
+        if ($user && $user->role && !in_array($user->role->role_name, ['Admin', 'Mayor'])) {
+            $query->where(function ($q) use ($user) {
+                if ($user->department_id) {
+                    $q->where('current_holder_department_id', $user->department_id);
+                }
+                $q->orWhere('current_holder_id', $user->id)
+                  ->orWhere('submitted_by', $user->id);
+            });
+        }
+        
+        $documents = $query->orderBy('created_at', 'desc')->get();
         return response()->json($documents);
     }
 
     public function show($id)
     {
         $document = Document::with(['submitter', 'department', 'type', 'routingSlips', 'auditTrails', 'signatures'])->findOrFail($id);
+        
+        // Confidentiality Guard for Receiving Clerk
+        $user = auth()->user();
+        if ($document->classification === 'Confidential' && $user && $user->role && $user->role->role_name === 'Receiving') {
+            $document->attachment_path = null;
+            $document->ocr_text = 'Confidential Document — Metadata Only. You are authorized to route this document but not view its contents.';
+            $document->is_confidential_hidden = true;
+        }
+        
         return response()->json($document);
     }
 
@@ -30,16 +54,38 @@ class DocumentController extends Controller
             'forward_to' => 'required|exists:departments,department_id',
             'instruction' => 'nullable|string',
             'ocr_text' => 'nullable|string',
+            'is_internal' => 'nullable|boolean',
         ]);
 
         $path = $request->file('file')->store('documents', 'public');
         
+        // Generate department-aware reference number: {DEPT_CODE}-{YEAR}-{SEQ}
+        $department = \App\Models\Department::find($request->department_id);
+        $deptCode = $department->code ?? 'GEN';
         $year = date('Y');
-        $count = Document::whereYear('created_at', $year)->count() + 1;
-        $trackingNumber = 'RS-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        $deptDocCount = Document::where('department_id', $request->department_id)
+            ->whereYear('created_at', $year)
+            ->count() + 1;
+        $referenceNumber = $deptCode . '-' . $year . '-' . str_pad($deptDocCount, 4, '0', STR_PAD_LEFT);
+
+        $isInternal = $request->input('is_internal', false);
+
+        if ($isInternal) {
+            $trackingNumber = null;
+            $status = 'pending_registration';
+            $currentHolderDeptId = $request->department_id; // Stays with sender until registered
+            $destinationDeptId = $request->forward_to;
+        } else {
+            // Tracking number (global sequential)
+            $globalCount = Document::whereYear('created_at', $year)->count() + 1;
+            $trackingNumber = 'RS-' . $year . '-' . str_pad($globalCount, 4, '0', STR_PAD_LEFT);
+            $status = 'submitted';
+            $currentHolderDeptId = $request->forward_to;
+            $destinationDeptId = null;
+        }
 
         $document = Document::create([
-            'reference_number' => 'REF-' . uniqid(),
+            'reference_number' => $referenceNumber,
             'tracking_number' => $trackingNumber,
             'title' => $request->title,
             'type_id' => $request->type_id,
@@ -48,28 +94,32 @@ class DocumentController extends Controller
             'attachment_path' => $path,
             'classification' => $request->classification,
             'urgency_justification' => $request->urgency_justification,
-            'status' => 'submitted',
+            'status' => $status,
             'ocr_text' => $request->ocr_text,
             'current_step_index' => 1,
             'total_steps' => 5,
             'sender' => auth()->user()->name,
-            'current_holder_department_id' => $request->forward_to,
+            'current_holder_department_id' => $currentHolderDeptId,
+            'is_internal' => $isInternal,
+            'destination_department_id' => $destinationDeptId,
             'date_filed' => now(),
         ]);
 
-        // Create routing slip
-        \App\Models\RoutingSlip::create([
-            'document_id' => $document->document_id,
-            'tracking_number' => $trackingNumber,
-            'from_user_id' => auth()->id(),
-            'from_department_id' => $request->department_id,
-            'to_user_id' => null, // Goes to department pool
-            'target_department_id' => $request->forward_to,
-            'sender_name' => auth()->user()->name,
-            'action' => 'forward',
-            'instruction' => $request->instruction,
-            'status' => 'pending',
-        ]);
+        if (!$isInternal) {
+            // Create routing slip immediately if not internal
+            \App\Models\RoutingSlip::create([
+                'document_id' => $document->document_id,
+                'tracking_number' => $trackingNumber,
+                'from_user_id' => auth()->id(),
+                'from_department_id' => $request->department_id,
+                'to_user_id' => null, // Goes to department pool
+                'target_department_id' => $request->forward_to,
+                'sender_name' => auth()->user()->name,
+                'action' => 'forward',
+                'instruction' => $request->instruction,
+                'status' => 'pending',
+            ]);
+        }
 
         // Create audit trail
         \App\Models\AuditTrail::create([
@@ -223,5 +273,81 @@ class DocumentController extends Controller
             ->get();
             
         return response()->json($comments);
+    }
+    public function register(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+
+        if ($document->status !== 'pending_registration') {
+            return response()->json(['message' => 'Document is not pending registration.'], 400);
+        }
+
+        $year = date('Y');
+        $globalCount = Document::whereNotNull('tracking_number')->whereYear('created_at', $year)->count() + 1;
+        $trackingNumber = 'RS-' . $year . '-' . str_pad($globalCount, 4, '0', STR_PAD_LEFT);
+
+        $document->update([
+            'tracking_number' => $trackingNumber,
+            'status' => 'routed',
+            'current_holder_department_id' => $document->destination_department_id,
+            'current_step_index' => 2,
+        ]);
+
+        \App\Models\RoutingSlip::create([
+            'document_id' => $document->document_id,
+            'tracking_number' => $trackingNumber,
+            'from_user_id' => auth()->id(),
+            'from_department_id' => null, // Receiving Clerk doesn't have a specific dept context in routing
+            'to_user_id' => null,
+            'target_department_id' => $document->destination_department_id,
+            'sender_name' => auth()->user()->name,
+            'action' => 'forward',
+            'instruction' => 'Registered and routed by Receiving Clerk',
+            'status' => 'pending',
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'user_id' => auth()->id(),
+            'user_role' => auth()->user()->role->role_name ?? null,
+            'department' => auth()->user()->department->department_name ?? null,
+            'document_ref' => $document->reference_number,
+            'action' => 'Registered Document',
+            'description' => 'Document officially registered and assigned tracking number: ' . $trackingNumber,
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Document registered and routed successfully.');
+    }
+
+    public function receive(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+
+        if ($document->status !== 'routed') {
+            return response()->json(['message' => 'Document is not routed.'], 400);
+        }
+
+        $document->update([
+            'status' => 'in_review',
+            'current_step_index' => $document->current_step_index + 1,
+        ]);
+
+        \App\Models\RoutingSlip::where('document_id', $document->document_id)
+            ->where('status', 'pending')
+            ->update(['status' => 'received']);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'user_id' => auth()->id(),
+            'user_role' => auth()->user()->role->role_name ?? null,
+            'department' => auth()->user()->department->department_name ?? null,
+            'document_ref' => $document->reference_number,
+            'action' => 'Received Document',
+            'description' => 'Document officially received by destination office',
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Document received successfully.');
     }
 }
