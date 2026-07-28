@@ -188,46 +188,128 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {/* Document Metadata (2 cols) */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
-                            <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">
-                                Document Metadata
-                            </h2>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-3">
-                                <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
-                                <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
-                                <MetaField
-                                    label="Date Filed"
-                                    value={new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: '2-digit',
-                                        year: 'numeric',
-                                    }) + ' - ' + new Date(doc.date_filed || doc.created_at).toLocaleTimeString('en-US', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                />
-                                <MetaField label="Document Category" value={doc.type?.type_name ?? 'N/A'} />
-                                <MetaField label="Contact Number" value={doc.contact_number ?? 'N/A'} />
-                                <MetaField
-                                    label="Expected Due Date (SLA)"
-                                    value={doc.arta_due_date
-                                        ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
-                                              month: 'short',
-                                              day: '2-digit',
-                                              year: 'numeric',
-                                          })
-                                        : 'N/A'}
-                                />
-                                <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
-                                <MetaField
-                                    label="Classification"
-                                    value={
-                                        <span className={doc.classification === 'urgent' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-                                            {(doc.classification ?? 'NORMAL').toUpperCase()}
-                                        </span>
-                                    }
-                                />
-                                <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
+                                <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">
+                                    Document Metadata
+                                </h2>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                    <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
+                                    <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
+                                    <MetaField
+                                        label="Date Filed"
+                                        value={new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: '2-digit',
+                                            year: 'numeric',
+                                        }) + ' - ' + new Date(doc.date_filed || doc.created_at).toLocaleTimeString('en-US', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
+                                    />
+                                    <MetaField label="Document Category" value={doc.type?.type_name ?? 'N/A'} />
+                                    <MetaField label="Contact Number" value={doc.contact_number ?? 'N/A'} />
+                                    <MetaField
+                                        label="Expected Due Date (SLA)"
+                                        value={doc.arta_due_date
+                                            ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
+                                                  month: 'short',
+                                                  day: '2-digit',
+                                                  year: 'numeric',
+                                              })
+                                            : 'N/A'}
+                                    />
+                                    <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
+                                    <MetaField
+                                        label="Classification"
+                                        value={
+                                            <span className={doc.classification === 'urgent' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                                                {(doc.classification ?? 'NORMAL').toUpperCase()}
+                                            </span>
+                                        }
+                                    />
+                                    <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
+                                </div>
+                            </div>
+                            
+                            {/* Initial Routing Slip (Receipt Style) */}
+                            <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-sm font-mono relative overflow-hidden">
+                                {doc.routing_slips && doc.routing_slips.length > 0 ? (
+                                    <div className="flex flex-col gap-6 text-[var(--tng-slate-900)]">
+                                        {/* Header */}
+                                        <div className="flex justify-between items-start border-b border-[var(--tng-slate-200)] pb-6">
+                                            <div>
+                                                <h2 className="text-lg font-bold uppercase tracking-tight">Routing Slip</h2>
+                                                <p className="text-sm font-semibold mt-2">{doc.department?.department_name ?? 'Origin Department'}</p>
+                                                <p className="text-xs text-[var(--tng-slate-600)]">{doc.sender ?? doc.submitter?.name ?? 'Unknown Sender'}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end text-right">
+                                                <img 
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${doc.tracking_number ?? doc.reference_number}`}
+                                                    alt="QR Code"
+                                                    className="w-16 h-16 mb-2 mix-blend-multiply"
+                                                />
+                                                <p className="text-sm font-bold tracking-tight">Stop #1</p>
+                                                <p className="text-sm font-semibold">{doc.tracking_number ?? doc.reference_number}</p>
+                                                <p className="text-xs text-[var(--tng-slate-600)]">Submitted on {new Date(doc.routing_slips[0].created_at).toISOString().split('T')[0]}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Sender and Receiver */}
+                                        <div className="flex justify-between">
+                                            <div className="w-1/2 pr-4">
+                                                <p className="text-[10px] font-semibold text-[var(--tng-slate-500)] mb-1 uppercase tracking-wider">From:</p>
+                                                <p className="text-sm font-bold">{doc.routing_slips[0].sender_name ?? doc.routing_slips[0].from_user?.name ?? 'Unknown'}</p>
+                                                <p className="text-xs text-[var(--tng-slate-700)] mt-0.5 leading-tight">{doc.routing_slips[0].from_department?.department_name ?? 'N/A'}</p>
+                                            </div>
+                                            <div className="w-1/2 pl-4">
+                                                <p className="text-[10px] font-semibold text-[var(--tng-slate-500)] mb-1 uppercase tracking-wider">To:</p>
+                                                <p className="text-sm font-bold">{doc.routing_slips[0].target_department?.department_name ?? 'N/A'}</p>
+                                                <p className="text-xs text-[var(--tng-slate-700)] mt-0.5 leading-tight">{doc.routing_slips[0].to_user?.name ?? 'Department Pool'}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Table details */}
+                                        <div className="border-t border-b border-[var(--tng-slate-800)] py-3 mt-2">
+                                            <table className="w-full text-left text-sm">
+                                                <thead>
+                                                    <tr className="text-[10px] font-bold uppercase tracking-wider text-[var(--tng-slate-800)] border-b border-[var(--tng-slate-200)]">
+                                                        <th className="pb-2">Action</th>
+                                                        <th className="pb-2">Status</th>
+                                                        <th className="pb-2 text-right">Remarks</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td className="pt-3 align-top font-bold uppercase">{doc.routing_slips[0].action ?? 'forward'}</td>
+                                                        <td className="pt-3 align-top">
+                                                            <span className="uppercase text-xs font-bold text-[var(--tng-slate-700)]">
+                                                                {doc.routing_slips[0].status ?? 'Pending'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="pt-3 align-top text-right text-xs text-[var(--tng-slate-700)] break-words max-w-[120px]">
+                                                            {doc.routing_slips[0].instruction || 'None'}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h2 className="text-base font-semibold text-[var(--tng-slate-800)] flex items-center gap-2">
+                                                <Send className="h-4 w-4 text-[var(--tng-slate-500)]" />
+                                                Initial Routing Slip
+                                            </h2>
+                                        </div>
+                                        <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-dashed border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] font-sans">
+                                            <FileClock className="mb-2 h-6 w-6 text-[var(--tng-slate-400)]" />
+                                            <p className="text-sm font-medium">No routing slip generated yet.</p>
+                                            <p className="text-xs text-[var(--tng-slate-400)] mt-1">Pending Registration</p>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -296,24 +378,6 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                             </>
                                         )}
                                         
-                                        {/* Signatures Section at the bottom */}
-                                        <div className="mt-24 flex justify-between border-t border-slate-100 pt-12">
-                                            
-                                            {/* Sender */}
-                                            <div className="text-center relative w-48">
-                                                <div className="h-16"></div> {/* Space for signature */}
-                                                <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
-                                                <div className="text-xs text-slate-500">Prepared By</div>
-                                            </div>
-
-                                            {/* Authenticated User */}
-                                            <div className="text-center relative w-48">
-                                                <DraggableSignature />
-                                                <div className="h-16"></div> {/* Space for signature */}
-                                                <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">System Admin (You)</div>
-                                                <div className="text-xs text-slate-500">Approved / Forwarded By</div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                                 </div>
@@ -360,74 +424,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                             </div>
                         </div>
 
-                        {/* Advanced Tracking Features */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
-                            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--tng-slate-800)]">
-                                🛠️ Advanced Tools
-                            </h2>
-                            <div className="space-y-2">
-                                <button 
-                                    onClick={() => setPrivacyModalOpen(true)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><Lock className="h-4 w-4 text-[var(--tng-slate-500)]" /> Access & Privacy</span>
-                                </button>
-                                <button 
-                                    onClick={() => setAiTemplateOpen(true)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><Bot className="h-4 w-4 text-[var(--tng-blue-500)]" /> AI Template Auto-Responder</span>
-                                </button>
-                                <Link 
-                                    href={`/receiving/documents/${doc.id}/ocr-workspace`}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><ScanText className="h-4 w-4 text-[var(--tng-purple-500)]" /> Full OCR Workspace</span>
-                                </Link>
-                                <Link 
-                                    href={`/receiving/documents/${doc.id}/location-map`}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><Map className="h-4 w-4 text-[var(--tng-emerald-500)]" /> Physical Location Map</span>
-                                </Link>
-                                <button 
-                                    onClick={() => setDelegateModalOpen(true)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><Users className="h-4 w-4 text-[var(--tng-amber-500)]" /> Delegate / Reassign</span>
-                                </button>
-                                <button 
-                                    onClick={() => setReminderModalOpen(true)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><BellRing className="h-4 w-4 text-[var(--tng-blue-500)]" /> Automated Reminders</span>
-                                </button>
-                                <button 
-                                    onClick={() => setLinkModalOpen(true)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><LinkIcon className="h-4 w-4 text-[var(--tng-emerald-500)]" /> Link Related Docs</span>
-                                </button>
-                                <Link 
-                                    href={`/receiving/documents/${doc.id}/versions`}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><History className="h-4 w-4 text-[var(--tng-purple-500)]" /> Version History</span>
-                                </Link>
-                                <Link 
-                                    href={`/receiving/documents/${doc.id}/arta-timeline`}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]"
-                                >
-                                    <span className="flex items-center gap-2"><FileClock className="h-4 w-4 text-[var(--tng-amber-500)]" /> ARTA SLA Timeline</span>
-                                </Link>
-                                <button 
-                                    onClick={() => setEscalateModalOpen(true)}
-                                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-                                >
-                                    <span className="flex items-center gap-2"><ShieldAlert className="h-4 w-4" /> Escalate to CART</span>
-                                </button>
-                            </div>
-                        </div>
+
 
                         {/* Audit Trail & Comments */}
                         <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white flex flex-col h-[500px]">
@@ -491,6 +488,26 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                 )}
                             </div>
                         </div>
+
+                        {/* Signatures Section moved below Audit Trail */}
+                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-12">
+                            {/* Sender */}
+                            <div className="text-center relative w-full flex flex-col items-center">
+                                <DraggableSignature imagePath={doc.submitter?.signature} name={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
+                                <div className="h-16"></div> {/* Space for signature */}
+                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Prepared By</div>
+                            </div>
+
+                            {/* Authenticated User */}
+                            <div className="text-center relative w-full flex flex-col items-center">
+                                <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
+                                <div className="h-16"></div> {/* Space for signature */}
+                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'System Admin (You)'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Approved By</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
