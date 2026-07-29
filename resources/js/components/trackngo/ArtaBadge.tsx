@@ -19,20 +19,20 @@ export function ArtaBadge({ daysLeft, threshold, className }: ArtaBadgeProps) {
 
     if (isOverdue) {
         label = `ARTA OVERDUE – ${Math.abs(daysLeft)}D PAST`;
-        bgColor = 'bg-red-600';
-        textColor = 'text-white';
+        bgColor = 'bg-red-100/80';
+        textColor = 'text-red-700';
     } else if (isUrgent) {
         label = 'ARTA 0D LEFT';
-        bgColor = 'bg-orange-500';
-        textColor = 'text-white';
+        bgColor = 'bg-orange-100/80';
+        textColor = 'text-orange-700';
     } else if (isMet) {
         label = `ARTA ${daysLeft}D MET`;
-        bgColor = 'bg-emerald-600';
-        textColor = 'text-white';
+        bgColor = 'bg-emerald-100/80';
+        textColor = 'text-emerald-700';
     } else {
         label = `ARTA ${daysLeft}D LEFT`;
-        bgColor = 'bg-[var(--tng-blue-600)]';
-        textColor = 'text-white';
+        bgColor = 'bg-blue-100/80';
+        textColor = 'text-blue-700';
     }
 
     return (

@@ -7,6 +7,8 @@ import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
 import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
+import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
+import { SuccessModal } from '@/components/trackngo/SuccessModal';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
@@ -36,6 +38,10 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const [anchorCommentText, setAnchorCommentText] = useState('');
     const [normalCommentText, setNormalCommentText] = useState('');
 
+    const [confirmState, setConfirmState] = useState({ isOpen: false, action: '', title: '', message: '', btnText: '' });
+    const [successState, setSuccessState] = useState({ isOpen: false, title: '', message: '' });
+    const [isActionLoading, setIsActionLoading] = useState(false);
+
     useEffect(() => {
         const interval = setInterval(() => {
             router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments'], preserveScroll: true, preserveState: true });
@@ -56,9 +62,11 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             destination_id: destId,
             remarks: rem
         }, {
+            preserveState: true,
+            preserveScroll: true,
             onSuccess: () => {
-                showToast('Document endorsed successfully');
                 setForwardModalOpen(false);
+                setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document endorsed successfully.' });
             }
         });
     };
@@ -76,12 +84,39 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
         });
     };
 
+    const requestAction = (action: string, title: string, message: string, btnText: string) => {
+        setConfirmState({ isOpen: true, action, title, message, btnText });
+    };
+
+    const handleConfirmAction = () => {
+        setIsActionLoading(true);
+        if (confirmState.action === 'register') {
+            router.post(`/receiving/documents/${doc.document_id}/register`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Routing slip generated successfully.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        } else if (confirmState.action === 'release') {
+            router.post(`/receiving/documents/${doc.document_id}/release`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document successfully released to applicant.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        }
+    };
+
     const handleRegister = () => {
-        router.post(`/receiving/documents/${doc.document_id}/register`, {}, {
-            onSuccess: () => {
-                showToast('Document registered and routed successfully!');
-            }
-        });
+        requestAction('register', 'Register Document', 'Are you sure you want to register this document and generate its routing slip?', 'Register');
     };
 
     const handleLink = () => {
@@ -408,11 +443,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     </button>
                                 ) : doc.status === 'approved' ? (
                                     <button 
-                                        onClick={() => {
-                                            router.post(`/receiving/documents/${doc.document_id}/release`, {}, {
-                                                onSuccess: () => setToastMessage('Document successfully released to applicant!')
-                                            });
-                                        }}
+                                        onClick={() => requestAction('release', 'Release Document', 'Are you sure you want to release this document to the applicant?', 'Release')}
                                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
                                     >
                                         <CheckCircle2 className="h-4 w-4" />
@@ -539,9 +570,26 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             <ForwardModal
                 open={forwardModalOpen}
                 onClose={() => setForwardModalOpen(false)}
+                onConfirm={handleEndorse}
                 departments={departments}
                 users={users}
-                onConfirm={(destType, destId, rem) => handleEndorse(destType, destId, rem)}
+            />
+
+            <ConfirmActionModal
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={handleConfirmAction}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmText={confirmState.btnText}
+                isLoading={isActionLoading}
+            />
+
+            <SuccessModal
+                isOpen={successState.isOpen}
+                onClose={() => setSuccessState(prev => ({ ...prev, isOpen: false }))}
+                title={successState.title}
+                message={successState.message}
             />
 
             {/* Modals for new features */}

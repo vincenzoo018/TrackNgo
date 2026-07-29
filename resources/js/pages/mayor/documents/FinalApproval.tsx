@@ -5,6 +5,7 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { StepDots } from '@/components/trackngo/StepProgress';
+import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
@@ -192,14 +193,19 @@ export default function MayorFinalApproval() {
                 {/* Table */}
                 <div className="overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-xs uppercase text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
-                                <tr>
-                                    <th className="px-6 py-4 font-semibold">
-                                        <input type="checkbox" onChange={handleSelectAll} checked={selectedDocs.length === pendingApprovals.length && pendingApprovals.length > 0} className="rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]" />
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
+                                    <th className="px-4 py-3 text-left">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedDocs.length === pendingApprovals?.length && pendingApprovals?.length > 0}
+                                            onChange={handleSelectAll}
+                                            className="h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
+                                        />
                                     </th>
                                     <th
-                                        className="px-6 py-4 font-semibold cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
@@ -207,12 +213,30 @@ export default function MayorFinalApproval() {
                                             {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                                         </span>
                                     </th>
-                                    <th className="px-6 py-4 font-semibold">Document Type</th>
-                                    <th className="px-6 py-4 font-semibold">Department</th>
-                                    <th className="px-6 py-4 font-semibold">Date Filed</th>
-                                    <th className="px-6 py-4 font-semibold">Progress</th>
-                                    <th className="px-6 py-4 font-semibold">Status</th>
-                                    <th className="px-6 py-4 font-semibold">Actions</th>
+                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        Document Type
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        Department
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        Date Filed
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        Step Progress
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        Status
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        ARTA
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        QR
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                        Actions
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -222,26 +246,58 @@ export default function MayorFinalApproval() {
                                         className="group transition-colors hover:bg-[var(--tng-blue-50)]/50"
                                         style={{ animationDelay: `${idx * 40}ms` }}
                                     >
-                                        <td className="px-6 py-4">
-                                            <input type="checkbox" checked={selectedDocs.includes(doc.document_id)} onChange={() => toggleDocSelection(doc.document_id)} className="rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]" />
+                                        <td className="px-4 py-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedDocs.includes(doc.document_id)}
+                                                onChange={() => toggleDocSelection(doc.document_id)}
+                                                className="h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
+                                            />
                                         </td>
-                                        <td className="px-6 py-4 font-semibold text-[var(--tng-blue-600)]">
-                                            <Link href={`/mayor/documents/${doc.document_id}`} className="hover:underline">{doc.reference_number}</Link>
-                                            <p className="text-[10px] text-[var(--tng-slate-400)] mt-0.5 font-normal">{doc.tracking_number}</p>
+                                        <td className="px-4 py-3">
+                                            <Link
+                                                href={`/mayor/documents/${doc.document_id}`}
+                                                className="text-sm font-semibold text-[var(--tng-blue-600)] hover:underline"
+                                            >
+                                                {doc.reference_number}
+                                            </Link>
+                                            <p className="text-[10px] text-[var(--tng-slate-400)] mt-0.5">{doc.tracking_number}</p>
                                         </td>
-                                        <td className="px-6 py-4">{doc.type?.type_name || 'N/A'}</td>
-                                        <td className="px-6 py-4">{doc.department?.department_name || 'N/A'}</td>
-                                        <td className="px-6 py-4">
-                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
+                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-700)]">
+                                            {doc.type?.type_name || 'N/A'}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <StepDots current={doc.current_step_index} total={doc.total_steps || 5} />
+                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
+                                            {doc.department?.department_name || 'N/A'}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
+                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: '2-digit',
+                                                year: 'numeric',
+                                            })}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <StepDots current={doc.current_step_index} total={7} />
+                                        </td>
+                                        <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <Link href={`/mayor/documents/${doc.document_id}`} className="text-[var(--tng-blue-600)] font-medium hover:underline text-xs">Review</Link>
+                                        <td className="px-4 py-3">
+                                            <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <button className="rounded-md p-1.5 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-blue-600)]">
+                                                <QrCode className="h-4 w-4" />
+                                            </button>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <Link
+                                                href={`/mayor/documents/${doc.document_id}`}
+                                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
+                                            >
+                                                <Eye className="h-3.5 w-3.5" />
+                                                Review
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}

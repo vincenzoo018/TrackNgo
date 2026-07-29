@@ -255,7 +255,7 @@ export default function DepartmentHeadEndorsements() {
                                             })}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <StepDots current={doc.current_step_index} total={doc.total_steps || 5} />
+                                            <StepDots current={doc.current_step_index} total={7} />
                                         </td>
                                         <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />

@@ -9,6 +9,8 @@ import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { ReturnModal } from '@/components/trackngo/ReturnModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
 import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
+import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
+import { SuccessModal } from '@/components/trackngo/SuccessModal';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
@@ -38,6 +40,10 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
     const [anchorModalOpen, setAnchorModalOpen] = useState(false);
     const [anchorCommentText, setAnchorCommentText] = useState('');
     const [normalCommentText, setNormalCommentText] = useState('');
+
+    const [confirmState, setConfirmState] = useState({ isOpen: false, action: '', title: '', message: '', btnText: '' });
+    const [successState, setSuccessState] = useState({ isOpen: false, title: '', message: '' });
+    const [isActionLoading, setIsActionLoading] = useState(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -113,6 +119,48 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 setActiveTab('discussion');
             }
         });
+    };
+
+    const requestAction = (action: string, title: string, message: string, btnText: string) => {
+        setConfirmState({ isOpen: true, action, title, message, btnText });
+    };
+
+    const handleConfirmAction = () => {
+        setIsActionLoading(true);
+        if (confirmState.action === 'accept') {
+            router.post(`/mayor/documents/${doc.document_id}/accept`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document accepted successfully.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        } else if (confirmState.action === 'review') {
+            router.post(`/mayor/documents/${doc.document_id}/review`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document marked as reviewed.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        } else if (confirmState.action === 'approve') {
+            router.post(`/mayor/documents/${doc.document_id}/approve-route`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document approved and routed to Receiving Clerk!' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        }
     };
 
     const showToast = (msg: string) => {
@@ -411,11 +459,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                             <div className="space-y-3">
                                 {doc.status === 'endorsed' ? (
                                     <button 
-                                        onClick={() => {
-                                            router.post(`/mayor/documents/${doc.document_id}/accept`, {}, {
-                                                onSuccess: () => setToastMessage('Document accepted successfully!')
-                                            });
-                                        }}
+                                        onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to accept this document for review?', 'Accept')}
                                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
                                     >
                                         <CheckCircle2 className="h-4 w-4" />
@@ -423,11 +467,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                     </button>
                                 ) : doc.status === 'mayor_accepted' ? (
                                     <button 
-                                        onClick={() => {
-                                            router.post(`/mayor/documents/${doc.document_id}/review`, {}, {
-                                                onSuccess: () => setToastMessage('Document marked as reviewed!')
-                                            });
-                                        }}
+                                        onClick={() => requestAction('review', 'Review Document', 'Are you sure you want to mark this document as reviewed?', 'Review')}
                                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg"
                                     >
                                         <ScanText className="h-4 w-4" />
@@ -436,11 +476,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                 ) : doc.status === 'reviewed' ? (
                                     <>
                                         <button 
-                                            onClick={() => {
-                                                router.post(`/mayor/documents/${doc.document_id}/approve-route`, {}, {
-                                                    onSuccess: () => setToastMessage('Document approved and routed to Receiving Clerk!')
-                                                });
-                                            }}
+                                            onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
                                             className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
                                         >
                                             <CheckCircle2 className="h-4 w-4" />
@@ -751,6 +787,23 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                     </div>
                 </div>
             )}
+
+            <ConfirmActionModal
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={handleConfirmAction}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmText={confirmState.btnText}
+                isLoading={isActionLoading}
+            />
+
+            <SuccessModal
+                isOpen={successState.isOpen}
+                onClose={() => setSuccessState(prev => ({ ...prev, isOpen: false }))}
+                title={successState.title}
+                message={successState.message}
+            />
         </TrackngoLayout>
     );
 }
