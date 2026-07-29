@@ -1,6 +1,7 @@
 import { AlertTriangle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ConfirmActionModalProps {
     isOpen: boolean;
@@ -35,9 +36,14 @@ export function ConfirmActionModal({
         return () => { document.body.style.overflow = 'unset'; }
     }, [isOpen]);
 
-    if (!isOpen) return null;
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
-    return (
+    if (!isOpen || !mounted) return null;
+
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
             {/* Backdrop */}
             <div 
@@ -105,6 +111,7 @@ export function ConfirmActionModal({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

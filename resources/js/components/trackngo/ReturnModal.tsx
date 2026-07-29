@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { X, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 type ReturnModalProps = {
     open: boolean;
@@ -11,9 +12,20 @@ type ReturnModalProps = {
 export function ReturnModal({ open, onClose, onConfirm }: ReturnModalProps) {
     const [reason, setReason] = useState('');
 
-    if (!open) return null;
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+        if (open) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [open]);
 
-    return (
+    if (!open || !mounted) return null;
+
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -82,6 +94,7 @@ export function ReturnModal({ open, onClose, onConfirm }: ReturnModalProps) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

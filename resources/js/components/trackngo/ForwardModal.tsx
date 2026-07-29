@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { X, Search, Building2, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 type ForwardModalProps = {
     open: boolean;
@@ -17,7 +18,18 @@ export function ForwardModal({ open, onClose, onConfirm, departments, users }: F
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [remarks, setRemarks] = useState('');
 
-    if (!open) return null;
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+        if (open) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [open]);
+
+    if (!open || !mounted) return null;
 
     const destinations = [
         ...departments.map(d => ({
@@ -40,7 +52,7 @@ export function ForwardModal({ open, onClose, onConfirm, departments, users }: F
         return matchesSearch && matchesFilter;
     });
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -176,6 +188,7 @@ export function ForwardModal({ open, onClose, onConfirm, departments, users }: F
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

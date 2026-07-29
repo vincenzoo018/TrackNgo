@@ -1,6 +1,7 @@
 import { X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface SuccessModalProps {
     isOpen: boolean;
@@ -27,9 +28,14 @@ export function SuccessModal({
         return () => { document.body.style.overflow = 'unset'; }
     }, [isOpen]);
 
-    if (!isOpen) return null;
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
-    return (
+    if (!isOpen || !mounted) return null;
+
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
             {/* Backdrop */}
             <div 
@@ -82,6 +88,7 @@ export function SuccessModal({
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
