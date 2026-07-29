@@ -134,6 +134,52 @@ class DocumentController extends Controller
         return redirect()->back()->with('success', 'Document submitted successfully. Tracking: ' . $trackingNumber);
     }
 
+    
+    public function accept(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+        
+        $isMayor = auth()->user()->hasRole('Mayor');
+        $status = $isMayor ? 'mayor_accepted' : 'dept_accepted';
+        $step = $isMayor ? 4 : 2;
+
+        $document->update([
+            'status' => $status,
+            'current_step_index' => $step,
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => auth()->id(),
+            'action' => $status,
+            'description' => 'Document accepted for review.',
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Document accepted successfully');
+    }
+
+    public function review(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+        
+        $document->update([
+            'status' => 'reviewed',
+            'current_step_index' => 5,
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => auth()->id(),
+            'action' => 'reviewed',
+            'description' => 'Document has been reviewed and is ready for final approval.',
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Document reviewed successfully');
+    }
     public function endorse(Request $request, $id)
     {
         $document = Document::findOrFail($id);
@@ -159,10 +205,14 @@ class DocumentController extends Controller
             'status' => 'pending',
         ]);
 
+        $status = $document->status === 'dept_accepted' ? 'endorsed' : 'submitted';
+        $step = $document->status === 'dept_accepted' ? 3 : 1;
+
         $document->update([
+            'status' => $status,
             'current_holder_department_id' => $isDept ? $request->destination_id : \App\Models\User::find($request->destination_id)->department_id,
             'current_holder_id' => $isDept ? null : $request->destination_id,
-            'current_step_index' => $document->current_step_index < 2 ? 2 : $document->current_step_index,
+            'current_step_index' => $step,
         ]);
 
         $destName = $isDept 
@@ -229,6 +279,69 @@ class DocumentController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Document linked successfully');
+    }
+
+    public function approveAndRouteToReceiving(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+        
+        // Find receiving department
+        $receivingDept = \App\Models\Department::where('department_name', 'like', '%Receiving%')->orWhere('code', 'REC')->first();
+        $destDeptId = $receivingDept ? $receivingDept->department_id : 1;
+
+        \App\Models\RoutingSlip::create([
+            'document_id' => $document->document_id,
+            'tracking_number' => $document->tracking_number,
+            'from_user_id' => auth()->id(),
+            'from_department_id' => $document->current_holder_department_id,
+            'to_user_id' => null,
+            'target_department_id' => $destDeptId,
+            'sender_name' => auth()->user()->name,
+            'action' => 'approved',
+            'instruction' => 'Approved by Mayor. For final release to applicant.',
+            'status' => 'pending',
+        ]);
+
+        $document->update([
+            'status' => 'approved',
+            'current_holder_department_id' => $destDeptId,
+            'current_holder_id' => null,
+            'current_step_index' => 6,
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => auth()->id(),
+            'action' => 'approved',
+            'description' => 'Document approved and routed to Receiving Clerk for release.',
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Document approved and routed to Receiving Clerk.');
+    }
+
+    public function releaseToApplicant(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+        
+        $document->update([
+            'status' => 'released',
+            'current_holder_id' => null,
+            'current_holder_department_id' => null,
+            'current_step_index' => 7,
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => auth()->id(),
+            'action' => 'released',
+            'description' => 'Document released to applicant and marked as completed.',
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Document successfully released to the applicant.');
     }
 
     public function addComment(Request $request, $id)

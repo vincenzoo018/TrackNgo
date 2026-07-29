@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send } from 'lucide-react';
+import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send, CheckCircle2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
@@ -35,6 +35,13 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const [anchorModalOpen, setAnchorModalOpen] = useState(false);
     const [anchorCommentText, setAnchorCommentText] = useState('');
     const [normalCommentText, setNormalCommentText] = useState('');
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments'], preserveScroll: true, preserveState: true });
+        }, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleTextSelection = () => {
         const selection = window.getSelection();
@@ -164,11 +171,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
 
                 {/* Step Progress */}
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 pb-12">
-                    <StepProgress 
-                        currentStep={doc.current_step_index ?? 1} 
-                        totalSteps={doc.total_steps ?? 5} 
-                        currentHolderName={doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? undefined} 
-                    />
+                    <StepProgress currentStep={doc.current_step_index} totalSteps={7} currentHolderName={doc.currentHolder?.name} auditTrails={trail} />
                 </div>
 
                 {/* Current Holder Banner */}
@@ -398,11 +401,32 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                         <QrCode className="h-4 w-4" />
                                         Register & Route Document
                                     </button>
-                                ) : (
+                                ) : doc.status === 'submitted' ? (
                                     <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
                                         <Forward className="h-4 w-4" />
-                                        Endorse Document
+                                        Forward / Route Document
                                     </button>
+                                ) : doc.status === 'approved' ? (
+                                    <button 
+                                        onClick={() => {
+                                            router.post(`/receiving/documents/${doc.document_id}/release`, {}, {
+                                                onSuccess: () => setToastMessage('Document successfully released to applicant!')
+                                            });
+                                        }}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
+                                    >
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Release to Applicant
+                                    </button>
+                                ) : doc.status === 'released' || doc.status === 'completed' ? (
+                                    <div className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-500 border border-slate-200">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Released / Completed
+                                    </div>
+                                ) : (
+                                    <div className="flex h-12 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
+                                        Waiting for further routing...
+                                    </div>
                                 )}
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={() => setQrModalOpen(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">

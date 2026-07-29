@@ -7,9 +7,10 @@ type StepProgressProps = {
     totalSteps?: number;
     className?: string;
     currentHolderName?: string;
+    auditTrails?: any[];
 };
 
-export function StepProgress({ currentStep, totalSteps = 5, className, currentHolderName }: StepProgressProps) {
+export function StepProgress({ currentStep, totalSteps = 7, className, currentHolderName, auditTrails = [] }: StepProgressProps) {
     const steps = WORKFLOW_STEPS.slice(0, totalSteps);
 
     return (
@@ -44,11 +45,29 @@ export function StepProgress({ currentStep, totalSteps = 5, className, currentHo
                             >
                                 {step.label}
                             </span>
-                            {isCurrent && currentHolderName && (
-                                <span className="absolute top-[48px] text-[10px] font-medium text-[var(--tng-slate-500)] whitespace-nowrap bg-white px-1.5 py-0.5 rounded-full border border-[var(--tng-slate-200)] shadow-sm">
-                                    Held by: {currentHolderName}
-                                </span>
-                            )}
+                            
+                            {(() => {
+                                // Find the actor for completed/current steps
+                                const matchingAudit = auditTrails.slice().reverse().find(a => a.action === step.key);
+                                const actorName = matchingAudit?.user?.name || matchingAudit?.user_name || matchingAudit?.user;
+                                
+                                if (actorName && (isCompleted || isCurrent)) {
+                                    return (
+                                        <span className="absolute top-[48px] text-[9px] font-medium text-[var(--tng-slate-400)] whitespace-nowrap bg-white/80 px-1 py-0.5 rounded shadow-sm border border-[var(--tng-slate-100)]">
+                                            {actorName}
+                                        </span>
+                                    );
+                                }
+                                
+                                if (isCurrent && currentHolderName && !actorName) {
+                                    return (
+                                        <span className="absolute top-[48px] text-[10px] font-medium text-[var(--tng-slate-500)] whitespace-nowrap bg-white px-1.5 py-0.5 rounded-full border border-[var(--tng-slate-200)] shadow-sm">
+                                            Held by: {currentHolderName}
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
 
                         {/* Connector Line */}

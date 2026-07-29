@@ -33,10 +33,12 @@ export type DocumentType = {
 // ── Document Status (FSM States) ────────────────────────────────────
 export type DocumentStatus =
     | 'submitted'
+    | 'dept_accepted'
     | 'endorsed'
-    | 'accepted'
+    | 'mayor_accepted'
     | 'reviewed'
     | 'approved'
+    | 'released'
     | 'returned'
     | 'rejected'
     | 'escalated'
@@ -45,10 +47,12 @@ export type DocumentStatus =
 
 export const STATUS_LABELS: Record<DocumentStatus, string> = {
     submitted: 'Submitted',
+    dept_accepted: 'Accepted',
     endorsed: 'Endorsed',
-    accepted: 'Accepted',
+    mayor_accepted: 'Accepted',
     reviewed: 'Reviewed',
     approved: 'Approved',
+    released: 'Released',
     returned: 'Returned',
     rejected: 'Rejected',
     escalated: 'Escalated',
@@ -56,13 +60,14 @@ export const STATUS_LABELS: Record<DocumentStatus, string> = {
     archived: 'Archived',
 };
 
-// FSM workflow step ordering
 export const WORKFLOW_STEPS: { key: DocumentStatus; label: string }[] = [
     { key: 'submitted', label: 'Submitted' },
+    { key: 'dept_accepted', label: 'Accepted' },
     { key: 'endorsed', label: 'Endorsed' },
-    { key: 'accepted', label: 'Accepted' },
+    { key: 'mayor_accepted', label: 'Accepted' },
     { key: 'reviewed', label: 'Reviewed' },
     { key: 'approved', label: 'Approved' },
+    { key: 'released', label: 'Released' },
 ];
 
 // ── Classification ──────────────────────────────────────────────────

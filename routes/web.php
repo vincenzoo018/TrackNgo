@@ -101,6 +101,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
         Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate']);
         Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link']);
+        Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/routing-slips', fn() => Inertia::render('receiving/routing-slips/RoutingSlips'));
@@ -157,6 +158,7 @@ Route::middleware(['auth'])->group(function () {
         // Document Actions
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
         Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
+        Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/workflow', fn() => Inertia::render('department-head/workflow/Index'));
@@ -178,14 +180,39 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
             ]);
         });
-        Route::get('/documents/{id}', fn() => Inertia::render('mayor/documents/Show'));
+        Route::get('/documents/create', function () {
+            return Inertia::render('mayor/documents/Create', [
+                'departments' => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'document_types' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
+        Route::get('/documents/{id}', function ($id) {
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            return Inertia::render('mayor/documents/Show', [
+                'dbDocument' => $document,
+                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbDepartments' => \App\Models\Department::all(),
+                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
+                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
+                    ->where('document_id', $id)
+                    ->join('users', 'document_comments.user_id', '=', 'users.id')
+                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->select('document_comments.*', 'users.name as user_name', 'roles.role_name as user_role')
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+            ]);
+        });
         Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('mayor/routing-slips/RoutingSlips'));
         Route::get('/reports', fn() => Inertia::render('mayor/reports/Index'));
         
         // Document Actions
+        Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving']);
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
         Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
+        Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept']);
+        Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
     });

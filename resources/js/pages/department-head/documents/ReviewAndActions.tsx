@@ -1,6 +1,7 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send, CheckCircle2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
@@ -11,6 +12,7 @@ import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill'
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
+    const { auth } = usePage<any>().props;
     const doc = dbDocument || mockDocuments[0];
     const trail = dbAuditTrail || mockAuditTrail.filter((a: any) => a.document_ref === doc.reference_number);
     const comments = dbComments || [];
@@ -36,6 +38,13 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
     const [anchorModalOpen, setAnchorModalOpen] = useState(false);
     const [anchorCommentText, setAnchorCommentText] = useState('');
     const [normalCommentText, setNormalCommentText] = useState('');
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments'], preserveScroll: true, preserveState: true });
+        }, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleTextSelection = () => {
         const selection = window.getSelection();
@@ -157,11 +166,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
 
                 {/* Step Progress */}
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 pb-12">
-                    <StepProgress 
-                        currentStep={doc.current_step_index ?? 1} 
-                        totalSteps={doc.total_steps ?? 5} 
-                        currentHolderName={doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? undefined} 
-                    />
+                    <StepProgress currentStep={doc.current_step_index} totalSteps={7} currentHolderName={doc.currentHolder?.name} auditTrails={trail} />
                 </div>
 
                 {/* Current Holder Banner */}
@@ -194,11 +199,12 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                             </ul>
                         </div>
 
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
-                            <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">
-                                Document Metadata
-                            </h2>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 md:grid-cols-3">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
+                                <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">
+                                    Document Metadata
+                                </h2>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                                 <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
                                 <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
                                 <MetaField
@@ -235,6 +241,87 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 />
                                 <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
                             </div>
+                        </div>
+                        
+                        {/* Initial Routing Slip (Receipt Style) */}
+                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-sm font-mono relative overflow-hidden">
+                            {doc.routing_slips && doc.routing_slips.length > 0 ? (
+                                <div className="flex flex-col gap-6 text-[var(--tng-slate-900)]">
+                                    {/* Header */}
+                                    <div className="flex justify-between items-start border-b border-[var(--tng-slate-200)] pb-6">
+                                        <div>
+                                            <h2 className="text-lg font-bold uppercase tracking-tight">Routing Slip</h2>
+                                            <p className="text-sm font-semibold mt-2">{doc.department?.department_name ?? 'Origin Department'}</p>
+                                            <p className="text-xs text-[var(--tng-slate-600)]">{doc.sender ?? doc.submitter?.name ?? 'Unknown Sender'}</p>
+                                        </div>
+                                        <div className="flex flex-col items-end text-right">
+                                            <img 
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${doc.tracking_number ?? doc.reference_number}`}
+                                                alt="QR Code"
+                                                className="w-16 h-16 mb-2 mix-blend-multiply"
+                                            />
+                                            <p className="text-sm font-bold tracking-tight">Stop #1</p>
+                                            <p className="text-sm font-semibold">{doc.tracking_number ?? doc.reference_number}</p>
+                                            <p className="text-xs text-[var(--tng-slate-600)]">Submitted on {new Date(doc.routing_slips[0].created_at).toISOString().split('T')[0]}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Sender and Receiver */}
+                                    <div className="flex justify-between">
+                                        <div className="w-1/2 pr-4">
+                                            <p className="text-[10px] font-semibold text-[var(--tng-slate-500)] mb-1 uppercase tracking-wider">From:</p>
+                                            <p className="text-sm font-bold">{doc.routing_slips[0].sender_name ?? doc.routing_slips[0].from_user?.name ?? 'Unknown'}</p>
+                                            <p className="text-xs text-[var(--tng-slate-700)] mt-0.5 leading-tight">{doc.routing_slips[0].from_department?.department_name ?? 'N/A'}</p>
+                                        </div>
+                                        <div className="w-1/2 pl-4">
+                                            <p className="text-[10px] font-semibold text-[var(--tng-slate-500)] mb-1 uppercase tracking-wider">To:</p>
+                                            <p className="text-sm font-bold">{doc.routing_slips[0].target_department?.department_name ?? 'N/A'}</p>
+                                            <p className="text-xs text-[var(--tng-slate-700)] mt-0.5 leading-tight">{doc.routing_slips[0].to_user?.name ?? 'Department Pool'}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Table details */}
+                                    <div className="border-t border-b border-[var(--tng-slate-800)] py-3 mt-2">
+                                        <table className="w-full text-left text-sm">
+                                            <thead>
+                                                <tr className="text-[10px] font-bold uppercase tracking-wider text-[var(--tng-slate-800)] border-b border-[var(--tng-slate-200)]">
+                                                    <th className="pb-2">Action</th>
+                                                    <th className="pb-2">Status</th>
+                                                    <th className="pb-2 text-right">Remarks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td className="pt-3 align-top font-bold uppercase">{doc.routing_slips[0].action ?? 'forward'}</td>
+                                                    <td className="pt-3 align-top">
+                                                        <span className="uppercase text-xs font-bold text-[var(--tng-slate-700)]">
+                                                            {doc.routing_slips[0].status ?? 'Pending'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="pt-3 align-top text-right text-xs text-[var(--tng-slate-700)] break-words max-w-[120px]">
+                                                        {doc.routing_slips[0].instruction || 'None'}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <h2 className="text-base font-semibold text-[var(--tng-slate-800)] flex items-center gap-2">
+                                            <Send className="h-4 w-4 text-[var(--tng-slate-500)]" />
+                                            Initial Routing Slip
+                                        </h2>
+                                    </div>
+                                    <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-dashed border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] font-sans">
+                                        <FileClock className="mb-2 h-6 w-6 text-[var(--tng-slate-400)]" />
+                                        <p className="text-sm font-medium">No routing slip generated yet.</p>
+                                        <p className="text-xs text-[var(--tng-slate-400)] mt-1">Pending Registration</p>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                         </div>
 
                         {/* Document Preview */}
@@ -322,19 +409,19 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 ⚡ Review Actions
                             </h2>
                             <div className="space-y-3">
-                                {doc.status === 'routed' ? (
+                                {doc.status === 'submitted' ? (
                                     <button 
                                         onClick={() => {
-                                            router.post(`/department-head/documents/${doc.document_id}/receive`, {}, {
-                                                onSuccess: () => setToastMessage('Document received successfully!')
+                                            router.post(`/department-head/documents/${doc.document_id}/accept`, {}, {
+                                                onSuccess: () => setToastMessage('Document accepted successfully!')
                                             });
                                         }}
                                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
                                     >
-                                        <QrCode className="h-4 w-4" />
-                                        Acknowledge Receipt
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Accept Document
                                     </button>
-                                ) : (
+                                ) : doc.status === 'dept_accepted' ? (
                                     <>
                                         <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
                                             <Forward className="h-4 w-4" />
@@ -345,6 +432,10 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                             Return Document
                                         </button>
                                     </>
+                                ) : (
+                                    <div className="flex h-12 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
+                                        No actions available
+                                    </div>
                                 )}
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
@@ -419,6 +510,25 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 )}
                             </div>
                         </div>
+                        {/* Signatures Section */}
+                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-12">
+                            {/* Sender */}
+                            <div className="text-center relative w-full flex flex-col items-center">
+                                <DraggableSignature imagePath={doc.submitter?.signature} name={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
+                                <div className="h-16"></div> {/* Space for signature */}
+                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Prepared By</div>
+                            </div>
+
+                            {/* Authenticated User */}
+                            <div className="text-center relative w-full flex flex-col items-center">
+                                <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
+                                <div className="h-16"></div> {/* Space for signature */}
+                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'System Admin (You)'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Approved By</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>

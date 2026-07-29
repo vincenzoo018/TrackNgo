@@ -60,5 +60,9 @@ class User extends Authenticatable implements PasskeyUser
     public function submittedDocuments() { return $this->hasMany(Document::class, 'submitted_by', 'id'); }
     public function receivedSlips() { return $this->hasMany(RoutingSlip::class, 'received_by', 'id'); }
     public function signatures() { return $this->hasMany(DigitalSignature::class, 'signed_by_user_id', 'id'); }
+    public function hasRole(string $roleName): bool
+    {
+        return $this->role && $this->role->role_name === $roleName;
+    }
 
 }

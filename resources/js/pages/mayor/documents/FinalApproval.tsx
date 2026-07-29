@@ -93,6 +93,19 @@ export default function MayorFinalApproval() {
                             Review and digitally sign approved resolutions, vouchers, and ordinances.
                         </p>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <button className="flex items-center gap-2 rounded-lg border border-[var(--tng-blue-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-blue-700)] transition-colors hover:bg-[var(--tng-blue-50)]">
+                            <ScanLine className="h-4 w-4" />
+                            OCR Scan
+                        </button>
+                        <Link
+                            href="/mayor/documents/create"
+                            className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Submit Document
+                        </Link>
+                    </div>
                 </div>
 
                 {toastMessage && (
@@ -257,6 +270,8 @@ export default function MayorFinalApproval() {
                 open={forwardModalOpen}
                 onClose={() => setForwardModalOpen(false)}
                 onConfirm={handleBulkEndorse}
+                departments={departments}
+                users={[]}
             />
         </TrackngoLayout>
     );
