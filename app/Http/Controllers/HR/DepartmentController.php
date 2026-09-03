@@ -13,7 +13,7 @@ class DepartmentController extends Controller
     public function index()
     {
         $departments = Department::with('head')->withCount('users')->orderBy('department_name', 'asc')->get();
-        $users = User::orderBy('name', 'asc')->get();
+        $users = User::orderBy('last_name', 'asc')->orderBy('first_name', 'asc')->get();
 
         return Inertia::render('hr/departments/Index', [
             'dbDepartments' => $departments,
@@ -24,7 +24,7 @@ class DepartmentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'department_name' => 'required|string|max:255|unique:departments',
+            'department_name' => 'required|string|max:100|unique:departments',
             'code' => 'nullable|string|max:50',
             'description' => 'nullable|string',
             'head_id' => 'nullable|exists:users,id',
@@ -39,7 +39,7 @@ class DepartmentController extends Controller
     public function update(Request $request, Department $department)
     {
         $validated = $request->validate([
-            'department_name' => 'required|string|max:255|unique:departments,department_name,' . $department->department_id . ',department_id',
+            'department_name' => 'required|string|max:100|unique:departments,department_name,' . $department->department_id . ',department_id',
             'code' => 'nullable|string|max:50',
             'description' => 'nullable|string',
             'head_id' => 'nullable|exists:users,id',

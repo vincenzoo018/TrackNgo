@@ -15,7 +15,9 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
     const [signatureError, setSignatureError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const { data, setData, errors } = useForm({
-        name: '',
+        first_name: '',
+        middle_name: '',
+        last_name: '',
         email: '',
         department_id: '',
         role_id: '',
@@ -141,21 +143,49 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
             <div className="bg-white rounded-2xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
                 <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Full Name</label>
-                            <input
-                                type="text"
-                                value={data.name}
-                                onChange={e => setData('name', e.target.value)}
-                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                placeholder="Juan Dela Cruz"
-                            />
-                            {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+                        <div className="space-y-4 md:col-span-2">
+                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Employee Name</label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <input
+                                        type="text"
+                                        maxLength={60}
+                                        value={data.first_name}
+                                        onChange={e => setData('first_name', e.target.value)}
+                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.first_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                                        placeholder="First Name (e.g. Juan)"
+                                    />
+                                    {errors.first_name && <p className="text-xs text-red-500">{errors.first_name}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <input
+                                        type="text"
+                                        maxLength={60}
+                                        value={data.middle_name}
+                                        onChange={e => setData('middle_name', e.target.value)}
+                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.middle_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                                        placeholder="Middle Name (Optional)"
+                                    />
+                                    {errors.middle_name && <p className="text-xs text-red-500">{errors.middle_name}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <input
+                                        type="text"
+                                        maxLength={60}
+                                        value={data.last_name}
+                                        onChange={e => setData('last_name', e.target.value)}
+                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.last_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                                        placeholder="Last Name (e.g. Dela Cruz)"
+                                    />
+                                    {errors.last_name && <p className="text-xs text-red-500">{errors.last_name}</p>}
+                                </div>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-[var(--tng-slate-700)]">Email Address</label>
                             <input
                                 type="email"
+                                maxLength={100}
                                 value={data.email}
                                 onChange={e => setData('email', e.target.value)}
                                 className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.email ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}

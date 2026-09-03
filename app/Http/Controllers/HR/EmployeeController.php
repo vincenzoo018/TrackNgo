@@ -14,7 +14,7 @@ class EmployeeController extends Controller
 {
     public function index()
     {
-        $employees = User::with(['department', 'role'])->orderBy('name', 'asc')->get();
+        $employees = User::with(['department', 'role'])->orderBy('last_name', 'asc')->orderBy('first_name', 'asc')->get();
         $departments = Department::orderBy('department_name', 'asc')->get();
         $roles = Role::orderBy('role_name', 'asc')->get();
 
@@ -39,8 +39,10 @@ class EmployeeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
+            'first_name' => 'required|string|max:60',
+            'middle_name' => 'nullable|string|max:60',
+            'last_name' => 'required|string|max:60',
+            'email' => 'required|string|email|max:100',
             'password' => 'required|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',
@@ -52,7 +54,9 @@ class EmployeeController extends Controller
 
         if ($user) {
             $user->update([
-                'name' => $validated['name'],
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'],
+                'last_name' => $validated['last_name'],
                 'password' => Hash::make($validated['password']),
                 'department_id' => $validated['department_id'],
                 'role_id' => $validated['role_id'],
@@ -85,8 +89,10 @@ class EmployeeController extends Controller
     public function update(Request $request, User $employee)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $employee->id,
+            'first_name' => 'required|string|max:60',
+            'middle_name' => 'nullable|string|max:60',
+            'last_name' => 'required|string|max:60',
+            'email' => 'required|string|email|max:100|unique:users,email,' . $employee->id,
             'password' => 'nullable|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',

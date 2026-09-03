@@ -5,7 +5,9 @@ import { useState } from 'react';
 
 type Employee = {
     id: number;
-    name: string;
+    first_name: string;
+    middle_name: string | null;
+    last_name: string;
     email: string;
     mobile_number: string | null;
     is_active: number;
@@ -23,7 +25,8 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments, dbRoles }: P
     const [searchQuery, setSearchQuery] = useState('');
 
     const filteredEmployees = dbEmployees.filter(emp => 
-        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        emp.first_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        emp.last_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (emp.department?.department_name || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -88,10 +91,12 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments, dbRoles }: P
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-700">
-                                                    {emp.name.split(' ').slice(0, 2).map(n => n[0]).join('')}
+                                                    {emp.first_name[0]}{emp.last_name[0]}
                                                 </div>
                                                 <div>
-                                                    <div className="font-semibold text-[var(--tng-slate-900)]">{emp.name}</div>
+                                                    <div className="font-semibold text-[var(--tng-slate-900)]">
+                                                        {emp.last_name}, {emp.first_name} {emp.middle_name ? emp.middle_name[0] + '.' : ''}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>

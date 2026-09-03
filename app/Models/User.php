@@ -34,12 +34,21 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property-read Collection<int, Membership> $teamMemberships
  * @property-read Collection<int, Team> $teams
  */
-#[Fillable(['name', 'email', 'password', 'current_team_id', 'avatar', 'role_id', 'department_id', 'mobile_number', 'is_active', 'signature'])]
+#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'current_team_id', 'avatar', 'role_id', 'department_id', 'mobile_number', 'is_active', 'signature'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasTeams, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+
+    /**
+     * The attributes that should be appended to the model's array form.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'name',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -53,6 +62,13 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    protected function name(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: fn (mixed $value, array $attributes) => trim(($attributes['first_name'] ?? '') . ' ' . ($attributes['middle_name'] ?? '') . ' ' . ($attributes['last_name'] ?? '')),
+        );
     }
 
     public function role() { return $this->belongsTo(Role::class, 'role_id', 'role_id'); }
