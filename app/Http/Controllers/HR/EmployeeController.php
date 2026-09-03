@@ -40,19 +40,33 @@ class EmployeeController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255',
+            'password' => 'required|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',
             'mobile_number' => 'nullable|string|max:20',
             'signature' => 'required|string', // Base64 data URL
         ]);
 
-        $validated['password'] = Hash::make('password123'); // Default password
-        $validated['is_active'] = 1;
+        $user = User::where('email', $validated['email'])->first();
 
-        User::create($validated);
+        if ($user) {
+            $user->update([
+                'name' => $validated['name'],
+                'password' => Hash::make($validated['password']),
+                'department_id' => $validated['department_id'],
+                'role_id' => $validated['role_id'],
+                'mobile_number' => $validated['mobile_number'],
+                'signature' => $validated['signature'],
+                'is_active' => 1,
+            ]);
+        } else {
+            $validated['password'] = Hash::make($validated['password']);
+            $validated['is_active'] = 1;
+            User::create($validated);
+        }
 
-        return redirect()->route('hr.employees.index')->with('success', 'Employee created successfully.');
+        return redirect()->route('hr.employees.index')->with('success', 'Employee saved successfully.');
     }
 
     public function edit(User $employee)
@@ -73,13 +87,21 @@ class EmployeeController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $employee->id,
+            'password' => 'nullable|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',
             'mobile_number' => 'nullable|string|max:20',
             'is_active' => 'required|boolean',
         ]);
 
-        $employee->update($validated);
+        $data = $validated;
+        if (!empty($validated['password'])) {
+            $data['password'] = Hash::make($validated['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $employee->update($data);
 
         return redirect()->route('hr.employees.index')->with('success', 'Employee updated successfully.');
     }

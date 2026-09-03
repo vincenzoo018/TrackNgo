@@ -20,6 +20,7 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
         department_id: '',
         role_id: '',
         mobile_number: '',
+        password: '',
         signature: '',
     });
 
@@ -32,12 +33,45 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
         if (e) e.preventDefault();
         
         try {
-            if (signatureRef.current?.isEmpty()) {
+            let isSignatureEmpty = true;
+            if (signatureRef.current) {
+                if (typeof signatureRef.current.isEmpty === 'function') {
+                    isSignatureEmpty = signatureRef.current.isEmpty();
+                } else {
+                    // Fallback if isEmpty is not available
+                    isSignatureEmpty = false;
+                }
+            }
+
+            if (isSignatureEmpty) {
                 setSignatureError('Signature is required for new employees.');
                 return;
             }
 
-            const signatureDataUrl = signatureRef.current?.getTrimmedCanvas().toDataURL('image/png') || '';
+            let signatureDataUrl = '';
+            try {
+                let canvas = null;
+                if (signatureRef.current) {
+                    if (typeof signatureRef.current.getTrimmedCanvas === 'function') {
+                        try {
+                            canvas = signatureRef.current.getTrimmedCanvas();
+                        } catch (e) {
+                            console.warn('getTrimmedCanvas failed, trying getCanvas');
+                            if (typeof signatureRef.current.getCanvas === 'function') {
+                                canvas = signatureRef.current.getCanvas();
+                            }
+                        }
+                    } else if (typeof signatureRef.current.getCanvas === 'function') {
+                        canvas = signatureRef.current.getCanvas();
+                    } else if (signatureRef.current instanceof HTMLCanvasElement) {
+                        canvas = signatureRef.current;
+                    }
+                }
+                signatureDataUrl = canvas ? canvas.toDataURL('image/png') : '';
+            } catch (err) {
+                console.error('Error extracting signature canvas:', err);
+                signatureDataUrl = '';
+            }
 
             // Use Sonner toast for non-blocking confirmation
             toast('Are you sure you want to save this new employee?', {
@@ -162,15 +196,28 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Mobile Number (Optional)</label>
-                        <input
-                            type="text"
-                            value={data.mobile_number}
-                            onChange={e => setData('mobile_number', e.target.value)}
-                            className="w-full rounded-xl border border-[var(--tng-slate-200)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                            placeholder="09171234567"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Mobile Number (Optional)</label>
+                            <input
+                                type="text"
+                                value={data.mobile_number}
+                                onChange={e => setData('mobile_number', e.target.value)}
+                                className="w-full rounded-xl border border-[var(--tng-slate-200)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                                placeholder="09171234567"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Password</label>
+                            <input
+                                type="password"
+                                value={data.password}
+                                onChange={e => setData('password', e.target.value)}
+                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.password ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                                placeholder="Set login password"
+                            />
+                            {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+                        </div>
                     </div>
 
                     <div className="space-y-3">

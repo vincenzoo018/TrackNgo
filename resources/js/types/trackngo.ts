@@ -32,12 +32,13 @@ export type DocumentType = {
 
 // ── Document Status (FSM States) ────────────────────────────────────
 export type DocumentStatus =
+    | 'pending_registration'
     | 'submitted'
-    | 'dept_accepted'
-    | 'endorsed'
-    | 'mayor_accepted'
+    | 'registered'
+    | 'accepted'
     | 'reviewed'
     | 'approved'
+    | 'for_release'
     | 'released'
     | 'returned'
     | 'rejected'
@@ -46,12 +47,13 @@ export type DocumentStatus =
     | 'archived';
 
 export const STATUS_LABELS: Record<DocumentStatus, string> = {
+    pending_registration: 'Pending Registration',
     submitted: 'Submitted',
-    dept_accepted: 'Accepted',
-    endorsed: 'Endorsed',
-    mayor_accepted: 'Accepted',
+    registered: 'Registered',
+    accepted: 'Accepted',
     reviewed: 'Reviewed',
     approved: 'Approved',
+    for_release: 'For Release',
     released: 'Released',
     returned: 'Returned',
     rejected: 'Rejected',
@@ -62,12 +64,11 @@ export const STATUS_LABELS: Record<DocumentStatus, string> = {
 
 export const WORKFLOW_STEPS: { key: DocumentStatus; label: string }[] = [
     { key: 'submitted', label: 'Submitted' },
-    { key: 'dept_accepted', label: 'Accepted' },
-    { key: 'endorsed', label: 'Endorsed' },
-    { key: 'mayor_accepted', label: 'Accepted' },
+    { key: 'registered', label: 'Registered' },
+    { key: 'accepted', label: 'Accepted' },
     { key: 'reviewed', label: 'Reviewed' },
     { key: 'approved', label: 'Approved' },
-    { key: 'released', label: 'Released' },
+    { key: 'for_release', label: 'For Release' },
 ];
 
 // ── Classification ──────────────────────────────────────────────────

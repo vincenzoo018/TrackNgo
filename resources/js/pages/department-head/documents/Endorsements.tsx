@@ -22,7 +22,7 @@ export default function DepartmentHeadEndorsements() {
     const [filterStatus, setFilterStatus] = useState('');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-    const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed'];
+    const statusOptions = ['submitted', 'registered', 'accepted', 'in_review', 'endorsed', 'approved', 'completed'];
 
     const filteredDocs = useMemo(() => {
         let result = documents.filter((doc: any) => {

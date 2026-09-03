@@ -437,7 +437,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 ⚡ Review Actions
                             </h2>
                             <div className="space-y-3">
-                                {doc.status === 'submitted' ? (
+                                {doc.status === 'registered' || doc.status === 'submitted' ? (
                                     <button 
                                         onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to accept this document for review?', 'Accept')}
                                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
@@ -445,11 +445,11 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                         <CheckCircle2 className="h-4 w-4" />
                                         Accept Document
                                     </button>
-                                ) : doc.status === 'dept_accepted' ? (
+                                ) : doc.status === 'accepted' ? (
                                     <>
                                         <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
                                             <Forward className="h-4 w-4" />
-                                            Endorse Document
+                                            Forward / Review Document
                                         </button>
                                         <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100">
                                             <RotateCcw className="h-4 w-4" />

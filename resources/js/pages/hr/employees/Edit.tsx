@@ -16,6 +16,7 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles }: Props) {
         department_id: dbEmployee.department_id || '',
         role_id: dbEmployee.role_id || '',
         mobile_number: dbEmployee.mobile_number || '',
+        password: '',
         is_active: dbEmployee.is_active !== undefined ? dbEmployee.is_active : 1,
     });
 
@@ -131,6 +132,20 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles }: Props) {
                                 placeholder="09171234567"
                             />
                         </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Password</label>
+                            <input
+                                type="password"
+                                value={data.password}
+                                onChange={e => setData('password', e.target.value)}
+                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.password ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                                placeholder="Leave blank to keep current password"
+                            />
+                            {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-[var(--tng-slate-700)]">Status</label>
                             <select

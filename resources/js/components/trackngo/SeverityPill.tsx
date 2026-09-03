@@ -1,11 +1,13 @@
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export type DocumentStatus = 'pending_registration' | 'submitted' | 'dept_accepted' | 'endorsed' | 'mayor_accepted' | 'reviewed' | 'approved' | 'released' | 'completed' | 'escalated' | 'rejected' | 'archived' | 'routed';
+export type DocumentStatus = 'pending_registration' | 'submitted' | 'registered' | 'accepted' | 'dept_accepted' | 'endorsed' | 'mayor_accepted' | 'reviewed' | 'approved' | 'released' | 'completed' | 'escalated' | 'rejected' | 'archived' | 'routed';
 
 const STATUS_CONFIG: Record<DocumentStatus, { label: string; bg: string; text: string; dot: string }> = {
     pending_registration: { label: 'PENDING REG.', bg: 'bg-orange-100/80', text: 'text-orange-700', dot: 'bg-orange-500 animate-pulse' },
     submitted: { label: 'SUBMITTED', bg: 'bg-blue-100/80', text: 'text-blue-700', dot: 'bg-blue-500' },
+    registered: { label: 'REGISTERED', bg: 'bg-sky-100/80', text: 'text-sky-700', dot: 'bg-sky-500' },
+    accepted: { label: 'ACCEPTED', bg: 'bg-indigo-100/80', text: 'text-indigo-700', dot: 'bg-indigo-500' },
     dept_accepted: { label: 'ACCEPTED', bg: 'bg-indigo-100/80', text: 'text-indigo-700', dot: 'bg-indigo-500' },
     endorsed: { label: 'ENDORSED', bg: 'bg-emerald-100/80', text: 'text-emerald-700', dot: 'bg-emerald-500' },
     mayor_accepted: { label: 'ACCEPTED', bg: 'bg-indigo-100/80', text: 'text-indigo-700', dot: 'bg-indigo-500' },

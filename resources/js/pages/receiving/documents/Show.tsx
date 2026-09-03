@@ -97,7 +97,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 onSuccess: () => {
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
-                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Routing slip generated successfully.' });
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document registered! A tracking number has been assigned and the document has been forwarded to the destination department.' });
                 },
                 onError: () => setIsActionLoading(false)
             });
@@ -431,15 +431,10 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                 ⚡ Core Actions
                             </h2>
                             <div className="space-y-3">
-                                {doc.status === 'pending_registration' ? (
+                                {doc.status === 'submitted' || doc.status === 'pending_registration' ? (
                                     <button onClick={handleRegister} className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-orange-600/25 transition-all hover:bg-orange-700 hover:shadow-lg">
                                         <QrCode className="h-4 w-4" />
                                         Register & Route Document
-                                    </button>
-                                ) : doc.status === 'submitted' ? (
-                                    <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
-                                        <Forward className="h-4 w-4" />
-                                        Forward / Route Document
                                     </button>
                                 ) : doc.status === 'approved' ? (
                                     <button 

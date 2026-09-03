@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { Plus, ScanLine, ArrowLeft, Loader2, CheckCircle2, QrCode, FileText } from 'lucide-react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
+import { SuccessModal } from '@/components/trackngo/SuccessModal';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set up the PDF.js worker
@@ -33,6 +35,9 @@ export default function CreateDocument() {
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [trackingNumber, setTrackingNumber] = useState('');
     const [isConfidential, setIsConfidential] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [successOpen, setSuccessOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleFileUploadClick = () => {
         if (ocrComplete || isScanning) return;
@@ -105,13 +110,19 @@ export default function CreateDocument() {
         setOcrComplete(true);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        
+    const handleSubmit = () => {
+        if (!ocrComplete || processing) return;
+        setConfirmOpen(true);
+    };
+
+    const handleConfirmSubmit = () => {
+        setIsSubmitting(true);
         post('/department-head/documents', {
+            forceFormData: true,
+            preserveScroll: true,
             onSuccess: (page: any) => {
-                setSubmitSuccess(true);
-                // Try to extract the tracking number from the session flash message if available
+                setConfirmOpen(false);
+                setIsSubmitting(false);
                 const flashMessage = page.props?.flash?.success || '';
                 const match = flashMessage.match(/RS-\d{4}-\d{4}/);
                 if (match) {
@@ -119,12 +130,19 @@ export default function CreateDocument() {
                 } else {
                     setTrackingNumber('RS-' + new Date().getFullYear() + '-XXXX');
                 }
+                setSuccessOpen(true);
             },
-            onError: () => {
-                // Keep the state the same so user can fix errors
-                console.error(errors);
+            onError: (errs: any) => {
+                setConfirmOpen(false);
+                setIsSubmitting(false);
+                console.error('Submission errors:', errs);
             }
         });
+    };
+
+    const handleSuccessClose = () => {
+        setSuccessOpen(false);
+        setSubmitSuccess(true);
     };
 
     if (submitSuccess) {
@@ -453,7 +471,8 @@ export default function CreateDocument() {
                             Cancel
                         </Link>
                         <button
-                            type="submit"
+                            type="button"
+                            onClick={handleSubmit}
                             disabled={processing || !ocrComplete}
                             className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-6 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                         >
@@ -469,6 +488,27 @@ export default function CreateDocument() {
                     </div>
                 </div>
             </form>
+
+            {/* Confirmation Modal */}
+            <ConfirmActionModal
+                isOpen={confirmOpen}
+                onClose={() => setConfirmOpen(false)}
+                onConfirm={handleConfirmSubmit}
+                title="Generate Routing Slip & Submit"
+                message={`Are you sure you want to submit this document${data.is_internal ? ' as an internal document for registration' : ''}? A routing slip will be generated and the document will be forwarded to the destination department.`}
+                confirmText="Submit"
+                cancelText="Cancel"
+                isLoading={isSubmitting}
+            />
+
+            {/* Success Modal */}
+            <SuccessModal
+                isOpen={successOpen}
+                onClose={handleSuccessClose}
+                title="Successfully"
+                message={`Document submitted successfully.${trackingNumber ? ' Tracking: ' + trackingNumber : ' A tracking number will be assigned upon registration.'}`}
+                buttonText="Continue"
+            />
         </TrackngoLayout>
     );
 }

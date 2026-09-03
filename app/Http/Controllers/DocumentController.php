@@ -68,17 +68,23 @@ class DocumentController extends Controller
             ->count() + 1;
         $referenceNumber = $deptCode . '-' . $year . '-' . str_pad($deptDocCount, 4, '0', STR_PAD_LEFT);
 
-        $isInternal = $request->input('is_internal', false);
+        $isInternal = $request->boolean('is_internal');
 
         if ($isInternal) {
             $trackingNumber = null;
             $status = 'pending_registration';
-            $currentHolderDeptId = $request->department_id; // Stays with sender until registered
+            $receivingDept = \App\Models\Department::where('department_name', 'like', '%Receiving%')->orWhere('code', 'REC')->first();
+            $currentHolderDeptId = $receivingDept ? $receivingDept->department_id : 1;
             $destinationDeptId = $request->forward_to;
         } else {
-            // Tracking number (global sequential)
-            $globalCount = Document::whereYear('created_at', $year)->count() + 1;
-            $trackingNumber = 'RS-' . $year . '-' . str_pad($globalCount, 4, '0', STR_PAD_LEFT);
+            // Tracking number (global sequential safe)
+            $latestDoc = Document::whereNotNull('tracking_number')
+                ->where('tracking_number', 'like', "RS-$year-%")
+                ->orderBy('tracking_number', 'desc')
+                ->first();
+            
+            $nextSeq = $latestDoc ? ((int) substr($latestDoc->tracking_number, -4)) + 1 : 1;
+            $trackingNumber = 'RS-' . $year . '-' . str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
             $status = 'submitted';
             $currentHolderDeptId = $request->forward_to;
             $destinationDeptId = null;
@@ -97,7 +103,7 @@ class DocumentController extends Controller
             'status' => $status,
             'ocr_text' => $request->ocr_text,
             'current_step_index' => 1,
-            'total_steps' => 5,
+            'total_steps' => 6,
             'sender' => auth()->user()->name,
             'current_holder_department_id' => $currentHolderDeptId,
             'is_internal' => $isInternal,
@@ -105,7 +111,20 @@ class DocumentController extends Controller
             'date_filed' => now(),
         ]);
 
-        if (!$isInternal) {
+        if ($isInternal) {
+            \App\Models\RoutingSlip::create([
+                'document_id' => $document->document_id,
+                'tracking_number' => 'PENDING-' . $document->reference_number,
+                'from_user_id' => auth()->id(),
+                'from_department_id' => $request->department_id,
+                'to_user_id' => null,
+                'target_department_id' => $currentHolderDeptId,
+                'sender_name' => auth()->user()->name,
+                'action' => 'forward',
+                'instruction' => 'Submitted for registration and routing.',
+                'status' => 'pending',
+            ]);
+        } else {
             // Create routing slip immediately if not internal
             \App\Models\RoutingSlip::create([
                 'document_id' => $document->document_id,
@@ -139,21 +158,17 @@ class DocumentController extends Controller
     {
         $document = Document::findOrFail($id);
         
-        $isMayor = auth()->user()->hasRole('Mayor');
-        $status = $isMayor ? 'mayor_accepted' : 'dept_accepted';
-        $step = $isMayor ? 4 : 2;
-
         $document->update([
-            'status' => $status,
-            'current_step_index' => $step,
+            'status' => 'accepted',
+            'current_step_index' => 3,
         ]);
 
         \App\Models\AuditTrail::create([
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => $status,
-            'description' => 'Document accepted for review.',
+            'action' => 'accepted',
+            'description' => 'Document accepted and received by ' . auth()->user()->name . ' for review.',
             'timestamp' => now(),
         ]);
 
@@ -166,7 +181,7 @@ class DocumentController extends Controller
         
         $document->update([
             'status' => 'reviewed',
-            'current_step_index' => 5,
+            'current_step_index' => 4,
         ]);
 
         \App\Models\AuditTrail::create([
@@ -205,8 +220,8 @@ class DocumentController extends Controller
             'status' => 'pending',
         ]);
 
-        $status = $document->status === 'dept_accepted' ? 'endorsed' : 'submitted';
-        $step = $document->status === 'dept_accepted' ? 3 : 1;
+        $status = $document->status === 'accepted' ? 'reviewed' : 'submitted';
+        $step = $document->status === 'accepted' ? 4 : 1;
 
         $document->update([
             'status' => $status,
@@ -306,7 +321,7 @@ class DocumentController extends Controller
             'status' => 'approved',
             'current_holder_department_id' => $destDeptId,
             'current_holder_id' => null,
-            'current_step_index' => 6,
+            'current_step_index' => 5,
         ]);
 
         \App\Models\AuditTrail::create([
@@ -326,10 +341,10 @@ class DocumentController extends Controller
         $document = Document::findOrFail($id);
         
         $document->update([
-            'status' => 'released',
+            'status' => 'for_release',
             'current_holder_id' => null,
             'current_holder_department_id' => null,
-            'current_step_index' => 7,
+            'current_step_index' => 6,
         ]);
 
         \App\Models\AuditTrail::create([
@@ -391,17 +406,22 @@ class DocumentController extends Controller
     {
         $document = Document::findOrFail($id);
 
-        if ($document->status !== 'pending_registration') {
-            return response()->json(['message' => 'Document is not pending registration.'], 400);
+        if (!in_array($document->status, ['submitted', 'pending_registration'])) {
+            return response()->json(['message' => 'Document cannot be registered at this stage.'], 400);
         }
 
         $year = date('Y');
-        $globalCount = Document::whereNotNull('tracking_number')->whereYear('created_at', $year)->count() + 1;
-        $trackingNumber = 'RS-' . $year . '-' . str_pad($globalCount, 4, '0', STR_PAD_LEFT);
+        $latestDoc = Document::whereNotNull('tracking_number')
+            ->where('tracking_number', 'like', "RS-$year-%")
+            ->orderBy('tracking_number', 'desc')
+            ->first();
+            
+        $nextSeq = $latestDoc ? ((int) substr($latestDoc->tracking_number, -4)) + 1 : 1;
+        $trackingNumber = 'RS-' . $year . '-' . str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
 
         $document->update([
             'tracking_number' => $trackingNumber,
-            'status' => 'routed',
+            'status' => 'registered',
             'current_holder_department_id' => $document->destination_department_id,
             'current_step_index' => 2,
         ]);

@@ -10,7 +10,7 @@ type StepProgressProps = {
     auditTrails?: any[];
 };
 
-export function StepProgress({ currentStep, totalSteps = 7, className, currentHolderName, auditTrails = [] }: StepProgressProps) {
+export function StepProgress({ currentStep, totalSteps = 6, className, currentHolderName, auditTrails = [] }: StepProgressProps) {
     const steps = WORKFLOW_STEPS.slice(0, totalSteps);
 
     return (

@@ -39,6 +39,8 @@ class Document extends Model
         'sender',
         'current_holder_id',
         'current_holder_department_id',
+        'is_internal',
+        'destination_department_id',
     ];
 
     protected $casts = [
@@ -47,6 +49,7 @@ class Document extends Model
         'completed_at' => 'datetime',
         'arta_due_date' => 'date',
         'is_escalated' => 'boolean',
+        'is_internal' => 'boolean',
     ];
 
     public function submitter()
