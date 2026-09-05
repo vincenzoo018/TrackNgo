@@ -52,7 +52,7 @@ export function ConfirmActionModal({
             />
 
             {/* Modal */}
-            <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative z-10 w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
                         <div className={cn(

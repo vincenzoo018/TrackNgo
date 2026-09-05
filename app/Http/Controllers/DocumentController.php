@@ -504,6 +504,23 @@ class DocumentController extends Controller
         if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Incorrect password.'], 401);
         }
+        if ($id == 0) {
+            \App\Models\AuditTrail::create([
+                'document_id' => null,
+                'user_id' => $user->id,
+                'user_role' => $userRole,
+                'department' => $user->department->department_name ?? null,
+                'document_ref' => 'Document List',
+                'action' => 'List Exported',
+                'description' => 'Document list exported securely via password verification.',
+                'timestamp' => now(),
+            ]);
+
+            return response()->json([
+                'message' => 'Export successful.',
+                'url' => null
+            ]);
+        }
 
         $document = Document::findOrFail($id);
 

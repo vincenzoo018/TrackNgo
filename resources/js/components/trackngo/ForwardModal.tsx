@@ -55,10 +55,10 @@ export function ForwardModal({ open, onClose, onConfirm, departments, users }: F
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
             {/* Modal */}
-            <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-[var(--tng-slate-100)] px-6 py-4 shrink-0">

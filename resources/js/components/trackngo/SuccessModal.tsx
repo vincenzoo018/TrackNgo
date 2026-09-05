@@ -44,7 +44,7 @@ export function SuccessModal({
             />
 
             {/* Modal */}
-            <div className="relative w-full max-w-sm transform overflow-hidden rounded-2xl bg-white p-8 text-center shadow-xl transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative z-10 w-full max-w-sm transform overflow-hidden rounded-2xl bg-white p-8 text-center shadow-xl transition-all animate-in fade-in zoom-in-95 duration-200">
                 <button
                     onClick={onClose}
                     className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors"

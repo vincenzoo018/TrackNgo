@@ -9,6 +9,7 @@ import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
 import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
 import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
 import { SuccessModal } from '@/components/trackngo/SuccessModal';
+import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
@@ -31,6 +32,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const [aiTemplateOpen, setAiTemplateOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'audit' | 'discussion'>('audit');
+    const [exportModalOpen, setExportModalOpen] = useState(false);
 
     // Anchored Comments State
     const [selectedOcrText, setSelectedOcrText] = useState('');
@@ -376,7 +378,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     </button>
                                 </div>
                             </div>
-                            
+
                             {/* Confidentiality Guard */}
                             {doc.is_confidential_hidden ? (
                                 <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 border border-slate-300 rounded-lg p-12 text-center h-[700px]">
@@ -389,35 +391,33 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     </p>
                                 </div>
                             ) : (
-                            <div className="flex-1 flex gap-4 h-full relative overflow-hidden">
-                                {/* PDF side-by-side with OCR or just OCR */}
-                                {doc.attachment_path && (
-                                    <div className="w-1/2 h-[700px] border border-slate-300 rounded-lg overflow-hidden bg-slate-100 hidden md:block">
-                                        <iframe 
-                                            src={`/storage/${doc.attachment_path}`} 
-                                            className="w-full h-full"
-                                            title="Original Document PDF"
-                                        />
+                                <div className="flex-1 flex gap-4 h-full relative overflow-hidden">
+                                    {doc.attachment_path && (
+                                        <div className="w-1/2 h-[700px] border border-slate-300 rounded-lg overflow-hidden bg-slate-100 hidden md:block">
+                                            <iframe
+                                                src={`/storage/${doc.attachment_path}`}
+                                                className="w-full h-full"
+                                                title="Original Document PDF"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className={`flex-1 h-[700px] bg-slate-50 shadow-inner border border-slate-300 rounded-lg p-8 overflow-y-auto ${doc.attachment_path ? 'md:w-1/2 w-full' : 'w-full'}`}>
+                                        <div className="bg-white border border-slate-200 shadow-sm p-12 min-h-[800px] relative" onMouseUp={handleTextSelection}>
+                                            {doc.ocr_text ? (
+                                                <div className="whitespace-pre-wrap text-sm text-slate-700 font-serif leading-relaxed">
+                                                    {doc.ocr_text}
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="h-4 bg-slate-100 rounded w-3/4 mb-6 animate-pulse"></div>
+                                                    <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
+                                                    <div className="h-4 bg-slate-100 rounded w-5/6 mb-6 animate-pulse"></div>
+                                                    <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
+                                                    <div className="h-4 bg-slate-100 rounded w-2/3 mb-12 animate-pulse"></div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                                <div className={`flex-1 h-[700px] bg-slate-50 shadow-inner border border-slate-300 rounded-lg p-8 overflow-y-auto ${doc.attachment_path ? 'md:w-1/2 w-full' : 'w-full'}`}>
-                                    <div className="bg-white border border-slate-200 shadow-sm p-12 min-h-[800px] relative" onMouseUp={handleTextSelection}>
-                                        {doc.ocr_text ? (
-                                            <div className="whitespace-pre-wrap text-sm text-slate-700 font-serif leading-relaxed">
-                                                {doc.ocr_text}
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="h-4 bg-slate-100 rounded w-3/4 mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-5/6 mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-2/3 mb-12 animate-pulse"></div>
-                                            </>
-                                        )}
-                                        
-                                    </div>
-                                </div>
                                 </div>
                             )}
                         </div>
@@ -434,10 +434,10 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                 {doc.status === 'submitted' || doc.status === 'pending_registration' ? (
                                     <button onClick={handleRegister} className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-orange-600/25 transition-all hover:bg-orange-700 hover:shadow-lg">
                                         <QrCode className="h-4 w-4" />
-                                        Register & Route Document
+                                        Register &amp; Route Document
                                     </button>
                                 ) : doc.status === 'approved' ? (
-                                    <button 
+                                    <button
                                         onClick={() => requestAction('release', 'Release Document', 'Are you sure you want to release this document to the applicant?', 'Release')}
                                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
                                     >
@@ -459,7 +459,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                         <QrCode className="h-4 w-4" />
                                         Print QR
                                     </button>
-                                    <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
+                                    <button onClick={() => setExportModalOpen(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
                                         <Download className="h-4 w-4" />
                                         Export PDF
                                     </button>
@@ -474,90 +474,90 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                             </div>
                         </div>
 
-
-
                         <div className="flex-1 overflow-y-auto tng-scrollbar flex flex-col gap-6 pb-6 pr-2 -mr-2">
-                            {/* Audit Trail & Comments */}
+                            {/* Audit Trail &amp; Comments */}
                             <div className="shrink-0 rounded-xl border border-[var(--tng-slate-200)] bg-white flex flex-col h-[500px]">
-                            <div className="flex border-b border-[var(--tng-slate-200)]">
-                                <button 
-                                    onClick={() => setActiveTab('audit')} 
-                                    className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'audit' ? 'border-b-2 border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]' : 'text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)]'}`}
-                                >
-                                    Audit Trail
-                                </button>
-                                <button 
-                                    onClick={() => setActiveTab('discussion')} 
-                                    className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'discussion' ? 'border-b-2 border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]' : 'text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)]'}`}
-                                >
-                                    Discussion
-                                </button>
-                            </div>
+                                <div className="flex border-b border-[var(--tng-slate-200)]">
+                                    <button
+                                        onClick={() => setActiveTab('audit')}
+                                        className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'audit' ? 'border-b-2 border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]' : 'text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)]'}`}
+                                    >
+                                        Audit Trail
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('discussion')}
+                                        className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'discussion' ? 'border-b-2 border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]' : 'text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)]'}`}
+                                    >
+                                        Discussion
+                                    </button>
+                                </div>
 
-                            <div className="p-6 flex-1 overflow-y-auto tng-scrollbar">
-                                {activeTab === 'audit' ? (
-                                    <div className="pt-2 pb-8">
-                                        <AuditTrailTimeline entries={trail} className="border-none shadow-none p-0" />
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col h-full">
-                                        <div className="flex-1 space-y-4 mb-4">
-                                            {comments.length > 0 ? comments.map((comment: any) => (
-                                                <div key={comment.id} className="flex gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)] shrink-0">
-                                                        {comment.user_name.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-sm text-[var(--tng-slate-800)]">
-                                                        <p className="font-semibold text-xs text-[var(--tng-slate-500)] mb-1">
-                                                            {comment.user_name} ({comment.user_role}) · {new Date(comment.created_at).toLocaleString()}
-                                                        </p>
-                                                        {comment.is_anchored && comment.quoted_text && (
-                                                            <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
-                                                                "{comment.quoted_text}"
-                                                            </div>
-                                                        )}
-                                                        {comment.comment}
-                                                    </div>
-                                                </div>
-                                            )) : (
-                                                <p className="text-sm text-[var(--tng-slate-400)] text-center mt-4">No discussion yet. Be the first to comment!</p>
-                                            )}
+                                <div className="p-6 flex-1 overflow-y-auto tng-scrollbar">
+                                    {activeTab === 'audit' ? (
+                                        <div className="pt-2 pb-8">
+                                            <AuditTrailTimeline entries={trail} className="border-none shadow-none p-0" />
                                         </div>
-                                        <form onSubmit={(e) => handleAddComment(e, false)} className="mt-auto relative">
-                                            <input 
-                                                type="text" 
-                                                value={normalCommentText}
-                                                onChange={e => setNormalCommentText(e.target.value)}
-                                                placeholder="Type a message..." 
-                                                className="w-full rounded-lg border border-[var(--tng-slate-200)] pr-10 pl-3 py-2 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
-                                            />
-                                            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-700)]">
-                                                <Send className="h-4 w-4" />
-                                            </button>
-                                        </form>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <div className="flex flex-col h-full">
+                                            <div className="flex-1 space-y-4 mb-4">
+                                                {comments.length > 0 ? comments.map((comment: any) => (
+                                                    <div key={comment.id} className="flex gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)] shrink-0">
+                                                            {comment.user_name.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-sm text-[var(--tng-slate-800)]">
+                                                            <p className="font-semibold text-xs text-[var(--tng-slate-500)] mb-1">
+                                                                {comment.user_name} ({comment.user_role}) · {new Date(comment.created_at).toLocaleString()}
+                                                            </p>
+                                                            {comment.is_anchored && comment.quoted_text && (
+                                                                <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
+                                                                    "{comment.quoted_text}"
+                                                                </div>
+                                                            )}
+                                                            {comment.comment}
+                                                        </div>
+                                                    </div>
+                                                )) : (
+                                                    <p className="text-sm text-[var(--tng-slate-400)] text-center mt-4">No discussion yet. Be the first to comment!</p>
+                                                )}
+                                            </div>
+                                            <form onSubmit={(e) => handleAddComment(e, false)} className="mt-auto relative">
+                                                <input
+                                                    type="text"
+                                                    value={normalCommentText}
+                                                    onChange={e => setNormalCommentText(e.target.value)}
+                                                    placeholder="Type a message..."
+                                                    className="w-full rounded-lg border border-[var(--tng-slate-200)] pr-10 pl-3 py-2 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]"
+                                                />
+                                                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-700)]">
+                                                    <Send className="h-4 w-4" />
+                                                </button>
+                                            </form>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Signatures Section moved below Audit Trail */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-12">
-                            {/* Sender */}
-                            <div className="text-center relative w-full flex flex-col items-center">
-                                <DraggableSignature imagePath={doc.submitter?.signature} name={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
-                                <div className="h-16"></div> {/* Space for signature */}
-                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Prepared By</div>
+                            {/* Signatures Section */}
+                            <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-8">
+                                <h3 className="text-sm font-semibold text-[var(--tng-slate-700)] flex items-center gap-2">
+                                    <span className="text-base">✍️</span> Signatories
+                                </h3>
+                                {/* Sender */}
+                                <div className="text-center relative w-full flex flex-col items-center">
+                                    <DraggableSignature imagePath={doc.submitter?.signature} name={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
+                                    <div className="h-16"></div>
+                                    <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Prepared By</div>
+                                </div>
+                                {/* Authenticated User */}
+                                <div className="text-center relative w-full flex flex-col items-center">
+                                    <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
+                                    <div className="h-16"></div>
+                                    <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'Receiving Clerk'}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Received By</div>
+                                </div>
                             </div>
-
-                            {/* Authenticated User */}
-                            <div className="text-center relative w-full flex flex-col items-center">
-                                <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
-                                <div className="h-16"></div> {/* Space for signature */}
-                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'System Admin (You)'}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Approved By</div>
-                            </div>
-                        </div>
                         </div>
 
                     </div>
@@ -771,6 +771,13 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     </div>
                 </div>
             )}
+
+            <ExportPasswordModal
+                isOpen={exportModalOpen}
+                onClose={() => setExportModalOpen(false)}
+                documentId={doc.document_id}
+                onSuccess={(msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(null), 3500); }}
+            />
         </TrackngoLayout>
     );
 }

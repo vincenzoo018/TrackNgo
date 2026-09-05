@@ -8,6 +8,7 @@ import { StepDots } from '@/components/trackngo/StepProgress';
 import { cn } from '@/lib/utils';
 import { FileText } from 'lucide-react';
 import CreateDocumentModal from './CreateDocumentModal';
+import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 
 export default function DepartmentHeadEndorsements() {
     const { props } = usePage();
@@ -27,6 +28,21 @@ export default function DepartmentHeadEndorsements() {
     const [filterDept, setFilterDept] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    const handleExportList = () => {
+        const header = ['Ref No', 'Tracking No', 'Document Type', 'Department', 'Date Filed', 'Status'];
+        const rows = filteredDocs.map((d: any) => [
+            d.reference_number, d.tracking_number ?? '', d.type?.type_name ?? '',
+            d.department?.department_name ?? '', d.created_at?.slice(0, 10) ?? '', d.status
+        ]);
+        const csv = [header, ...rows].map(r => r.map((v: string) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'endorsements.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    };
 
     const statusOptions = ['submitted', 'registered', 'accepted', 'in_review', 'endorsed', 'approved', 'completed'];
 
@@ -207,7 +223,7 @@ export default function DepartmentHeadEndorsements() {
                         </button>
                     )}
 
-                    <button className="ml-auto flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]">
+                    <button onClick={() => setExportModalOpen(true)} className="ml-auto flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]">
                         <Download className="h-4 w-4" />
                         Export
                         <Lock className="h-3 w-3 text-[var(--tng-amber-500)]" />
@@ -351,6 +367,13 @@ export default function DepartmentHeadEndorsements() {
                 departments={departments}
                 documentTypes={documentTypes}
                 users={users}
+            />
+
+            <ExportPasswordModal
+                isOpen={exportModalOpen}
+                onClose={() => setExportModalOpen(false)}
+                documentId={0}
+                onSuccess={(msg) => { handleExportList(); setToastMessage(msg); setTimeout(() => setToastMessage(null), 3500); }}
             />
         </TrackngoLayout>
     );

@@ -143,11 +143,22 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
         });
     };
 
+    
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-[var(--tng-slate-900)]/15 backdrop-blur-sm p-4 sm:p-6 pt-10 sm:pt-16 overflow-y-auto transition-all">
-            <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 mb-10 max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 transition-all">
+            <div className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-[var(--tng-slate-100)] px-4 sm:px-6 py-4 flex-shrink-0">
                     <div className="flex items-center gap-3">

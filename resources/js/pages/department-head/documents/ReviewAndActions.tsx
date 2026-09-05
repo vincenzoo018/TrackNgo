@@ -11,6 +11,7 @@ import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
 import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
 import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
 import { SuccessModal } from '@/components/trackngo/SuccessModal';
+import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
@@ -34,6 +35,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
     const [aiTemplateOpen, setAiTemplateOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'audit' | 'discussion'>('audit');
+    const [exportModalOpen, setExportModalOpen] = useState(false);
 
     // Anchored Comments State
     const [selectedOcrText, setSelectedOcrText] = useState('');
@@ -156,7 +158,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 { title: doc.reference_number, href: '#' },
             ]}
         >
-            <Head title={`${doc.reference_number} â€” TrackNGo Mati`} />
+            <Head title={`${doc.reference_number} — TrackNGo Mati`} />
 
             {/* Toast Notification */}
             {toastMessage && (
@@ -180,7 +182,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                             <SpClearedBadge />
                         </div>
                         <p className="text-sm text-[var(--tng-slate-500)]">
-                            {doc.title} â€” {doc.sender ?? doc.submitter?.name ?? 'Unknown'}
+                            {doc.title} — {doc.sender ?? doc.submitter?.name ?? 'Unknown'}
                         </p>
                     </div>
                     <Link
@@ -356,7 +358,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                         <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col min-h-[800px]">
                             <div className="mb-4 flex items-center justify-between">
                                 <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--tng-slate-800)]">
-                                    ðŸ‘ï¸ Digitalized Document Preview (OCR)
+                                    👁️ Digitalized Document Preview (OCR)
                                 </h2>
                                 <div className="flex items-center gap-2">
                                     <label className="flex items-center gap-1.5 text-xs text-[var(--tng-slate-500)]">
@@ -370,20 +372,32 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                         }}
                                         className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${selectedOcrText ? 'border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] text-[var(--tng-blue-700)]' : 'border-[var(--tng-blue-300)] bg-white text-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-50)]'}`}
                                     >
-                                        ðŸ“‹ Add Anchored Comment {selectedOcrText && '(Text Selected)'}
+                                        📋 Add Anchored Comment {selectedOcrText && '(Text Selected)'}
                                     </button>
                                     <button className="rounded-md border border-[var(--tng-blue-300)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--tng-blue-600)] transition-colors hover:bg-[var(--tng-blue-50)]">
                                         Open Original PDF
                                     </button>
                                 </div>
                             </div>
-                            
-                            {/* PDF side-by-side with OCR or just OCR */}
+
+                            {/* Confidentiality Guard */}
+                            {doc.is_confidential_hidden ? (
+                                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 border border-slate-300 rounded-lg p-12 text-center h-[700px]">
+                                    <div className="rounded-full bg-red-100 p-6 mb-6">
+                                        <Lock className="h-12 w-12 text-red-600" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Confidential Document</h3>
+                                    <p className="text-slate-500 max-w-md mx-auto">
+                                        This document is marked as highly confidential. You are authorized to review and act on this document, but cannot view its full contents.
+                                    </p>
+                                </div>
+                            ) : (
                             <div className="flex-1 flex gap-4 h-full relative overflow-hidden">
+                                {/* PDF side-by-side with OCR or just OCR */}
                                 {doc.attachment_path && (
                                     <div className="w-1/2 h-[700px] border border-slate-300 rounded-lg overflow-hidden bg-slate-100 hidden md:block">
-                                        <iframe 
-                                            src={`/storage/${doc.attachment_path}`} 
+                                        <iframe
+                                            src={`/storage/${doc.attachment_path}`}
                                             className="w-full h-full"
                                             title="Original Document PDF"
                                         />
@@ -404,28 +418,10 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                                 <div className="h-4 bg-slate-100 rounded w-2/3 mb-12 animate-pulse"></div>
                                             </>
                                         )}
-                                        
-                                        {/* Signatures Section at the bottom */}
-                                        <div className="mt-24 flex justify-between border-t border-slate-100 pt-12">
-                                            
-                                            {/* Sender */}
-                                            <div className="text-center relative w-48">
-                                                <div className="h-16"></div> {/* Space for signature */}
-                                                <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
-                                                <div className="text-xs text-slate-500">Prepared By</div>
-                                            </div>
-
-                                            {/* Authenticated User */}
-                                            <div className="text-center relative w-48">
-                                                <DraggableSignature />
-                                                <div className="h-16"></div> {/* Space for signature */}
-                                                <div className="font-bold text-slate-800 border-b border-slate-800 pb-1 mb-1">System Admin (You)</div>
-                                                <div className="text-xs text-slate-500">Approved / Forwarded By</div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            )}
                         </div>
                     </div>
 
@@ -465,7 +461,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                     <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
                                         <Printer className="h-4 w-4" /> Print
                                     </button>
-                                    <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
+                                    <button onClick={() => setExportModalOpen(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
                                         <Download className="h-4 w-4" /> Export
                                     </button>
                                 </div>
@@ -505,7 +501,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                                     </div>
                                                     <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-sm text-[var(--tng-slate-800)]">
                                                         <p className="font-semibold text-xs text-[var(--tng-slate-500)] mb-1">
-                                                            {comment.user_name} ({comment.user_role}) Â· {new Date(comment.created_at).toLocaleString()}
+                                                            {comment.user_name} ({comment.user_role}) · {new Date(comment.created_at).toLocaleString()}
                                                         </p>
                                                         {comment.is_anchored && comment.quoted_text && (
                                                             <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
@@ -536,11 +532,14 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                             </div>
                         </div>
                         {/* Signatures Section */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-12">
+                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-8">
+                            <h3 className="text-sm font-semibold text-[var(--tng-slate-700)] flex items-center gap-2">
+                                <span className="text-base">✍️</span> Signatories
+                            </h3>
                             {/* Sender */}
                             <div className="text-center relative w-full flex flex-col items-center">
                                 <DraggableSignature imagePath={doc.submitter?.signature} name={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
-                                <div className="h-16"></div> {/* Space for signature */}
+                                <div className="h-16"></div>
                                 <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Prepared By</div>
                             </div>
@@ -548,9 +547,9 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                             {/* Authenticated User */}
                             <div className="text-center relative w-full flex flex-col items-center">
                                 <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
-                                <div className="h-16"></div> {/* Space for signature */}
-                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'System Admin (You)'}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Approved By</div>
+                                <div className="h-16"></div>
+                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'Department Head'}</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Reviewed By</div>
                             </div>
                         </div>
                         </div>
@@ -774,6 +773,13 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 onClose={() => setSuccessState(prev => ({ ...prev, isOpen: false }))}
                 title={successState.title}
                 message={successState.message}
+            />
+
+            <ExportPasswordModal
+                isOpen={exportModalOpen}
+                onClose={() => setExportModalOpen(false)}
+                documentId={doc.document_id}
+                onSuccess={(msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(null), 3500); }}
             />
         </TrackngoLayout>
     );
