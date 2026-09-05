@@ -430,9 +430,9 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                     </div>
 
                     {/* Actions + Audit Trail (1 col) */}
-                    <div className="space-y-6">
+                    <div className="flex flex-col gap-6 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)]">
                         {/* Standard Actions */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
+                        <div className="shrink-0 rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
                             <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--tng-slate-800)]">
                                 ⚡ Review Actions
                             </h2>
@@ -472,8 +472,9 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                             </div>
                         </div>
 
-                        {/* Audit Trail & Comments */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white flex flex-col h-[500px]">
+                        <div className="flex-1 overflow-y-auto tng-scrollbar flex flex-col gap-6 pb-6 pr-2 -mr-2">
+                            {/* Audit Trail & Comments */}
+                            <div className="shrink-0 rounded-xl border border-[var(--tng-slate-200)] bg-white flex flex-col h-[500px]">
                             <div className="flex border-b border-[var(--tng-slate-200)]">
                                 <button 
                                     onClick={() => setActiveTab('audit')} 
@@ -551,6 +552,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'System Admin (You)'}</div>
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Approved By</div>
                             </div>
+                        </div>
                         </div>
 
                     </div>

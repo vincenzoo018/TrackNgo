@@ -52,6 +52,7 @@ class DocumentController extends Controller
             'file' => 'required|file|max:10240',
             'classification' => 'required|string',
             'forward_to' => 'required|exists:departments,department_id',
+            'forward_to_user' => 'nullable|exists:users,id',
             'instruction' => 'nullable|string',
             'ocr_text' => 'nullable|string',
             'is_internal' => 'nullable|boolean',
@@ -131,7 +132,7 @@ class DocumentController extends Controller
                 'tracking_number' => $trackingNumber,
                 'from_user_id' => auth()->id(),
                 'from_department_id' => $request->department_id,
-                'to_user_id' => null, // Goes to department pool
+                'to_user_id' => $request->forward_to_user, // Specific user or null for pool
                 'target_department_id' => $request->forward_to,
                 'sender_name' => auth()->user()->name,
                 'action' => 'forward',
@@ -482,5 +483,45 @@ class DocumentController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Document received successfully.');
+    }
+
+    public function export(Request $request, $id)
+    {
+        $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        $user = auth()->user();
+        
+        // Check allowed roles
+        $allowedRoles = ['Receiving Clerk', 'Department Head', 'Mayor'];
+        $userRole = $user->role->role_name ?? '';
+        if (!in_array($userRole, $allowedRoles)) {
+            return response()->json(['message' => 'Unauthorized role for export.'], 403);
+        }
+
+        // Verify password
+        if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Incorrect password.'], 401);
+        }
+
+        $document = Document::findOrFail($id);
+
+        // Log to Audit Trail
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
+            'department' => $user->department->department_name ?? null,
+            'document_ref' => $document->reference_number,
+            'action' => 'Document Exported',
+            'description' => 'Document exported securely via password verification.',
+            'timestamp' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Export successful.',
+            'url' => $document->attachment_path ? asset('storage/' . $document->attachment_path) : null
+        ]);
     }
 }

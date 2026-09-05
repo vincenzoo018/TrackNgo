@@ -1,23 +1,29 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X, Inbox, Clock, Send } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { StepDots } from '@/components/trackngo/StepProgress';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
+import { cn } from '@/lib/utils';
+import CreateDocumentModal from './CreateDocumentModal';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
     const documents = (props.dbDocuments || []) as any[];
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
+    const users = (props.dbUsers || []) as any[];
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    
+    const [activeTab, setActiveTab] = useState<'received' | 'ongoing' | 'sent'>('received');
 
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
@@ -27,7 +33,24 @@ export default function MayorFinalApproval() {
     const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed'];
 
     const filteredDocs = useMemo(() => {
+        const authUser = props.auth.user as any;
+        
         let result = documents.filter((doc: any) => {
+            const isCurrentHolder = doc.current_holder_department_id === authUser.department_id || doc.current_holder_id === authUser.id;
+            const isSubmitter = doc.submitted_by === authUser.id;
+            
+            // Tab filtering logic
+            if (activeTab === 'received') {
+                if (!isCurrentHolder) return false;
+            } else if (activeTab === 'ongoing') {
+                if (isCurrentHolder) return false;
+                if (!isSubmitter) return false;
+                if (['completed', 'approved'].includes(doc.status)) return false;
+            } else if (activeTab === 'sent') {
+                if (isCurrentHolder) return false;
+                if (isSubmitter && !['completed', 'approved'].includes(doc.status)) return false;
+            }
+
             const q = searchQuery.toLowerCase();
             const matchesSearch = !q ||
                 (doc.reference_number || '').toLowerCase().includes(q) ||
@@ -50,7 +73,7 @@ export default function MayorFinalApproval() {
         });
 
         return result;
-    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir]);
+    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
 
     const pendingApprovals = filteredDocs.filter((doc: any) => doc.status === 'endorsed' || doc.status === 'in_review');
     const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
@@ -99,14 +122,37 @@ export default function MayorFinalApproval() {
                             <ScanLine className="h-4 w-4" />
                             OCR Scan
                         </button>
-                        <Link
-                            href="/mayor/documents/create"
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
                             className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg"
                         >
                             <Plus className="h-4 w-4" />
                             Submit Document
-                        </Link>
+                        </button>
                     </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-2 border-b border-[var(--tng-slate-200)]">
+                    {[
+                        { id: 'received', label: 'Received (Inbox)', icon: <Inbox className="h-4 w-4 mr-2" /> },
+                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-2" /> },
+                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-2" /> }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={cn(
+                                "flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                                activeTab === tab.id
+                                    ? "border-[var(--tng-blue-600)] text-[var(--tng-blue-600)]"
+                                    : "border-transparent text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)]"
+                            )}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
                 {toastMessage && (
@@ -325,9 +371,16 @@ export default function MayorFinalApproval() {
             <ForwardModal
                 open={forwardModalOpen}
                 onClose={() => setForwardModalOpen(false)}
-                onConfirm={handleBulkEndorse}
+                onForward={handleBulkEndorse}
+                defaultRemarks="Digitally signed and approved by the Mayor's Office."
+            />
+            
+            <CreateDocumentModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
                 departments={departments}
-                users={[]}
+                documentTypes={documentTypes}
+                users={users}
             />
         </TrackngoLayout>
     );

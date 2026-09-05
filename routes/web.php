@@ -15,6 +15,8 @@ Route::get('/track', function () {
 // Authenticated Role Routes
 Route::middleware(['auth'])->group(function () {
 
+    Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
+
     // Admin Routes
     Route::prefix('admin')->middleware('role:Admin')->group(function () {
         Route::get('/', fn() => Inertia::render('admin/Dashboard'));
@@ -44,7 +46,11 @@ Route::middleware(['auth'])->group(function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
                 ->where(function ($query) use ($user) {
                     if ($user->department_id) {
-                        $query->where('current_holder_department_id', $user->department_id);
+                        $query->where('current_holder_department_id', $user->department_id)
+                              ->orWhereHas('routingSlips', function($q) use ($user) {
+                                  $q->where('target_department_id', $user->department_id)
+                                    ->orWhere('from_department_id', $user->department_id);
+                              });
                     }
                     $query->orWhere('current_holder_id', $user->id)
                           ->orWhere('submitted_by', $user->id)
@@ -56,14 +62,14 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                    ->select('users.*', 'roles.role_name', 'departments.department_name')
+                    ->where('users.is_active', true)
+                    ->get(),
             ]);
         });
-        Route::get('/documents/create', function () {
-            return Inertia::render('receiving/documents/Create', [
-                'departments' => \App\Models\Department::all(),
-                'document_types' => \App\Models\DocumentType::all(),
-            ]);
-        });
+        // GET /documents/create removed - handled via modal in Index.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
@@ -115,10 +121,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents', function () {
             $user = auth()->user();
             
-            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
                 ->where(function ($query) use ($user) {
                     if ($user->department_id) {
-                        $query->where('current_holder_department_id', $user->department_id);
+                        $query->where('current_holder_department_id', $user->department_id)
+                              ->orWhereHas('routingSlips', function($q) use ($user) {
+                                  $q->where('target_department_id', $user->department_id)
+                                    ->orWhere('from_department_id', $user->department_id);
+                              });
                     }
                     $query->orWhere('current_holder_id', $user->id)
                           ->orWhere('submitted_by', $user->id);
@@ -130,14 +140,14 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                    ->select('users.*', 'roles.role_name', 'departments.department_name')
+                    ->where('users.is_active', true)
+                    ->get(),
             ]);
         });
-        Route::get('/documents/create', function () {
-            return Inertia::render('department-head/documents/Create', [
-                'departments' => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
-                'document_types' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
-            ]);
-        });
+        // GET /documents/create removed - handled via modal in Endorsements.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
@@ -171,21 +181,33 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('mayor')->middleware('role:Mayor')->group(function () {
         Route::get('/', fn() => Inertia::render('mayor/Dashboard'));
         Route::get('/documents', function () {
+            $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->where(function ($query) use ($user) {
+                    if ($user->department_id) {
+                        $query->where('current_holder_department_id', $user->department_id)
+                              ->orWhereHas('routingSlips', function($q) use ($user) {
+                                  $q->where('target_department_id', $user->department_id)
+                                    ->orWhere('from_department_id', $user->department_id);
+                              });
+                    }
+                    $query->orWhere('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id);
+                })
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('mayor/documents/FinalApproval', [
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                    ->select('users.*', 'roles.role_name', 'departments.department_name')
+                    ->where('users.is_active', true)
+                    ->get(),
             ]);
         });
-        Route::get('/documents/create', function () {
-            return Inertia::render('mayor/documents/Create', [
-                'departments' => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
-                'document_types' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
-            ]);
-        });
+        // GET /documents/create removed - handled via modal in FinalApproval.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);

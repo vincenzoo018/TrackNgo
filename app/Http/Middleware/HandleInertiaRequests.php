@@ -49,13 +49,15 @@ class HandleInertiaRequests extends Middleware
 
         $userData = null;
         if ($user) {
-            $user->load('role');
+            $user->load(['role', 'department']);
             $roleName = strtolower($user->role->role_name ?? '');
             $userData = [
                 'id'    => $user->id,
                 'name'  => $user->name,
                 'email' => $user->email,
                 'role'  => $roleMap[$roleName] ?? 'receiving',
+                'department_id' => $user->department_id,
+                'department_name' => $user->department->department_name ?? null,
             ];
         }
 
