@@ -396,7 +396,7 @@ class DocumentController extends Controller
             ->where('document_id', $id)
             ->join('users', 'document_comments.user_id', '=', 'users.id')
             ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-            ->select('document_comments.*', 'users.name as user_name', 'roles.role_name as user_role')
+            ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
             ->orderBy('created_at', 'desc')
             ->get();
             
