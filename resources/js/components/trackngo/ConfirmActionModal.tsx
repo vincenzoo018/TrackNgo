@@ -1,7 +1,6 @@
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { BaseModal } from './BaseModal';
 
 interface ConfirmActionModalProps {
     isOpen: boolean;
@@ -26,62 +25,17 @@ export function ConfirmActionModal({
     isDestructive = false,
     isLoading = false
 }: ConfirmActionModalProps) {
-    
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'unset';
-        }
-        return () => { document.body.style.overflow = 'unset'; }
-    }, [isOpen]);
-
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    if (!isOpen || !mounted) return null;
-
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-            {/* Backdrop */}
-            <div 
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
-                onClick={isLoading ? undefined : onClose}
-            />
-
-            {/* Modal */}
-            <div className="relative z-10 w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className={cn(
-                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                            isDestructive ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
-                        )}>
-                            <AlertTriangle className="h-5 w-5" />
-                        </div>
-                        <h3 className="text-lg font-semibold leading-6 text-slate-900">
-                            {title}
-                        </h3>
-                    </div>
-                    {!isLoading && (
-                        <button
-                            onClick={onClose}
-                            className="text-slate-400 hover:text-slate-500 transition-colors"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                    )}
-                </div>
-                
-                <div className="mt-4 ml-14">
-                    <p className="text-sm text-slate-500">
-                        {message}
-                    </p>
-                </div>
-
-                <div className="mt-8 flex justify-end gap-3">
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={isLoading ? () => {} : onClose}
+            title={title}
+            icon={<AlertTriangle className="h-5 w-5" />}
+            headerClassName={isDestructive ? "bg-red-50 rounded-t-2xl" : "bg-blue-50 rounded-t-2xl"}
+            iconContainerClassName={isDestructive ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}
+            maxWidth="max-w-md"
+            footer={
+                <>
                     <button
                         type="button"
                         className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-50"
@@ -96,7 +50,7 @@ export function ConfirmActionModal({
                             "rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 flex items-center gap-2",
                             isDestructive 
                                 ? "bg-red-600 hover:bg-red-700 focus:ring-red-500" 
-                                : "bg-[#6fcab8] hover:bg-[#5dbba8] focus:ring-teal-500"
+                                : "bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] focus:ring-[var(--tng-blue-500)]"
                         )}
                         onClick={onConfirm}
                         disabled={isLoading}
@@ -109,9 +63,12 @@ export function ConfirmActionModal({
                         )}
                         {confirmText}
                     </button>
-                </div>
-            </div>
-        </div>,
-        document.body
+                </>
+            }
+        >
+            <p className="text-sm text-slate-500">
+                {message}
+            </p>
+        </BaseModal>
     );
 }

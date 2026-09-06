@@ -3,6 +3,7 @@ import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode
 import { useState, useRef, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
+import { CollapsiblePanel } from '@/components/trackngo/CollapsiblePanel';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
@@ -229,11 +230,8 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     {/* Document Metadata (2 cols) */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                            <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6">
-                                <h2 className="mb-4 text-base font-semibold text-[var(--tng-slate-800)]">
-                                    Document Metadata
-                                </h2>
-                                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                            <CollapsiblePanel title="Document Metadata">
+                                    <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                                     <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
                                     <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
                                     <MetaField
@@ -270,7 +268,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     />
                                     <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
                                 </div>
-                            </div>
+                                </CollapsiblePanel>
                             
                             {/* Initial Routing Slip (Receipt Style) */}
                             <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-sm font-mono relative overflow-hidden">

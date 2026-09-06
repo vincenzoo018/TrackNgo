@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import { Plus, ScanLine, X, Loader2, FileText, CheckCircle2, QrCode } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { BaseModal } from '@/components/trackngo/BaseModal';
 
 // Set up the PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -144,46 +145,46 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
     };
 
     
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'unset';
-        }
-        return () => { document.body.style.overflow = 'unset'; };
-    }, [isOpen]);
-
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 transition-all">
-            <div className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-[var(--tng-slate-100)] px-4 sm:px-6 py-4 flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--tng-blue-50)] text-[var(--tng-blue-600)]">
-                            <Plus className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-[var(--tng-slate-900)]">
-                                Submit New Document
-                            </h2>
-                            <p className="text-xs text-[var(--tng-slate-500)]">
-                                Upload document and generate routing slip
-                            </p>
-                        </div>
-                    </div>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={step === 'form' ? "Submit New Document" : undefined}
+            description={step === 'form' ? "Upload document and generate routing slip" : undefined}
+            icon={step === 'form' ? <Plus className="h-5 w-5" /> : undefined}
+            maxWidth="max-w-3xl"
+            childrenContainerClassName={step === 'form' ? "p-0" : ""}
+            formProps={step === 'form' ? { onSubmit: handleSubmit } : undefined}
+            footer={step === 'form' ? (
+                <>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-slate-700)]"
+                        className="w-full sm:w-auto rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-200)] text-center"
                     >
-                        <X className="h-5 w-5" />
+                        Cancel
                     </button>
-                </div>
-
-                {step === 'form' ? (
-                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+                    <button
+                        type="submit"
+                        disabled={processing || !ocrComplete}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-5 py-2 text-sm font-medium text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {processing ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Submitting...
+                            </>
+                        ) : (
+                            'Generate & Submit'
+                        )}
+                    </button>
+                </>
+            ) : undefined}
+        >
+            {step === 'form' ? (
+                <div className="flex flex-col h-full flex-1 overflow-y-auto">
                         <div className="p-4 sm:p-6 space-y-8">
                             {/* Section 1: File Upload */}
                             <section>
@@ -440,7 +441,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                                 )}
                             </button>
                         </div>
-                    </form>
+                    </div>
                 ) : (
                     <div className="p-10 text-center">
                         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
@@ -489,7 +490,6 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+            </BaseModal>
     );
 }
