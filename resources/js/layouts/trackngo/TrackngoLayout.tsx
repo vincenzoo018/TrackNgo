@@ -83,6 +83,7 @@ export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayout
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
     // Close mobile sidebar on route change
     useEffect(() => {
@@ -238,18 +239,62 @@ export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayout
                         </button>
 
                         {/* User Menu */}
-                        <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--tng-slate-100)]">
-                            <div className={cn(
-                                'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white',
-                                ROLE_COLORS[userRole] ?? 'bg-blue-600',
-                            )}>
-                                {userName.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="hidden text-left md:block">
-                                <p className="text-sm font-medium text-[var(--tng-slate-800)]">{userName}</p>
-                                <p className="text-xs text-[var(--tng-slate-500)]">{roleLabel}</p>
-                            </div>
-                            <ChevronDown className="hidden h-4 w-4 text-[var(--tng-slate-400)] md:block" />
+                        <div className="relative">
+                            <button
+                                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[var(--tng-slate-100)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                            >
+                                <div className={cn(
+                                    'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white',
+                                    ROLE_COLORS[userRole] ?? 'bg-blue-600',
+                                )}>
+                                    {userName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="hidden text-left md:block">
+                                    <p className="text-sm font-medium text-[var(--tng-slate-800)]">{userName}</p>
+                                    <p className="text-xs text-[var(--tng-slate-500)]">{roleLabel}</p>
+                                </div>
+                                <ChevronDown className={cn(
+                                    "hidden h-4 w-4 text-[var(--tng-slate-400)] md:block transition-transform duration-200",
+                                    profileDropdownOpen ? "rotate-180" : ""
+                                )} />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {profileDropdownOpen && (
+                                <>
+                                    <div 
+                                        className="fixed inset-0 z-40" 
+                                        onClick={() => setProfileDropdownOpen(false)} 
+                                    />
+                                    <div className="absolute right-0 top-full mt-2 w-56 z-50 rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xl py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="px-4 py-3 border-b border-[var(--tng-slate-100)] mb-1">
+                                            <p className="text-[18px] font-bold text-[var(--tng-slate-900)] truncate">
+                                                {userName}
+                                            </p>
+                                            <p className="text-xs text-[var(--tng-slate-500)] truncate">
+                                                {props.auth?.user?.email ?? 'user@example.com'}
+                                            </p>
+                                        </div>
+                                        <Link
+                                            href="/profile"
+                                            onClick={() => setProfileDropdownOpen(false)}
+                                            className="flex items-center gap-3 px-4 py-2 text-sm text-[var(--tng-slate-700)] hover:bg-[var(--tng-slate-50)] hover:text-[var(--tng-blue-700)] transition-colors"
+                                        >
+                                            My Profile
+                                        </Link>
+                                        <Link
+                                            href="/logout"
+                                            method="post"
+                                            as="button"
+                                            onClick={() => setProfileDropdownOpen(false)}
+                                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+                                        >
+                                            Sign Out
+                                        </Link>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </header>

@@ -17,6 +17,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
 
+    // Profile Routes
+    Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
+    Route::put('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [\App\Http\Controllers\ProfileController::class, 'updatePassword'])->name('profile.password');
+
     // Admin Routes
     Route::prefix('admin')->middleware('role:Admin')->group(function () {
         Route::get('/', fn() => Inertia::render('admin/Dashboard'));
