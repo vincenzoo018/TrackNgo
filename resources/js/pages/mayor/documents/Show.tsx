@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
 import { CollapsiblePanel } from '@/components/trackngo/CollapsiblePanel';
-import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
+
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { ReturnModal } from '@/components/trackngo/ReturnModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
@@ -13,6 +13,8 @@ import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill'
 import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
 import { SuccessModal } from '@/components/trackngo/SuccessModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
+import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
+import { cn } from '@/lib/utils';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers }: any) {
@@ -22,6 +24,12 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
     const comments = dbComments || [];
     const departments = dbDepartments || [];
     const users = dbUsers || [];
+
+    // Unified Timeline
+    const unifiedTimeline = [
+        ...trail.map((t: any) => ({ ...t, _type: 'audit', _date: new Date(t.timestamp || t.created_at) })),
+        ...comments.map((c: any) => ({ ...c, _type: 'comment', _date: new Date(c.created_at) }))
+    ].sort((a, b) => a._date.getTime() - b._date.getTime());
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [returnModalOpen, setReturnModalOpen] = useState(false);
     
@@ -35,7 +43,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
     const [delegateModalOpen, setDelegateModalOpen] = useState(false);
     const [aiTemplateOpen, setAiTemplateOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'audit' | 'discussion'>('audit');
     const [exportModalOpen, setExportModalOpen] = useState(false);
 
     // Anchored Comments State
@@ -50,7 +57,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
 
     useEffect(() => {
         const interval = setInterval(() => {
-            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments'], preserveScroll: true, preserveState: true });
+            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments'] });
         }, 5000);
         return () => clearInterval(interval);
     }, []);
@@ -371,76 +378,48 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                             )}
                         </div>
 
-                        {/* Document Preview */}
-                        <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col min-h-[800px]">
+                        {/* Document Preview with Integrated OCR */}
+                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 flex flex-col">
                             <div className="mb-4 flex items-center justify-between">
-                                <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--tng-slate-800)]">
-                                    👁️ Digitalized Document Preview (OCR)
+                                <h2 className="flex items-center gap-2 text-[16px] font-semibold text-slate-800">
+                                    👁️ Document & Integrated OCR Workspace
                                 </h2>
                                 <div className="flex items-center gap-2">
-                                    <label className="flex items-center gap-1.5 text-xs text-[var(--tng-slate-500)]">
-                                        <input type="checkbox" className="h-3.5 w-3.5 rounded border-[var(--tng-slate-300)]" />
-                                        Show unresolved only
-                                    </label>
                                     <button
+                                        type="button"
                                         onClick={() => {
-                                            if (!selectedOcrText) return alert('Please highlight text in the OCR preview first.');
+                                            if (!selectedOcrText) return alert('Please highlight text in the document preview first.');
                                             setAnchorModalOpen(true);
                                         }}
-                                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${selectedOcrText ? 'border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] text-[var(--tng-blue-700)]' : 'border-[var(--tng-blue-300)] bg-white text-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-50)]'}`}
+                                        className={cn(
+                                            "rounded-[6px] border px-3 py-1.5 text-[14px] font-medium transition-colors",
+                                            selectedOcrText
+                                                ? "border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] text-[var(--tng-blue-700)] shadow-xs"
+                                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                                        )}
                                     >
                                         📋 Add Anchored Comment {selectedOcrText && '(Text Selected)'}
-                                    </button>
-                                    <button className="rounded-md border border-[var(--tng-blue-300)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--tng-blue-600)] transition-colors hover:bg-[var(--tng-blue-50)]">
-                                        Open Original PDF
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Confidentiality Guard */}
-                            {doc.is_confidential_hidden ? (
-                                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 border border-slate-300 rounded-lg p-12 text-center h-[700px]">
-                                    <div className="rounded-full bg-red-100 p-6 mb-6">
-                                        <Lock className="h-12 w-12 text-red-600" />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Confidential Document</h3>
-                                    <p className="text-slate-500 max-w-md mx-auto">
-                                        This document is marked as highly confidential. As Mayor, you may approve or reject this document based on the executive briefing above.
-                                    </p>
-                                </div>
-                            ) : (
-                            <div className="flex-1 flex gap-4 h-full relative overflow-hidden">
-                                {/* PDF side-by-side with OCR or just OCR */}
-                                {doc.attachment_path && (
-                                    <div className="w-1/2 h-[700px] border border-slate-300 rounded-lg overflow-hidden bg-slate-100 hidden md:block">
-                                        <iframe
-                                            src={`/storage/${doc.attachment_path}`}
-                                            className="w-full h-full"
-                                            title="Original Document PDF"
-                                        />
-                                    </div>
-                                )}
-                                <div className={`flex-1 h-[700px] bg-slate-50 shadow-inner border border-slate-300 rounded-lg p-8 overflow-y-auto ${doc.attachment_path ? 'md:w-1/2 w-full' : 'w-full'}`}>
-                                    <div className="bg-white border border-slate-200 shadow-sm p-12 min-h-[800px] relative" onMouseUp={handleTextSelection}>
-                                        {doc.ocr_text ? (
-                                            <div className="whitespace-pre-wrap text-sm text-slate-700 font-serif leading-relaxed">
-                                                {doc.ocr_text}
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="h-4 bg-slate-100 rounded w-3/4 mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-5/6 mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-full mb-6 animate-pulse"></div>
-                                                <div className="h-4 bg-slate-100 rounded w-2/3 mb-12 animate-pulse"></div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            )}
+                            <IntegratedDocumentViewer
+                                pdfUrl={doc.attachment_path ? `/storage/${doc.attachment_path}` : null}
+                                ocrText={doc.ocr_text}
+                                fileName={doc.title || doc.reference_number}
+                                documentId={doc.document_id}
+                                isConfidential={Boolean(doc.is_confidential_hidden)}
+                                selectedText={selectedOcrText}
+                                onTextSelect={(text) => setSelectedOcrText(text)}
+                                onAddAnchoredComment={(text) => {
+                                    setSelectedOcrText(text);
+                                    setAnchorModalOpen(true);
+                                }}
+                            />
                         </div>
-                    </div>            </div>
+                        
+                    </div>
+                </div>
 
                     {/* Actions + Audit Trail (1 col) */}
                     <div className="flex flex-col gap-6 lg:sticky lg:top-6 lg:h-[calc(100vh-6rem)]">
@@ -485,53 +464,82 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                         </div>
 
                         <div className="flex-1 overflow-y-auto tng-scrollbar flex flex-col gap-6 pb-6 pr-2 -mr-2">
-                            {/* Audit Trail & Comments */}
+                            {/* Comments / Discussion & Audit Timeline */}
                             <div className="shrink-0 rounded-xl border border-[var(--tng-slate-200)] bg-white flex flex-col h-[500px]">
-                            <div className="flex border-b border-[var(--tng-slate-200)]">
-                                <button 
-                                    onClick={() => setActiveTab('audit')} 
-                                    className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'audit' ? 'border-b-2 border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]' : 'text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)]'}`}
-                                >
-                                    Audit Trail
-                                </button>
-                                <button 
-                                    onClick={() => setActiveTab('discussion')} 
-                                    className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'discussion' ? 'border-b-2 border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]' : 'text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)]'}`}
-                                >
-                                    Discussion
-                                </button>
-                            </div>
+                                <div className="flex border-b border-[var(--tng-slate-200)] px-6 py-4">
+                                    <h3 className="text-[16px] font-semibold text-slate-900">Discussion & Audit Timeline</h3>
+                                </div>
 
-                            <div className="p-6 flex-1 overflow-y-auto tng-scrollbar">
-                                {activeTab === 'audit' ? (
-                                    <div className="pt-2 pb-8">
-                                        <AuditTrailTimeline entries={trail} className="border-none shadow-none p-0" />
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col h-full">
-                                        <div className="flex-1 space-y-4 mb-4">
-                                            {comments.length > 0 ? comments.map((comment: any) => (
-                                                <div key={comment.id} className="flex gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)] shrink-0">
-                                                        {comment.user_name.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-sm text-[var(--tng-slate-800)]">
-                                                        <p className="font-semibold text-xs text-[var(--tng-slate-500)] mb-1">
-                                                            {comment.user_name} ({comment.user_role}) · {new Date(comment.created_at).toLocaleString()}
-                                                        </p>
-                                                        {comment.is_anchored && comment.quoted_text && (
-                                                            <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
-                                                                "{comment.quoted_text}"
+                                <div className="p-6 flex-1 overflow-y-auto tng-scrollbar flex flex-col">
+                                    <div className="flex-1 space-y-6 mb-4">
+                                        {unifiedTimeline.length > 0 ? unifiedTimeline.map((item: any) => {
+                                            if (item._type === 'comment') {
+                                                return (
+                                                    <div key={`comment-${item.id}`} className="flex gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)] shrink-0 mt-1">
+                                                            {item.user_name.substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-[14px] text-[var(--tng-slate-800)] shadow-sm">
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <p className="font-semibold text-xs text-[var(--tng-slate-600)]">
+                                                                    {item.user_name} ({item.user_role})
+                                                                </p>
+                                                                <span className="text-xs text-[var(--tng-slate-500)]">
+                                                                    {item._date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                                </span>
                                                             </div>
-                                                        )}
-                                                        {comment.comment}
+                                                            {item.is_anchored && item.quoted_text && (
+                                                                <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
+                                                                    "{item.quoted_text}"
+                                                                </div>
+                                                            )}
+                                                            <p className="leading-relaxed">{item.comment}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )) : (
-                                                <p className="text-sm text-[var(--tng-slate-400)] text-center mt-4">No discussion yet. Be the first to comment!</p>
-                                            )}
-                                        </div>
-                                        <form onSubmit={(e) => handleAddComment(e, false)} className="mt-auto relative">
+                                                );
+                                            } else {
+                                                return (
+                                                    <div key={`audit-${item.audit_id || item.id}`} className="flex gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-white border border-[var(--tng-blue-200)] flex items-center justify-center text-[var(--tng-blue-600)] shrink-0 mt-1 shadow-sm">
+                                                            <History className="h-4 w-4" />
+                                                        </div>
+                                                        <div className="flex-1 rounded-[8px] border border-[var(--tng-slate-200)] bg-white p-3 text-[14px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-shadow">
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <h4 className="text-[14px] font-semibold text-slate-800 capitalize flex items-center gap-2">
+                                                                    {(item.action || '').toLowerCase() === 'submitted' ? 'Document Registered' :
+                                                                    (item.action || '').toLowerCase() === 'forward' ? 'Document Forwarded' :
+                                                                    (item.action || '').toLowerCase() === 'endorsed' ? 'Document Endorsed' :
+                                                                    (item.action || '').toLowerCase() === 'escalated' ? 'Document Escalated' :
+                                                                    (item.action || '').toLowerCase().includes('document') ? item.action : `Document ${item.action}`}
+                                                                </h4>
+                                                                <span className="text-xs font-medium text-slate-500">
+                                                                    {item._date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[14px] text-slate-600 leading-relaxed mb-2">
+                                                                {item.details || item.description}
+                                                            </p>
+                                                            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                                                                <div className="flex items-center gap-1 font-medium">
+                                                                    <span className="text-slate-700">User:</span> 
+                                                                    {item.user?.name || item.user_name || item.user || 'System'}
+                                                                    {item.user?.role?.role_name ? ` (${item.user.role.role_name})` : ''}
+                                                                </div>
+                                                                {item.document_ref && (
+                                                                    <div className="flex items-center gap-1 font-medium">
+                                                                        <span className="text-slate-700">Ref:</span> {item.document_ref}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                        }) : (
+                                            <p className="text-sm text-[var(--tng-slate-400)] text-center mt-4">No activity yet.</p>
+                                        )}
+                                    </div>
+                                    <form onSubmit={(e) => handleAddComment(e, false)} className="mt-auto relative">
                                             <input 
                                                 type="text" 
                                                 value={normalCommentText}
@@ -544,7 +552,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                             </button>
                                         </form>
                                     </div>
-                                )}
                             </div>
                         </div>
                         {/* Signatures Section */}
@@ -568,8 +575,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Approved By</div>
                             </div>
                         </div>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -592,31 +597,32 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
             />
 
             {/* Modals for new features */}
+            {/* Modals for features */}
             {qrModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setQrModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setQrModalOpen(false)} />
+                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-2">Routing Slip QR</h3>
-                        <p className="text-sm text-[var(--tng-slate-500)] mb-6">{doc.reference_number}</p>
-                        <div className="mx-auto flex h-48 w-48 items-center justify-center rounded-xl border-4 border-[var(--tng-slate-100)] bg-white p-4">
+                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-6">{doc.reference_number}</p>
+                        <div className="mx-auto flex h-48 w-48 items-center justify-center rounded-[6px] border-4 border-[var(--tng-slate-100)] bg-white p-4">
                             <QrCode className="h-full w-full text-[var(--tng-slate-800)]" />
                         </div>
-                        <p className="mt-4 text-xs text-[var(--tng-slate-400)]">Attach this QR to the physical document</p>
-                        <button onClick={() => setQrModalOpen(false)} className="mt-6 w-full rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)]">Done</button>
+                        <p className="mt-4 text-[12px] text-[var(--tng-slate-400)]">Attach this QR to the physical document</p>
+                        <button onClick={() => setQrModalOpen(false)} className="mt-6 w-full rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Done</button>
                     </div>
                 </div>
             )}
 
             {linkModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setLinkModalOpen(false)} />
-                    <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setLinkModalOpen(false)} />
+                    <div className="relative w-full max-w-md rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Link Related Document</h3>
-                        <p className="text-sm text-[var(--tng-slate-500)] mb-6">Attach another Tracking Number as a reference.</p>
-                        <input type="text" placeholder="Search by Tracking No. (e.g. TNG-2026-...)" className="w-full rounded-lg border border-[var(--tng-slate-200)] p-3 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" />
+                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-6">Attach another Tracking Number as a reference.</p>
+                        <input type="text" placeholder="Search by Tracking No. (e.g. TNG-2026-...)" className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-3 text-[14px] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" />
                         <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setLinkModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]">Cancel</button>
-                            <button onClick={() => { showToast('Document linked successfully!'); setLinkModalOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)]">Link Document</button>
+                            <button onClick={() => setLinkModalOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
+                            <button onClick={() => { showToast('Document linked successfully!'); setLinkModalOpen(false); }} className="rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Link Document</button>
                         </div>
                     </div>
                 </div>
@@ -624,8 +630,8 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
 
             {escalateModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEscalateModalOpen(false)} />
-                    <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setEscalateModalOpen(false)} />
+                    <div className="relative w-full max-w-md rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
                                 <ShieldAlert className="h-5 w-5" />
@@ -635,39 +641,40 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                 <p className="text-xs text-[var(--tng-slate-500)]">Flag for ARTA non-compliance investigation</p>
                             </div>
                         </div>
-                        <textarea rows={3} placeholder="Please provide justification for this escalation..." className="w-full rounded-lg border border-red-200 bg-red-50/50 p-3 text-sm text-[var(--tng-slate-900)] focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+                        <textarea rows={3} placeholder="Please provide justification for this escalation..." className="w-full rounded-[6px] border border-red-200 bg-red-50/50 p-3 text-[14px] text-[var(--tng-slate-900)] focus:border-red-500 focus:ring-1 focus:ring-red-500" />
                         <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setEscalateModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]">Cancel</button>
-                            <button onClick={() => { showToast('Document successfully escalated to CART!'); setEscalateModalOpen(false); }} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Submit Escalation</button>
+                            <button onClick={() => setEscalateModalOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
+                            <button onClick={() => { showToast('Document successfully escalated to CART!'); setEscalateModalOpen(false); }} className="rounded-[6px] bg-red-600 px-4 py-2 text-[16px] font-medium text-white hover:bg-red-700 transition-colors">Submit Escalation</button>
                         </div>
                     </div>
                 </div>
             )}
+
             {/* Advanced Modals */}
             {parallelRoutingOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setParallelRoutingOpen(false)} />
-                    <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setParallelRoutingOpen(false)} />
+                    <div className="relative w-full max-w-lg rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Parallel Routing</h3>
-                        <p className="text-sm text-[var(--tng-slate-500)] mb-6">Route this document to multiple departments simultaneously for concurrent review.</p>
+                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-6">Route this document to multiple departments simultaneously for concurrent review.</p>
                         
                         <div className="space-y-4">
-                            <label className="flex items-center gap-3 rounded-lg border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)]">
+                            <label className="flex items-center gap-3 rounded-[6px] border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)] cursor-pointer">
                                 <input type="checkbox" className="h-4 w-4 rounded border-[var(--tng-slate-300)]" />
-                                <div><p className="text-sm font-semibold">City Legal Office</p><p className="text-xs text-[var(--tng-slate-500)]">Legal review and clearance</p></div>
+                                <div><p className="text-[14px] font-semibold">City Legal Office</p><p className="text-xs text-[var(--tng-slate-500)]">Legal review and clearance</p></div>
                             </label>
-                            <label className="flex items-center gap-3 rounded-lg border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)]">
+                            <label className="flex items-center gap-3 rounded-[6px] border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)] cursor-pointer">
                                 <input type="checkbox" className="h-4 w-4 rounded border-[var(--tng-slate-300)]" />
-                                <div><p className="text-sm font-semibold">City Budget Office</p><p className="text-xs text-[var(--tng-slate-500)]">Financial obligation review</p></div>
+                                <div><p className="text-[14px] font-semibold">City Budget Office</p><p className="text-xs text-[var(--tng-slate-500)]">Financial obligation review</p></div>
                             </label>
-                            <label className="flex items-center gap-3 rounded-lg border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)]">
+                            <label className="flex items-center gap-3 rounded-[6px] border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)] cursor-pointer">
                                 <input type="checkbox" className="h-4 w-4 rounded border-[var(--tng-slate-300)]" />
-                                <div><p className="text-sm font-semibold">Human Resources</p><p className="text-xs text-[var(--tng-slate-500)]">Personnel impact review</p></div>
+                                <div><p className="text-[14px] font-semibold">Human Resources</p><p className="text-xs text-[var(--tng-slate-500)]">Personnel impact review</p></div>
                             </label>
                         </div>
                         <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setParallelRoutingOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)]">Cancel</button>
-                            <button onClick={() => { showToast('Document routed in parallel!'); setParallelRoutingOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)]">Initiate Parallel Route</button>
+                            <button onClick={() => setParallelRoutingOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
+                            <button onClick={() => { showToast('Document routed in parallel!'); setParallelRoutingOpen(false); }} className="rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Initiate Parallel Route</button>
                         </div>
                     </div>
                 </div>
@@ -675,32 +682,32 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
 
             {privacyModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setPrivacyModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setPrivacyModalOpen(false)} />
+                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-4">Access Control & Privacy</h3>
                         <div className="space-y-3">
-                            <label className="flex items-center gap-3 p-2 border border-transparent hover:bg-slate-50 rounded-lg cursor-pointer">
+                            <label className="flex items-center gap-3 p-2 border border-transparent hover:bg-slate-50 rounded-[6px] cursor-pointer">
                                 <input type="radio" name="privacy" defaultChecked className="text-[var(--tng-blue-600)]" />
-                                <div><p className="text-sm font-semibold">Public Routing</p><p className="text-xs text-[var(--tng-slate-500)]">Visible to all handling staff</p></div>
+                                <div><p className="text-[14px] font-semibold">Public Routing</p><p className="text-xs text-[var(--tng-slate-500)]">Visible to all handling staff</p></div>
                             </label>
-                            <label className="flex items-center gap-3 p-2 border border-red-200 bg-red-50 rounded-lg cursor-pointer">
+                            <label className="flex items-center gap-3 p-2 border border-red-200 bg-red-50 rounded-[6px] cursor-pointer">
                                 <input type="radio" name="privacy" className="text-red-600" />
-                                <div><p className="text-sm font-semibold text-red-700">Highly Confidential</p><p className="text-xs text-red-500">Metadata hidden, restricted access</p></div>
+                                <div><p className="text-[14px] font-semibold text-red-700">Highly Confidential</p><p className="text-xs text-red-500">Metadata hidden, restricted access</p></div>
                             </label>
                         </div>
-                        <button onClick={() => { showToast('Privacy settings updated'); setPrivacyModalOpen(false); }} className="mt-6 w-full rounded-lg bg-[var(--tng-slate-900)] px-4 py-2 text-sm font-medium text-white">Save Changes</button>
+                        <button onClick={() => { showToast('Privacy settings updated'); setPrivacyModalOpen(false); }} className="mt-6 w-full rounded-[6px] bg-[var(--tng-slate-900)] px-4 py-2 text-[16px] font-medium text-white hover:bg-slate-800 transition-colors">Save Changes</button>
                     </div>
                 </div>
             )}
 
             {anchorModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAnchorModalOpen(false)} />
-                    <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setAnchorModalOpen(false)} />
+                    <div className="relative w-full max-w-lg rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Add Anchored Comment</h3>
-                        <p className="text-sm text-[var(--tng-slate-500)] mb-4">Attach your feedback to the specific selected text.</p>
+                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-4">Attach your feedback to the specific selected text.</p>
                         
-                        <div className="mb-4 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-3 text-sm text-[var(--tng-slate-700)] italic rounded-r-lg max-h-32 overflow-y-auto">
+                        <div className="mb-4 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-3 text-[14px] text-[var(--tng-slate-700)] italic rounded-r-[6px] max-h-32 overflow-y-auto">
                             "{selectedOcrText}"
                         </div>
                         
@@ -710,12 +717,12 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                 onChange={(e) => setAnchorCommentText(e.target.value)}
                                 rows={3} 
                                 placeholder="Type your comment here..." 
-                                className="w-full rounded-lg border border-[var(--tng-slate-200)] p-3 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
+                                className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-3 text-[14px] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
                                 autoFocus
                             />
                             <div className="mt-6 flex justify-end gap-3">
-                                <button type="button" onClick={() => setAnchorModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]">Cancel</button>
-                                <button type="submit" className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)]">Save Comment</button>
+                                <button type="button" onClick={() => setAnchorModalOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
+                                <button type="submit" className="rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Save Comment</button>
                             </div>
                         </form>
                     </div>
@@ -724,19 +731,19 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
 
             {aiTemplateOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAiTemplateOpen(false)} />
-                    <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setAiTemplateOpen(false)} />
+                    <div className="relative w-full max-w-md rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-2 mb-4 text-[var(--tng-blue-600)]">
                             <Bot className="h-6 w-6" />
                             <h3 className="text-lg font-bold text-[var(--tng-slate-900)]">AI Auto-Responder</h3>
                         </div>
-                        <p className="text-sm text-[var(--tng-slate-500)] mb-4">Draft a response letter automatically based on the document metadata and extracted OCR text.</p>
-                        <select className="w-full rounded-lg border border-[var(--tng-slate-200)] p-2 mb-4 text-sm">
+                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-4">Draft a response letter automatically based on the document metadata and extracted OCR text.</p>
+                        <select className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-2 mb-4 text-[14px]">
                             <option>Notice of Approval</option>
                             <option>Request for Additional Docs</option>
                             <option>Notice of Denial</option>
                         </select>
-                        <button onClick={() => { showToast('Draft generated and saved to attachments!'); setAiTemplateOpen(false); }} className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
+                        <button onClick={() => { showToast('Draft generated and saved to attachments!'); setAiTemplateOpen(false); }} className="w-full flex items-center justify-center gap-2 rounded-[6px] bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 text-[16px] font-medium text-white shadow-lg">
                             <Bot className="h-4 w-4" /> Generate Draft
                         </button>
                     </div>
@@ -745,31 +752,31 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
 
             {delegateModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDelegateModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setDelegateModalOpen(false)} />
+                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Delegate Document</h3>
-                        <p className="text-sm text-[var(--tng-slate-500)] mb-4">Assign this to a staff member in your department.</p>
-                        <select className="w-full rounded-lg border border-[var(--tng-slate-200)] p-2 mb-4 text-sm">
+                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-4">Assign this to a staff member in your department.</p>
+                        <select className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-2 mb-4 text-[14px]">
                             <option>Select staff member...</option>
                             <option>Staff A - Technical Reviewer</option>
                             <option>Staff B - Finance Checker</option>
                         </select>
-                        <button onClick={() => { showToast('Document delegated'); setDelegateModalOpen(false); }} className="w-full rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white">Delegate Now</button>
+                        <button onClick={() => { showToast('Document delegated'); setDelegateModalOpen(false); }} className="w-full rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Delegate Now</button>
                     </div>
                 </div>
             )}
 
             {reminderModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReminderModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setReminderModalOpen(false)} />
+                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-4">Automated Reminders</h3>
-                        <div className="space-y-3 mb-6 text-sm">
+                        <div className="space-y-3 mb-6 text-[14px]">
                             <label className="flex items-center gap-2"><input type="checkbox" className="rounded" defaultChecked /> Send Daily SMS at 8:00 AM</label>
                             <label className="flex items-center gap-2"><input type="checkbox" className="rounded" defaultChecked /> Send Daily Email at 8:00 AM</label>
                             <label className="flex items-center gap-2"><input type="checkbox" className="rounded" /> CC Department Head if delayed 2 days</label>
                         </div>
-                        <button onClick={() => { showToast('Schedules saved'); setReminderModalOpen(false); }} className="w-full rounded-lg bg-[var(--tng-slate-900)] px-4 py-2 text-sm font-medium text-white">Save Schedule</button>
+                        <button onClick={() => { showToast('Schedules saved'); setReminderModalOpen(false); }} className="w-full rounded-[6px] bg-[var(--tng-slate-900)] px-4 py-2 text-[16px] font-medium text-white hover:bg-slate-800 transition-colors">Save Schedule</button>
                     </div>
                 </div>
             )}

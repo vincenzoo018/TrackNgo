@@ -223,9 +223,6 @@ export default function CartEscalatedDocumentsIndex() {
                     )}
                 </div>
             </div>
-
-             />
-            )}
         </TrackngoLayout>
     );
 }

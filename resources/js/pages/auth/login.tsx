@@ -1,7 +1,6 @@
 import { Head, useForm, Link } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Mail, Lock } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function Login() {
@@ -17,108 +16,116 @@ export default function Login() {
     };
 
     return (
-        <div className="flex min-h-screen bg-[var(--tng-slate-50)]">
+        <div className="flex min-h-screen bg-[var(--tng-slate-50)] lg:flex-row flex-col">
             <Head title="Log in — TrackNGo Mati" />
 
-            {/* Left Side - Image/Brand */}
-            <div className="hidden w-1/2 flex-col justify-between bg-[var(--tng-blue-900)] p-12 text-white lg:flex relative overflow-hidden">
+            {/* Branding Panel (Left on Desktop, Top on Mobile) */}
+            <div className="flex flex-col items-center justify-center bg-[var(--tng-blue-900)] p-8 text-center text-white lg:w-1/2 lg:p-12 relative overflow-hidden">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent bg-[length:20px_20px]" />
 
-                <div className="relative z-10 flex items-center gap-3">
-                    <img src="/mati-logo.png" alt="Mati Logo" className="h-12 w-12" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg">
+                    {/* City Seal Prominently Displayed */}
+                    <img 
+                        src="/image/seal-login-240x240.png" 
+                        alt="City of Mati Seal" 
+                        className="h-40 w-40 md:h-60 md:w-60 object-contain drop-shadow-xl" 
+                    />
+                    
                     <div>
-                        <h1 className="text-xl font-bold tracking-wide">TrackNGo</h1>
-                        <p className="text-xs text-blue-200 uppercase tracking-widest">City of Mati</p>
+                        <h1 className="text-[20px] font-bold tracking-wide">TrackNGo</h1>
+                        <p className="text-[16px] font-normal text-blue-200 mt-2">
+                            Document Management System
+                        </p>
                     </div>
                 </div>
 
-                <div className="relative z-10 space-y-4 max-w-lg">
-                    <h2 className="text-4xl font-bold leading-tight">Document Management & Monitoring System</h2>
-                    <p className="text-lg text-blue-200">
-                        A secure, efficient, and transparent way to track documents across the City Government of Mati.
-                    </p>
-                </div>
-
-                <div className="relative z-10 text-sm text-blue-300">
+                <div className="relative z-10 text-sm text-blue-300 mt-12 hidden lg:block">
                     &copy; {new Date().getFullYear()} Office of the Mayor, City of Mati.
                 </div>
             </div>
 
-            {/* Right Side - Login Form */}
-            <div className="flex w-full items-center justify-center p-8 lg:w-1/2">
-                <div className="w-full max-w-sm space-y-8">
-                    <div className="text-center lg:text-left">
-                        <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
-                             <img src="/mati-logo.png" alt="Mati Logo" className="h-10 w-10" onError={(e) => (e.currentTarget.style.display = 'none')} />
-                             <div className="text-left">
-                                <h1 className="text-lg font-bold text-[var(--tng-blue-900)] tracking-wide">TrackNGo</h1>
-                                <p className="text-[10px] text-[var(--tng-blue-600)] uppercase tracking-widest">City of Mati</p>
-                            </div>
-                        </div>
-                        <h2 className="text-3xl font-bold tracking-tight text-[var(--tng-slate-900)]">Welcome back</h2>
+            {/* Login Form Panel */}
+            <div className="flex w-full items-center justify-center p-6 lg:w-1/2 lg:p-12">
+                <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
+                    <div className="mb-8 text-center">
+                        <h2 className="text-2xl font-bold tracking-tight text-[var(--tng-slate-900)]">Welcome back</h2>
                         <p className="mt-2 text-sm text-[var(--tng-slate-500)]">
-                            Please enter your credentials to access your account.
+                            Please enter your credentials to securely log in.
                         </p>
                     </div>
 
-                    <form onSubmit={submit} className="space-y-6">
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email address</Label>
-                                <Input
+                    <form onSubmit={submit} className="space-y-5">
+                        {/* Email Input */}
+                        <div className="space-y-1.5">
+                            <label htmlFor="email" className="block text-[14px] font-medium text-[var(--tng-slate-700)]">
+                                Email address
+                            </label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
+                                <input
                                     id="email"
                                     type="email"
                                     name="email"
                                     value={data.email}
-                                    className="mt-1 block w-full h-11"
-                                    autoComplete="username"
                                     onChange={(e) => setData('email', e.target.value)}
+                                    className="block w-full rounded-[6px] border border-[var(--tng-slate-200)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 transition-colors placeholder:text-[var(--tng-slate-400)]"
+                                    autoComplete="username"
                                     placeholder="name@trackngo.gov.ph"
                                 />
-                                {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
                             </div>
+                            {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+                        </div>
 
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="password">Password</Label>
-                                    <Link href="/forgot-password" className="text-sm font-medium text-[var(--tng-blue-600)] hover:underline">
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                                <Input
+                        {/* Password Input */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label htmlFor="password" className="block text-[14px] font-medium text-[var(--tng-slate-700)]">
+                                    Password
+                                </label>
+                                <Link href="/forgot-password" className="text-sm font-medium text-[var(--tng-blue-600)] hover:underline">
+                                    Forgot password?
+                                </Link>
+                            </div>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
+                                <input
                                     id="password"
                                     type="password"
                                     name="password"
                                     value={data.password}
-                                    className="mt-1 block w-full h-11"
-                                    autoComplete="current-password"
                                     onChange={(e) => setData('password', e.target.value)}
+                                    className="block w-full rounded-[6px] border border-[var(--tng-slate-200)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 transition-colors"
+                                    autoComplete="current-password"
+                                    placeholder="••••••••"
                                 />
-                                {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
                             </div>
+                            {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        {/* Remember Me */}
+                        <div className="flex items-center space-x-2 pt-1">
                             <Checkbox
                                 id="remember"
                                 checked={data.remember}
                                 onCheckedChange={(checked) => setData('remember', checked as boolean)}
                             />
-                            <Label htmlFor="remember" className="text-sm font-normal text-[var(--tng-slate-600)] cursor-pointer">
+                            <label htmlFor="remember" className="text-[14px] font-normal text-[var(--tng-slate-600)] cursor-pointer select-none">
                                 Remember me for 30 days
-                            </Label>
+                            </label>
                         </div>
 
+                        {/* Submit Button */}
                         <button
+                            type="submit"
                             disabled={processing}
-                            className="flex w-full items-center justify-center rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] disabled:opacity-50"
+                            className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-3 text-[16px] font-bold text-white shadow-md shadow-blue-600/20 transition-all hover:bg-[var(--tng-blue-700)] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             Log in
                         </button>
                     </form>
 
-                    <div className="mt-8 text-center text-sm text-[var(--tng-slate-500)]">
+                    <div className="mt-8 text-center text-sm text-[var(--tng-slate-500)] border-t border-[var(--tng-slate-100)] pt-6">
                         <p>Need an account? Contact the <span className="font-semibold text-[var(--tng-slate-700)]">System Administrator</span></p>
                         <p className="mt-4">
                             <Link href="/track" className="font-medium text-[var(--tng-blue-600)] hover:underline">
@@ -126,6 +133,11 @@ export default function Login() {
                             </Link>
                         </p>
                     </div>
+                </div>
+                
+                {/* Mobile Footer */}
+                <div className="relative z-10 text-sm text-[var(--tng-slate-400)] mt-8 lg:hidden block text-center absolute bottom-4">
+                    &copy; {new Date().getFullYear()} Office of the Mayor, City of Mati.
                 </div>
             </div>
         </div>

@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use App\Models\Role;
+use App\Models\Department;
 
 class ProfileController extends Controller
 {
@@ -25,6 +27,8 @@ class ProfileController extends Controller
         return Inertia::render('profile/Show', [
             'user' => $user->load(['department', 'role']),
             'recentActivity' => $recentActivity,
+            'roles' => Role::all(),
+            'departments' => Department::all(),
         ]);
     }
 
@@ -40,7 +44,9 @@ class ProfileController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'contact_number' => ['nullable', 'string', 'max:50'],
+            'mobile_number' => ['nullable', 'string', 'max:50'],
+            'role_id' => ['required', 'integer', 'exists:roles,role_id'],
+            'department_id' => ['required', 'integer', 'exists:departments,department_id'],
         ]);
 
         $user->update($validated);

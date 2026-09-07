@@ -66,7 +66,7 @@ export function BaseModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 transition-all">
             {/* Backdrop */}
             <div 
-                className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+                className="absolute inset-0 z-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm transition-opacity" 
                 onClick={onClose} 
                 aria-hidden="true" 
             />
@@ -76,7 +76,7 @@ export function BaseModal({
                 role="dialog"
                 aria-modal="true"
                 className={cn(
-                    "relative z-10 w-full rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200",
+                    "relative z-10 w-full rounded-[8px] bg-white shadow-2xl ring-1 ring-slate-900/5 flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200",
                     maxWidth
                 )}
             >
@@ -85,7 +85,7 @@ export function BaseModal({
                     <div className={cn("flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6 shrink-0", headerClassName)}>
                         <div className="flex items-center gap-3">
                             {icon && (
-                                <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl shrink-0", iconContainerClassName)}>
+                                <div className={cn("flex h-10 w-10 items-center justify-center rounded-[8px] shrink-0", iconContainerClassName)}>
                                     {icon}
                                 </div>
                             )}
@@ -96,7 +96,7 @@ export function BaseModal({
                                     </h2>
                                 )}
                                 {description && (
-                                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                                    <p className="text-[14px] text-slate-500 mt-0.5">
                                         {description}
                                     </p>
                                 )}
@@ -105,7 +105,7 @@ export function BaseModal({
                         <button
                             onClick={onClose}
                             type="button"
-                            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 shrink-0 self-start mt-1 sm:mt-0"
+                            className="rounded-[6px] p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 shrink-0 self-start mt-1 sm:mt-0"
                             aria-label="Close modal"
                         >
                             <X className="h-5 w-5" />
@@ -114,33 +114,35 @@ export function BaseModal({
                 )}
 
                 {/* Body (scrollable) */}
-                <div className="flex-1 overflow-y-auto">
-                    {formProps ? (
-                        <form {...formProps} className="flex flex-col min-h-full">
-                            <div className={cn("flex-1", childrenContainerClassName)}>
+                {formProps ? (
+                    <form {...formProps} className="flex flex-col min-h-0 flex-1">
+                        <div className="flex-1 overflow-y-auto">
+                            <div className={cn("flex flex-col min-h-full text-[14px]", childrenContainerClassName)}>
                                 {children}
                             </div>
-                            {/* Footer inside form to submit */}
-                            {footer && (
-                                <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6 shrink-0 mt-auto">
-                                    {footer}
-                                </div>
-                            )}
-                        </form>
-                    ) : (
-                        <div className="flex flex-col min-h-full">
-                            <div className={cn("flex-1", childrenContainerClassName)}>
-                                {children}
-                            </div>
-                            {/* Footer without form */}
-                            {footer && (
-                                <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6 shrink-0 mt-auto">
-                                    {footer}
-                                </div>
-                            )}
                         </div>
-                    )}
-                </div>
+                        {/* Footer inside form to submit */}
+                        {footer && (
+                            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6 shrink-0 mt-auto text-[16px]">
+                                {footer}
+                            </div>
+                        )}
+                    </form>
+                ) : (
+                    <div className="flex flex-col min-h-0 flex-1">
+                        <div className="flex-1 overflow-y-auto">
+                            <div className={cn("flex flex-col min-h-full text-[14px]", childrenContainerClassName)}>
+                                {children}
+                            </div>
+                        </div>
+                        {/* Footer without form */}
+                        {footer && (
+                            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:px-6 shrink-0 mt-auto text-[16px]">
+                                {footer}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

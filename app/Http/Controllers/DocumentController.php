@@ -541,4 +541,29 @@ class DocumentController extends Controller
             'url' => $document->attachment_path ? asset('storage/' . $document->attachment_path) : null
         ]);
     }
+
+    public function logAction(Request $request, $id)
+    {
+        $request->validate([
+            'action' => 'required|string',
+            'description' => 'required|string',
+        ]);
+
+        $document = Document::findOrFail($id);
+        $user = auth()->user();
+        $userRole = $user->role ? $user->role->role_name : 'Unknown';
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
+            'department' => $user->department->department_name ?? null,
+            'document_ref' => $document->reference_number,
+            'action' => $request->action,
+            'description' => $request->description,
+            'timestamp' => now(),
+        ]);
+
+        return redirect()->back();
+    }
 }

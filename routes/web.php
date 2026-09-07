@@ -16,6 +16,7 @@ Route::get('/track', function () {
 Route::middleware(['auth'])->group(function () {
 
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
+    Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
 
     // Profile Routes
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
@@ -33,6 +34,22 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::get('/documents/{id}', function ($id) {
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            return Inertia::render('receiving/documents/Show', [
+                'dbDocument' => $document,
+                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbDepartments' => \App\Models\Department::all(),
+                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
+                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
+                    ->where('document_id', $id)
+                    ->join('users', 'document_comments.user_id', '=', 'users.id')
+                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
+                    ->orderBy('created_at', 'desc')
+                    ->get()
             ]);
         });
         Route::get('/users/create', fn() => Inertia::render('admin/users/Create'));
@@ -258,6 +275,22 @@ Route::middleware(['auth'])->group(function () {
             ]);
         });
         Route::get('/documents/create', fn() => Inertia::render('cart/documents/Create'));
+        Route::get('/documents/{id}', function ($id) {
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            return Inertia::render('receiving/documents/Show', [
+                'dbDocument' => $document,
+                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbDepartments' => \App\Models\Department::all(),
+                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
+                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
+                    ->where('document_id', $id)
+                    ->join('users', 'document_comments.user_id', '=', 'users.id')
+                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+            ]);
+        });
         Route::get('/escalations', fn() => Inertia::render('cart/escalations/ArtaEscalations'));
         Route::get('/escalations/documents', fn() => Inertia::render('cart/escalations/Documents'));
         Route::get('/escalations/documents/create', fn() => Inertia::render('cart/escalations/Create'));

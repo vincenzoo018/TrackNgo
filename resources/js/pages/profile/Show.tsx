@@ -32,13 +32,18 @@ export default function ProfileShow() {
     const roleLabel = ROLE_LABELS[userRole] ?? user.role?.role_name ?? 'User';
     const deptName = user.department?.department_name ?? 'Not Assigned';
 
+    const roles = props.roles || [];
+    const departments = props.departments || [];
+
     // Form for Profile Info
     const profileForm = useForm({
         first_name: firstName,
         last_name: lastName,
         middle_name: middleName,
         email: user.email,
-        contact_number: user.contact_number || '',
+        mobile_number: user.mobile_number || '',
+        role_id: user.role_id || '',
+        department_id: user.department_id || '',
     });
 
     const updateProfile = (e: React.FormEvent) => {
@@ -181,12 +186,48 @@ export default function ProfileShow() {
                                         </label>
                                         <input
                                             type="text"
-                                            value={profileForm.data.contact_number}
-                                            onChange={(e) => profileForm.setData('contact_number', e.target.value)}
+                                            value={profileForm.data.mobile_number}
+                                            onChange={(e) => profileForm.setData('mobile_number', e.target.value)}
                                             className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                                             placeholder="+63 9XX XXX XXXX"
                                         />
-                                        {profileForm.errors.contact_number && <p className="mt-1 text-sm text-red-600">{profileForm.errors.contact_number}</p>}
+                                        {profileForm.errors.mobile_number && <p className="mt-1 text-sm text-red-600">{profileForm.errors.mobile_number}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-base font-medium text-[var(--tng-slate-700)]">
+                                            Department
+                                        </label>
+                                        <select
+                                            value={profileForm.data.department_id}
+                                            onChange={(e) => profileForm.setData('department_id', e.target.value)}
+                                            className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                                        >
+                                            <option value="">Select Department</option>
+                                            {departments.map((dept: any) => (
+                                                <option key={dept.department_id} value={dept.department_id}>
+                                                    {dept.department_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {profileForm.errors.department_id && <p className="mt-1 text-sm text-red-600">{profileForm.errors.department_id}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-base font-medium text-[var(--tng-slate-700)]">
+                                            Role
+                                        </label>
+                                        <select
+                                            value={profileForm.data.role_id}
+                                            onChange={(e) => profileForm.setData('role_id', e.target.value)}
+                                            className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                                        >
+                                            <option value="">Select Role</option>
+                                            {roles.map((r: any) => (
+                                                <option key={r.role_id} value={r.role_id}>
+                                                    {r.role_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {profileForm.errors.role_id && <p className="mt-1 text-sm text-red-600">{profileForm.errors.role_id}</p>}
                                     </div>
                                 </div>
                             </form>

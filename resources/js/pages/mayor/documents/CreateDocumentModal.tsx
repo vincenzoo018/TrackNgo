@@ -414,30 +414,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                             </section>
                         </div>
 
-                        {/* Footer */}
-                        <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 border-t border-[var(--tng-slate-100)] bg-[var(--tng-slate-50)] px-4 sm:px-6 py-4 rounded-b-2xl flex-shrink-0">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="w-full sm:w-auto rounded-lg px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-200)] text-center"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={processing || !ocrComplete}
-                                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-5 py-2 text-sm font-medium text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {processing ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Submitting...
-                                    </>
-                                ) : (
-                                    'Generate & Submit'
-                                )}
-                            </button>
-                        </div>
+
                     </div>
                 ) : (
                     <div className="p-10 text-center">
