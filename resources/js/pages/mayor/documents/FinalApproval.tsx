@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X, Inbox, Clock, Send } from 'lucide-react';
+import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
@@ -9,6 +9,7 @@ import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { cn } from '@/lib/utils';
 import CreateDocumentModal from './CreateDocumentModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
+import { getStandardizedStatus, StandardizedStatus } from '@/lib/status-helper';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
@@ -24,7 +25,7 @@ export default function MayorFinalApproval() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
-    const [activeTab, setActiveTab] = useState<'received' | 'ongoing' | 'sent'>('received');
+    const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned'>('all');
 
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
@@ -32,11 +33,22 @@ export default function MayorFinalApproval() {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [exportModalOpen, setExportModalOpen] = useState(false);
 
+    const tabCounts = useMemo(() => {
+        const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
+        documents.forEach((doc: any) => {
+            const std = getStandardizedStatus(doc.status).toLowerCase() as keyof typeof counts;
+            if (counts[std] !== undefined) {
+                counts[std]++;
+            }
+        });
+        return counts;
+    }, [documents]);
+
     const handleExportList = () => {
         const header = ['Ref No', 'Tracking No', 'Document Type', 'Department', 'Date Filed', 'Status'];
         const rows = filteredDocs.map((d: any) => [
             d.reference_number, d.tracking_number ?? '', d.type?.type_name ?? '',
-            d.department?.department_name ?? '', d.created_at?.slice(0, 10) ?? '', d.status
+            d.department?.department_name ?? '', d.created_at?.slice(0, 10) ?? '', getStandardizedStatus(d.status)
         ]);
         const csv = [header, ...rows].map(r => r.map((v: string) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -45,25 +57,15 @@ export default function MayorFinalApproval() {
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     };
 
-    const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed'];
+    const statusOptions: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned'];
 
     const filteredDocs = useMemo(() => {
-        const authUser = props.auth.user as any;
-        
         let result = documents.filter((doc: any) => {
-            const isCurrentHolder = doc.current_holder_department_id === authUser.department_id || doc.current_holder_id === authUser.id;
-            const isSubmitter = doc.submitted_by === authUser.id;
+            const stdStatus = getStandardizedStatus(doc.status);
             
             // Tab filtering logic
-            if (activeTab === 'received') {
-                if (!isCurrentHolder) return false;
-            } else if (activeTab === 'ongoing') {
-                if (isCurrentHolder) return false;
-                if (!isSubmitter) return false;
-                if (['completed', 'approved'].includes(doc.status)) return false;
-            } else if (activeTab === 'sent') {
-                if (isCurrentHolder) return false;
-                if (isSubmitter && !['completed', 'approved'].includes(doc.status)) return false;
+            if (activeTab !== 'all' && stdStatus.toLowerCase() !== activeTab) {
+                return false;
             }
 
             const q = searchQuery.toLowerCase();
@@ -72,11 +74,12 @@ export default function MayorFinalApproval() {
                 (doc.tracking_number || '').toLowerCase().includes(q) ||
                 (doc.title || '').toLowerCase().includes(q) ||
                 (doc.department?.department_name || '').toLowerCase().includes(q) ||
+                stdStatus.toLowerCase().includes(q) ||
                 (doc.status || '').toLowerCase().includes(q);
 
             const matchesType = !filterType || String(doc.type_id) === filterType;
             const matchesDept = !filterDept || String(doc.department_id) === filterDept;
-            const matchesStatus = !filterStatus || doc.status === filterStatus;
+            const matchesStatus = !filterStatus || stdStatus === filterStatus;
 
             return matchesSearch && matchesType && matchesDept && matchesStatus;
         });
@@ -150,9 +153,11 @@ export default function MayorFinalApproval() {
                 {/* Tabs */}
                 <div className="flex items-center gap-2 border-b border-[var(--tng-slate-200)]">
                     {[
-                        { id: 'received', label: 'Received (Inbox)', icon: <Inbox className="h-4 w-4 mr-2" /> },
-                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-2" /> },
-                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-2" /> }
+                        { id: 'all', label: 'All Documents', icon: null, count: tabCounts.all },
+                        { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 mr-1.5" />, count: tabCounts.received },
+                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-1.5" />, count: tabCounts.ongoing },
+                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-1.5" />, count: tabCounts.sent },
+                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 mr-1.5" />, count: tabCounts.returned }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -166,6 +171,12 @@ export default function MayorFinalApproval() {
                         >
                             {tab.icon}
                             {tab.label}
+                            <span className={cn(
+                                "ml-2 rounded-full px-2 py-0.5 text-xs font-semibold",
+                                activeTab === tab.id ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600"
+                            )}>
+                                {tab.count}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -236,7 +247,7 @@ export default function MayorFinalApproval() {
                     >
                         <option value="">All Statuses</option>
                         {statusOptions.map((s) => (
-                            <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                            <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
 

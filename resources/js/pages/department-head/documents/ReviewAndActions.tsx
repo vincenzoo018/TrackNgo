@@ -8,11 +8,12 @@ import { StepProgress } from '@/components/trackngo/StepProgress';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { ReturnModal } from '@/components/trackngo/ReturnModal';
 import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
-import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
 import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
 import { SuccessModal } from '@/components/trackngo/SuccessModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
+import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
+import { getStandardizedStatus } from '@/lib/status-helper';
 import { cn } from '@/lib/utils';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
@@ -132,6 +133,35 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
         });
     };
 
+    const handleReturn = (reason: string) => {
+        setIsActionLoading(true);
+        router.post(`/documents/${doc.document_id}/return`, {
+            reason
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setReturnModalOpen(false);
+                setIsActionLoading(false);
+                setSuccessState({ isOpen: true, title: 'Returned', message: 'Document returned successfully with your remarks logged.' });
+            },
+            onError: () => setIsActionLoading(false)
+        });
+    };
+
+    const handleReview = () => {
+        setIsActionLoading(true);
+        router.post(`/documents/${doc.document_id}/review`, {}, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsActionLoading(false);
+                setSuccessState({ isOpen: true, title: 'Review Active', message: 'Document marked as Ongoing review.' });
+            },
+            onError: () => setIsActionLoading(false)
+        });
+    };
+
     const requestAction = (action: string, title: string, message: string, btnText: string) => {
         setConfirmState({ isOpen: true, action, title, message, btnText });
     };
@@ -145,7 +175,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 onSuccess: () => {
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
-                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document accepted successfully.' });
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document received and accepted successfully.' });
                 },
                 onError: () => setIsActionLoading(false)
             });
@@ -411,30 +441,79 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 ⚡ Review Actions
                             </h2>
                             <div className="space-y-3">
-                                {doc.status === 'registered' || doc.status === 'submitted' ? (
-                                    <button 
-                                        onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to accept this document for review?', 'Accept')}
-                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
-                                    >
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Accept Document
-                                    </button>
-                                ) : doc.status === 'accepted' ? (
-                                    <>
-                                        <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
-                                            <Forward className="h-4 w-4" />
-                                            Forward / Review Document
-                                        </button>
-                                        <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100">
-                                            <RotateCcw className="h-4 w-4" />
-                                            Return Document
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="flex h-12 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
-                                        No actions available
-                                    </div>
-                                )}
+                                {(() => {
+                                    const std = getStandardizedStatus(doc.status);
+                                    if (std === 'Sent' || doc.status === 'submitted' || doc.status === 'registered') {
+                                        return (
+                                            <>
+                                                <button 
+                                                    onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document for review?', 'Receive')}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 hover:shadow-lg"
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4" />
+                                                    Receive / Accept Document
+                                                </button>
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Return Document
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    if (std === 'Received') {
+                                        return (
+                                            <>
+                                                <button 
+                                                    onClick={handleReview}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-amber-600/25 transition-all hover:bg-amber-700 hover:shadow-lg"
+                                                >
+                                                    <FileSearch className="h-4 w-4" />
+                                                    Mark as Under Review
+                                                </button>
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
+                                                    <Forward className="h-4 w-4" />
+                                                    Forward / Endorse
+                                                </button>
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Return Document
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    if (std === 'Ongoing') {
+                                        return (
+                                            <>
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-lg">
+                                                    <Forward className="h-4 w-4" />
+                                                    Forward / Endorse Document
+                                                </button>
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Return Document
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    if (std === 'Returned') {
+                                        return (
+                                            <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-center">
+                                                <p className="text-sm font-semibold text-rose-800 flex items-center justify-center gap-1.5 mb-2">
+                                                    <RotateCcw className="h-4 w-4" /> Document Returned
+                                                </p>
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-[var(--tng-blue-700)]">
+                                                    <Forward className="h-3.5 w-3.5" />
+                                                    Re-endorse / Forward
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="flex h-12 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
+                                            No actions available
+                                        </div>
+                                    );
+                                })()}
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <button className="flex items-center justify-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--tng-slate-700)] transition-colors hover:bg-[var(--tng-slate-50)]">
                                         <Printer className="h-4 w-4" /> Print
@@ -447,96 +526,16 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                         </div>
 
                         <div className="flex-1 overflow-y-auto tng-scrollbar flex flex-col gap-6 pb-6 pr-2 -mr-2">
-                            {/* Comments / Discussion */}
-                            <div className="shrink-0 rounded-xl border border-[var(--tng-slate-200)] bg-white flex flex-col h-[500px]">
-                                <div className="flex border-b border-[var(--tng-slate-200)] px-6 py-4">
-                                    <h3 className="text-[16px] font-semibold text-slate-900">Discussion & Audit Timeline</h3>
-                                </div>
-
-                                <div className="p-6 flex-1 overflow-y-auto tng-scrollbar flex flex-col">
-                                    <div className="flex-1 space-y-6 mb-4">
-                                        {unifiedTimeline.length > 0 ? unifiedTimeline.map((item: any) => {
-                                            if (item._type === 'comment') {
-                                                return (
-                                                    <div key={`comment-${item.id}`} className="flex gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-[var(--tng-slate-200)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-600)] shrink-0 mt-1">
-                                                            {item.user_name.substring(0, 2).toUpperCase()}
-                                                        </div>
-                                                        <div className="flex-1 rounded-lg bg-[var(--tng-slate-100)] p-3 text-[14px] text-[var(--tng-slate-800)] shadow-sm">
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <p className="font-semibold text-xs text-[var(--tng-slate-600)]">
-                                                                    {item.user_name} ({item.user_role})
-                                                                </p>
-                                                                <span className="text-xs text-[var(--tng-slate-500)]">
-                                                                    {item._date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                                                                </span>
-                                                            </div>
-                                                            {item.is_anchored && item.quoted_text && (
-                                                                <div className="mb-2 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-2 text-xs text-[var(--tng-slate-600)] italic">
-                                                                    "{item.quoted_text}"
-                                                                </div>
-                                                            )}
-                                                            <p className="leading-relaxed">{item.comment}</p>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            } else {
-                                                return (
-                                                    <div key={`audit-${item.audit_id || item.id}`} className="flex gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-white border border-[var(--tng-blue-200)] flex items-center justify-center text-[var(--tng-blue-600)] shrink-0 mt-1 shadow-sm">
-                                                            <History className="h-4 w-4" />
-                                                        </div>
-                                                        <div className="flex-1 rounded-[8px] border border-[var(--tng-slate-200)] bg-white p-3 text-[14px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-shadow">
-                                                            <div className="flex items-center justify-between mb-1.5">
-                                                                <h4 className="text-[14px] font-semibold text-slate-800 capitalize flex items-center gap-2">
-                                                                    {(item.action || '').toLowerCase() === 'submitted' ? 'Document Registered' :
-                                                                    (item.action || '').toLowerCase() === 'forward' ? 'Document Forwarded' :
-                                                                    (item.action || '').toLowerCase() === 'endorsed' ? 'Document Endorsed' :
-                                                                    (item.action || '').toLowerCase() === 'escalated' ? 'Document Escalated' :
-                                                                    (item.action || '').toLowerCase().includes('document') ? item.action : `Document ${item.action}`}
-                                                                </h4>
-                                                                <span className="text-xs font-medium text-slate-500">
-                                                                    {item._date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-[14px] text-slate-600 leading-relaxed mb-2">
-                                                                {item.details || item.description}
-                                                            </p>
-                                                            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                                                                <div className="flex items-center gap-1 font-medium">
-                                                                    <span className="text-slate-700">User:</span> 
-                                                                    {item.user?.name || item.user_name || item.user || 'System'}
-                                                                    {item.user?.role?.role_name ? ` (${item.user.role.role_name})` : ''}
-                                                                </div>
-                                                                {item.document_ref && (
-                                                                    <div className="flex items-center gap-1 font-medium">
-                                                                        <span className="text-slate-700">Ref:</span> {item.document_ref}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-                                        }) : (
-                                            <p className="text-sm text-[var(--tng-slate-400)] text-center mt-4">No activity yet.</p>
-                                        )}
-                                    </div>
-                                    <form onSubmit={(e) => handleAddComment(e, false)} className="mt-auto relative">
-                                            <input 
-                                                type="text" 
-                                                value={normalCommentText}
-                                                onChange={e => setNormalCommentText(e.target.value)}
-                                                placeholder="Type a message..." 
-                                                className="w-full rounded-lg border border-[var(--tng-slate-200)] pr-10 pl-3 py-2 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
-                                            />
-                                            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-700)]">
-                                                <Send className="h-4 w-4" />
-                                            </button>
-                                        </form>
-                                    </div>
-                            </div>
+                            {/* Unified Discussion & Audit Timeline */}
+                            <DiscussionAuditTimeline
+                                document={doc}
+                                auditTrail={trail}
+                                comments={comments}
+                                selectedSnippet={selectedOcrText}
+                                onClearSnippet={() => setSelectedOcrText('')}
+                            />
                         </div>
+
                         {/* Signatures Section */}
                         <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-6 flex flex-col gap-8">
                             <h3 className="text-sm font-semibold text-[var(--tng-slate-700)] flex items-center gap-2">
@@ -549,7 +548,6 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Prepared By</div>
                             </div>
-
                             {/* Authenticated User */}
                             <div className="text-center relative w-full flex flex-col items-center">
                                 <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
@@ -558,6 +556,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-2">Reviewed By</div>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -573,10 +572,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
             <ReturnModal
                 open={returnModalOpen}
                 onClose={() => setReturnModalOpen(false)}
-                onConfirm={(reason) => { 
-                    showToast('Document returned successfully'); 
-                    setReturnModalOpen(false); 
-                }}
+                onConfirm={(reason) => handleReturn(reason)}
             />
 
             {/* Modals for new features */}

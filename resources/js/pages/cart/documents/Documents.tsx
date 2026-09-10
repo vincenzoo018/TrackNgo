@@ -1,10 +1,13 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText } from 'lucide-react';
+import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { StepDots } from '@/components/trackngo/StepProgress';
+import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
+import { getStandardizedStatus, StandardizedStatus } from '@/lib/status-helper';
+import { cn } from '@/lib/utils';
 
 export default function CartDocumentsIndex() {
     const { props } = usePage();
@@ -14,26 +17,48 @@ export default function CartDocumentsIndex() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned'>('all');
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-    const statusOptions = ['submitted', 'in_review', 'endorsed', 'approved', 'completed'];
+    const tabCounts = useMemo(() => {
+        const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
+        documents.forEach((doc: any) => {
+            const std = getStandardizedStatus(doc.status).toLowerCase() as keyof typeof counts;
+            if (counts[std] !== undefined) {
+                counts[std]++;
+            }
+        });
+        return counts;
+    }, [documents]);
+
+    const statusOptions: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned'];
 
     const filteredDocs = useMemo(() => {
         let result = documents.filter((doc: any) => {
+            const stdStatus = getStandardizedStatus(doc.status);
+
+            // Tab filtering logic
+            if (activeTab !== 'all' && stdStatus.toLowerCase() !== activeTab) {
+                return false;
+            }
+
             const q = searchQuery.toLowerCase();
             const matchesSearch = !q ||
                 (doc.reference_number || '').toLowerCase().includes(q) ||
                 (doc.tracking_number || '').toLowerCase().includes(q) ||
                 (doc.title || '').toLowerCase().includes(q) ||
                 (doc.department?.department_name || '').toLowerCase().includes(q) ||
+                stdStatus.toLowerCase().includes(q) ||
                 (doc.status || '').toLowerCase().includes(q);
 
             const matchesType = !filterType || String(doc.type_id) === filterType;
             const matchesDept = !filterDept || String(doc.department_id) === filterDept;
-            const matchesStatus = !filterStatus || doc.status === filterStatus;
+            const matchesStatus = !filterStatus || stdStatus === filterStatus;
 
             return matchesSearch && matchesType && matchesDept && matchesStatus;
         });
@@ -45,7 +70,7 @@ export default function CartDocumentsIndex() {
         });
 
         return result;
-    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir]);
+    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
 
     const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
 
@@ -101,6 +126,43 @@ export default function CartDocumentsIndex() {
                     </div>
                 </div>
 
+                {toastMessage && (
+                    <div className="rounded-lg bg-green-50 border border-green-200 p-4 flex items-center gap-3 text-green-700 animate-in slide-in-from-top-2">
+                        <span className="font-semibold text-sm">{toastMessage}</span>
+                    </div>
+                )}
+
+                {/* Tabs */}
+                <div className="flex items-center gap-2 border-b border-[var(--tng-slate-200)]">
+                    {[
+                        { id: 'all', label: 'All Documents', icon: null, count: tabCounts.all },
+                        { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 mr-1.5" />, count: tabCounts.received },
+                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-1.5" />, count: tabCounts.ongoing },
+                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-1.5" />, count: tabCounts.sent },
+                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 mr-1.5" />, count: tabCounts.returned }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={cn(
+                                "flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+                                activeTab === tab.id
+                                    ? "border-[var(--tng-blue-600)] text-[var(--tng-blue-600)]"
+                                    : "border-transparent text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)]"
+                            )}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                            <span className={cn(
+                                "ml-2 rounded-full px-2 py-0.5 text-xs font-semibold",
+                                activeTab === tab.id ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600"
+                            )}>
+                                {tab.count}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+
                 {/* Search */}
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
@@ -144,7 +206,7 @@ export default function CartDocumentsIndex() {
                     >
                         <option value="">All Statuses</option>
                         {statusOptions.map((s) => (
-                            <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                            <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
 
@@ -158,7 +220,10 @@ export default function CartDocumentsIndex() {
                         </button>
                     )}
 
-                    <button className="ml-auto flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]">
+                    <button 
+                        onClick={() => setExportModalOpen(true)}
+                        className="ml-auto flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]"
+                    >
                         <Download className="h-4 w-4" />
                         Export
                         <Lock className="h-3 w-3 text-[var(--tng-amber-500)]" />
@@ -295,6 +360,13 @@ export default function CartDocumentsIndex() {
                     )}
                 </div>
             </div>
+
+            <ExportPasswordModal
+                isOpen={exportModalOpen}
+                onClose={() => setExportModalOpen(false)}
+                documentId={filteredDocs[0]?.document_id ?? 'all'}
+                onSuccess={(msg) => setToastMessage(msg)}
+            />
         </TrackngoLayout>
     );
 }

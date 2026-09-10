@@ -1,42 +1,44 @@
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { getStandardizedStatus, STATUS_STYLE_CONFIG, StandardizedStatus } from '@/lib/status-helper';
 
-export type DocumentStatus = 'pending_registration' | 'submitted' | 'registered' | 'accepted' | 'dept_accepted' | 'endorsed' | 'mayor_accepted' | 'reviewed' | 'approved' | 'released' | 'completed' | 'escalated' | 'rejected' | 'archived' | 'routed';
-
-const STATUS_CONFIG: Record<DocumentStatus, { label: string; bg: string; text: string; dot: string }> = {
-    pending_registration: { label: 'PENDING REG.', bg: 'bg-orange-100/80', text: 'text-orange-700', dot: 'bg-orange-500 animate-pulse' },
-    submitted: { label: 'SUBMITTED', bg: 'bg-blue-100/80', text: 'text-blue-700', dot: 'bg-blue-500' },
-    registered: { label: 'REGISTERED', bg: 'bg-sky-100/80', text: 'text-sky-700', dot: 'bg-sky-500' },
-    accepted: { label: 'ACCEPTED', bg: 'bg-indigo-100/80', text: 'text-indigo-700', dot: 'bg-indigo-500' },
-    dept_accepted: { label: 'ACCEPTED', bg: 'bg-indigo-100/80', text: 'text-indigo-700', dot: 'bg-indigo-500' },
-    endorsed: { label: 'ENDORSED', bg: 'bg-emerald-100/80', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-    mayor_accepted: { label: 'ACCEPTED', bg: 'bg-indigo-100/80', text: 'text-indigo-700', dot: 'bg-indigo-500' },
-    reviewed: { label: 'IN REVIEW', bg: 'bg-purple-100/80', text: 'text-purple-700', dot: 'bg-purple-500' },
-    approved: { label: 'APPROVED', bg: 'bg-emerald-100/80', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-    released: { label: 'RELEASED', bg: 'bg-teal-100/80', text: 'text-teal-700', dot: 'bg-teal-500' },
-    completed: { label: 'COMPLETED', bg: 'bg-emerald-100/80', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-    routed: { label: 'ROUTED', bg: 'bg-cyan-100/80', text: 'text-cyan-700', dot: 'bg-cyan-500' },
-    escalated: { label: 'ESCALATED', bg: 'bg-red-100/80', text: 'text-red-700', dot: 'bg-red-500 animate-pulse' },
-    rejected: { label: 'REJECTED', bg: 'bg-slate-100/80', text: 'text-slate-700', dot: 'bg-slate-500' },
-    archived: { label: 'ARCHIVED', bg: 'bg-gray-100/80', text: 'text-gray-600', dot: 'bg-gray-400' },
-};
+export type DocumentStatus = 
+    | StandardizedStatus 
+    | 'pending_registration' 
+    | 'submitted' 
+    | 'registered' 
+    | 'accepted' 
+    | 'dept_accepted' 
+    | 'endorsed' 
+    | 'mayor_accepted' 
+    | 'reviewed' 
+    | 'approved' 
+    | 'released' 
+    | 'completed' 
+    | 'escalated' 
+    | 'rejected' 
+    | 'archived' 
+    | 'routed'
+    | string;
 
 type SeverityPillProps = {
     status: DocumentStatus;
     className?: string;
+    useStandardized?: boolean;
 };
 
-export function SeverityPill({ status, className }: SeverityPillProps) {
-    const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.submitted;
+export function SeverityPill({ status, className, useStandardized = true }: SeverityPillProps) {
+    const stdStatus = getStandardizedStatus(status);
+    const config = STATUS_STYLE_CONFIG[stdStatus];
 
     return (
         <span
             className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide',
+                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold tracking-wide border transition-all duration-200 shadow-sm',
                 config.bg,
                 config.text,
-                status === 'escalated' && 'tng-pulse-overdue',
-                className,
+                config.border,
+                className
             )}
         >
             <span className={cn('h-1.5 w-1.5 rounded-full', config.dot)} />

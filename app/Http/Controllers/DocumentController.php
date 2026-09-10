@@ -73,7 +73,7 @@ class DocumentController extends Controller
 
         if ($isInternal) {
             $trackingNumber = null;
-            $status = 'pending_registration';
+            $status = 'Ongoing';
             $receivingDept = \App\Models\Department::where('department_name', 'like', '%Receiving%')->orWhere('code', 'REC')->first();
             $currentHolderDeptId = $receivingDept ? $receivingDept->department_id : 1;
             $destinationDeptId = $request->forward_to;
@@ -86,7 +86,7 @@ class DocumentController extends Controller
             
             $nextSeq = $latestDoc ? ((int) substr($latestDoc->tracking_number, -4)) + 1 : 1;
             $trackingNumber = 'RS-' . $year . '-' . str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
-            $status = 'submitted';
+            $status = 'Sent';
             $currentHolderDeptId = $request->forward_to;
             $destinationDeptId = null;
         }
@@ -146,21 +146,23 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'submitted',
-            'description' => 'Document submitted and forwarded to ' . \App\Models\Department::find($request->forward_to)->department_name,
+            'user_role' => auth()->user()->role->role_name ?? 'User',
+            'department' => auth()->user()->department->department_name ?? null,
+            'action' => 'Submit',
+            'description' => 'Document submitted and routed to ' . (\App\Models\Department::find($request->forward_to)->department_name ?? 'destination'),
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
 
         return redirect()->back()->with('success', 'Document submitted successfully. Tracking: ' . $trackingNumber);
     }
 
-    
     public function accept(Request $request, $id)
     {
         $document = Document::findOrFail($id);
         
         $document->update([
-            'status' => 'accepted',
+            'status' => 'Received',
             'current_step_index' => 3,
         ]);
 
@@ -168,10 +170,17 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'accepted',
-            'description' => 'Document accepted and received by ' . auth()->user()->name . ' for review.',
+            'user_role' => auth()->user()->role->role_name ?? 'User',
+            'department' => auth()->user()->department->department_name ?? null,
+            'action' => 'Receive',
+            'description' => 'Document officially received and accepted by ' . auth()->user()->name . ' for review.',
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document accepted successfully.', 'document' => $document]);
+        }
 
         return redirect()->back()->with('success', 'Document accepted successfully');
     }
@@ -181,7 +190,7 @@ class DocumentController extends Controller
         $document = Document::findOrFail($id);
         
         $document->update([
-            'status' => 'reviewed',
+            'status' => 'Ongoing',
             'current_step_index' => 4,
         ]);
 
@@ -189,13 +198,21 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'reviewed',
-            'description' => 'Document has been reviewed and is ready for final approval.',
+            'user_role' => auth()->user()->role->role_name ?? 'User',
+            'department' => auth()->user()->department->department_name ?? null,
+            'action' => 'Review',
+            'description' => 'Document has been reviewed and marked as ongoing by ' . auth()->user()->name . '.',
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
 
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document reviewed successfully.', 'document' => $document]);
+        }
+
         return redirect()->back()->with('success', 'Document reviewed successfully');
     }
+
     public function endorse(Request $request, $id)
     {
         $document = Document::findOrFail($id);
@@ -221,14 +238,11 @@ class DocumentController extends Controller
             'status' => 'pending',
         ]);
 
-        $status = $document->status === 'accepted' ? 'reviewed' : 'submitted';
-        $step = $document->status === 'accepted' ? 4 : 1;
-
         $document->update([
-            'status' => $status,
+            'status' => 'Sent',
             'current_holder_department_id' => $isDept ? $request->destination_id : \App\Models\User::find($request->destination_id)->department_id,
             'current_holder_id' => $isDept ? null : $request->destination_id,
-            'current_step_index' => $step,
+            'current_step_index' => 4,
         ]);
 
         $destName = $isDept 
@@ -239,10 +253,17 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'endorsed',
+            'user_role' => auth()->user()->role->role_name ?? 'User',
+            'department' => auth()->user()->department->department_name ?? null,
+            'action' => 'Endorse',
             'description' => 'Document endorsed to ' . $destName . ($request->remarks ? ': ' . $request->remarks : ''),
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document endorsed successfully.', 'document' => $document]);
+        }
 
         return redirect()->back()->with('success', 'Document endorsed successfully');
     }
@@ -313,13 +334,13 @@ class DocumentController extends Controller
             'to_user_id' => null,
             'target_department_id' => $destDeptId,
             'sender_name' => auth()->user()->name,
-            'action' => 'approved',
+            'action' => 'forward',
             'instruction' => 'Approved by Mayor. For final release to applicant.',
             'status' => 'pending',
         ]);
 
         $document->update([
-            'status' => 'approved',
+            'status' => 'Sent',
             'current_holder_department_id' => $destDeptId,
             'current_holder_id' => null,
             'current_step_index' => 5,
@@ -329,10 +350,17 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'approved',
+            'user_role' => auth()->user()->role->role_name ?? 'Mayor',
+            'department' => auth()->user()->department->department_name ?? 'Office of the Mayor',
+            'action' => 'Approve',
             'description' => 'Document approved and routed to Receiving Clerk for release.',
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document approved successfully.', 'document' => $document]);
+        }
 
         return redirect()->back()->with('success', 'Document approved and routed to Receiving Clerk.');
     }
@@ -342,7 +370,7 @@ class DocumentController extends Controller
         $document = Document::findOrFail($id);
         
         $document->update([
-            'status' => 'for_release',
+            'status' => 'Sent',
             'current_holder_id' => null,
             'current_holder_department_id' => null,
             'current_step_index' => 6,
@@ -352,12 +380,52 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'released',
-            'description' => 'Document released to applicant and marked as completed.',
+            'user_role' => auth()->user()->role->role_name ?? 'User',
+            'department' => auth()->user()->department->department_name ?? null,
+            'action' => 'Release',
+            'description' => 'Document officially released to applicant and marked as sent/completed.',
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
 
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document released successfully.', 'document' => $document]);
+        }
+
         return redirect()->back()->with('success', 'Document successfully released to the applicant.');
+    }
+
+    public function returnDocument(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'required|string',
+        ]);
+
+        $document = Document::findOrFail($id);
+        $user = auth()->user();
+        $userRole = $user->role->role_name ?? 'User';
+
+        $document->update([
+            'status' => 'Returned',
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
+            'department' => $user->department->department_name ?? null,
+            'action' => 'Return',
+            'description' => 'Document returned. Reason: ' . $request->reason,
+            'ip_address' => $request->ip(),
+            'timestamp' => now(),
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document returned successfully.', 'document' => $document]);
+        }
+
+        return redirect()->back()->with('success', 'Document returned successfully.');
     }
 
     public function addComment(Request $request, $id)
@@ -369,11 +437,13 @@ class DocumentController extends Controller
             'quoted_text' => 'nullable|string',
         ]);
 
+        $isAnchored = !empty($request->quoted_text);
+
         \Illuminate\Support\Facades\DB::table('document_comments')->insert([
             'document_id' => $document->document_id,
             'user_id' => auth()->id(),
             'comment' => $request->comment,
-            'is_anchored' => $request->quoted_text ? true : false,
+            'is_anchored' => $isAnchored,
             'quoted_text' => $request->quoted_text,
             'created_at' => now(),
             'updated_at' => now(),
@@ -383,10 +453,19 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => auth()->id(),
-            'action' => 'commented',
-            'description' => 'User added a ' . ($request->quoted_text ? 'anchored ' : '') . 'comment.',
+            'user_role' => auth()->user()->role->role_name ?? 'User',
+            'department' => auth()->user()->department->department_name ?? null,
+            'action' => $isAnchored ? 'Anchor' : 'Comment',
+            'description' => $isAnchored 
+                ? 'Anchored note added on excerpt: "' . \Illuminate\Support\Str::limit($request->quoted_text, 60) . '" — ' . $request->comment 
+                : 'Comment posted: ' . \Illuminate\Support\Str::limit($request->comment, 80),
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Comment added successfully.']);
+        }
 
         return redirect()->back()->with('success', 'Comment added');
     }
@@ -398,18 +477,15 @@ class DocumentController extends Controller
             ->join('users', 'document_comments.user_id', '=', 'users.id')
             ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
             ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'asc')
             ->get();
             
         return response()->json($comments);
     }
+
     public function register(Request $request, $id)
     {
         $document = Document::findOrFail($id);
-
-        if (!in_array($document->status, ['submitted', 'pending_registration'])) {
-            return response()->json(['message' => 'Document cannot be registered at this stage.'], 400);
-        }
 
         $year = date('Y');
         $latestDoc = Document::whereNotNull('tracking_number')
@@ -422,8 +498,8 @@ class DocumentController extends Controller
 
         $document->update([
             'tracking_number' => $trackingNumber,
-            'status' => 'registered',
-            'current_holder_department_id' => $document->destination_department_id,
+            'status' => 'Ongoing',
+            'current_holder_department_id' => $document->destination_department_id ?? $document->department_id,
             'current_step_index' => 2,
         ]);
 
@@ -431,25 +507,30 @@ class DocumentController extends Controller
             'document_id' => $document->document_id,
             'tracking_number' => $trackingNumber,
             'from_user_id' => auth()->id(),
-            'from_department_id' => null, // Receiving Clerk doesn't have a specific dept context in routing
+            'from_department_id' => auth()->user()->department_id,
             'to_user_id' => null,
-            'target_department_id' => $document->destination_department_id,
+            'target_department_id' => $document->destination_department_id ?? $document->department_id,
             'sender_name' => auth()->user()->name,
             'action' => 'forward',
-            'instruction' => 'Registered and routed by Receiving Clerk',
+            'instruction' => 'Registered and routed for processing',
             'status' => 'pending',
         ]);
 
         \App\Models\AuditTrail::create([
             'document_id' => $document->document_id,
             'user_id' => auth()->id(),
-            'user_role' => auth()->user()->role->role_name ?? null,
+            'user_role' => auth()->user()->role->role_name ?? 'Receiving Clerk',
             'department' => auth()->user()->department->department_name ?? null,
             'document_ref' => $document->reference_number,
-            'action' => 'Registered Document',
+            'action' => 'Register',
             'description' => 'Document officially registered and assigned tracking number: ' . $trackingNumber,
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document registered successfully.', 'document' => $document]);
+        }
 
         return redirect()->back()->with('success', 'Document registered and routed successfully.');
     }
@@ -458,13 +539,9 @@ class DocumentController extends Controller
     {
         $document = Document::findOrFail($id);
 
-        if ($document->status !== 'routed') {
-            return response()->json(['message' => 'Document is not routed.'], 400);
-        }
-
         $document->update([
-            'status' => 'in_review',
-            'current_step_index' => $document->current_step_index + 1,
+            'status' => 'Received',
+            'current_step_index' => max(2, $document->current_step_index),
         ]);
 
         \App\Models\RoutingSlip::where('document_id', $document->document_id)
@@ -474,13 +551,18 @@ class DocumentController extends Controller
         \App\Models\AuditTrail::create([
             'document_id' => $document->document_id,
             'user_id' => auth()->id(),
-            'user_role' => auth()->user()->role->role_name ?? null,
+            'user_role' => auth()->user()->role->role_name ?? 'User',
             'department' => auth()->user()->department->department_name ?? null,
             'document_ref' => $document->reference_number,
-            'action' => 'Received Document',
-            'description' => 'Document officially received by destination office',
+            'action' => 'Receive',
+            'description' => 'Document officially received by ' . auth()->user()->name,
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document received successfully.', 'document' => $document]);
+        }
 
         return redirect()->back()->with('success', 'Document received successfully.');
     }
@@ -494,7 +576,7 @@ class DocumentController extends Controller
         $user = auth()->user();
         
         // Check allowed roles
-        $allowedRoles = ['Receiving Clerk', 'Department Head', 'Mayor'];
+        $allowedRoles = ['Receiving Clerk', 'Department Head', 'Mayor', 'Admin', 'HR', 'CART'];
         $userRole = $user->role->role_name ?? '';
         if (!in_array($userRole, $allowedRoles)) {
             return response()->json(['message' => 'Unauthorized role for export.'], 403);
@@ -504,6 +586,7 @@ class DocumentController extends Controller
         if (!\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Incorrect password.'], 401);
         }
+
         if ($id == 0) {
             \App\Models\AuditTrail::create([
                 'document_id' => null,
@@ -511,8 +594,9 @@ class DocumentController extends Controller
                 'user_role' => $userRole,
                 'department' => $user->department->department_name ?? null,
                 'document_ref' => 'Document List',
-                'action' => 'List Exported',
+                'action' => 'Export',
                 'description' => 'Document list exported securely via password verification.',
+                'ip_address' => $request->ip(),
                 'timestamp' => now(),
             ]);
 
@@ -531,14 +615,38 @@ class DocumentController extends Controller
             'user_role' => $userRole,
             'department' => $user->department->department_name ?? null,
             'document_ref' => $document->reference_number,
-            'action' => 'Document Exported',
+            'action' => 'Export',
             'description' => 'Document exported securely via password verification.',
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
 
         return response()->json([
             'message' => 'Export successful.',
             'url' => $document->attachment_path ? asset('storage/' . $document->attachment_path) : null
+        ]);
+    }
+
+    public function getTimelineSync($id)
+    {
+        $document = Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])->findOrFail($id);
+        $auditTrail = \App\Models\AuditTrail::with(['user.role', 'user.department'])
+            ->where('document_id', $id)
+            ->orderBy('timestamp', 'asc')
+            ->get();
+        $comments = \Illuminate\Support\Facades\DB::table('document_comments')
+            ->where('document_id', $id)
+            ->join('users', 'document_comments.user_id', '=', 'users.id')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+            ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json([
+            'status' => $document->status,
+            'document' => $document,
+            'auditTrail' => $auditTrail,
+            'comments' => $comments,
         ]);
     }
 
@@ -561,6 +669,7 @@ class DocumentController extends Controller
             'document_ref' => $document->reference_number,
             'action' => $request->action,
             'description' => $request->description,
+            'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
 

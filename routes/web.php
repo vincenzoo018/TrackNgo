@@ -17,6 +17,13 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
     Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
+    Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
+    Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
+    Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review'])->name('documents.review');
+    Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse'])->name('documents.endorse');
+    Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
+    Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
+    Route::get('/documents/{id}/timeline-sync', [\App\Http\Controllers\DocumentController::class, 'getTimelineSync'])->name('documents.timelineSync');
 
     // Profile Routes
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
@@ -40,7 +47,7 @@ Route::middleware(['auth'])->group(function () {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
                 'dbDepartments' => \App\Models\Department::all(),
                 'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
                 'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
@@ -107,7 +114,7 @@ Route::middleware(['auth'])->group(function () {
 
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
                 'dbDepartments' => \App\Models\Department::all(),
                 'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
                 'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
@@ -175,7 +182,7 @@ Route::middleware(['auth'])->group(function () {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('department-head/documents/ReviewAndActions', [
                 'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
                 'dbDepartments' => \App\Models\Department::all(),
                 'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
                 'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
@@ -235,7 +242,7 @@ Route::middleware(['auth'])->group(function () {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('mayor/documents/Show', [
                 'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
                 'dbDepartments' => \App\Models\Department::all(),
                 'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
                 'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
@@ -279,7 +286,7 @@ Route::middleware(['auth'])->group(function () {
             $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with('user')->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
                 'dbDepartments' => \App\Models\Department::all(),
                 'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
                 'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
@@ -317,6 +324,22 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::get('/documents/{id}', function ($id) {
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            return Inertia::render('receiving/documents/Show', [
+                'dbDocument' => $document,
+                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+                'dbDepartments' => \App\Models\Department::all(),
+                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
+                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
+                    ->where('document_id', $id)
+                    ->join('users', 'document_comments.user_id', '=', 'users.id')
+                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
+                    ->orderBy('created_at', 'desc')
+                    ->get()
             ]);
         });
         
