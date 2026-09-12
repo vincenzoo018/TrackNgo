@@ -15,6 +15,7 @@ class AuditTrail extends Model
 
     protected $fillable = [
         'document_id',
+        'category',
         'user_id',
         'user_role',
         'department',
@@ -37,5 +38,15 @@ class AuditTrail extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+
+    public function scopeSystemTrail($query)
+    {
+        return $query->where('category', 'system');
+    }
+
+    public function scopeActionTrail($query)
+    {
+        return $query->where('category', 'action');
     }
 }

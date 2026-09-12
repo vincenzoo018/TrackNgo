@@ -4,6 +4,7 @@ import {
     Route,
     PenTool,
     GitBranch,
+    Activity,
     BarChart3,
     Archive,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ export const departmentHeadNav: NavItem[] = [
     { title: 'Routing Slips', href: '/department-head/routing-slips', icon: Route },
     { title: 'Signature Setup', href: '/department-head/signature', icon: PenTool },
     { title: 'Workflow Tracker', href: '/department-head/workflow', icon: GitBranch },
+    { title: 'Audit Trail', href: '/department-head/audit-trail', icon: Activity },
     { title: 'Reports', href: '/department-head/reports', icon: BarChart3 },
     { title: 'Archived', href: '/department-head/archived', icon: Archive },
 ];

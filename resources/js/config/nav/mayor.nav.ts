@@ -3,6 +3,7 @@ import {
     FileCheck,
     Route,
     PenTool,
+    Activity,
     BarChart3,
     Archive,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ export const mayorNav: NavItem[] = [
     { title: 'Final Approval', href: '/mayor/documents', icon: FileCheck },
     { title: 'Routing Slips', href: '/mayor/routing-slips', icon: Route },
     { title: 'Signature Setup', href: '/mayor/signature', icon: PenTool },
+    { title: 'Audit Trail', href: '/mayor/audit-trail', icon: Activity },
     { title: 'Reports', href: '/mayor/reports', icon: BarChart3 },
     { title: 'Archived', href: '/mayor/archived', icon: Archive },
 ];

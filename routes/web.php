@@ -89,6 +89,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports', fn() => Inertia::render('admin/reports/Index'));
         Route::get('/templates', fn() => Inertia::render('admin/templates/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('admin/routing-slips/RoutingSlips'));
+        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
     });
 
     // Receiving Routes
@@ -185,7 +186,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/routing-slips', fn() => Inertia::render('receiving/routing-slips/RoutingSlips'));
-        Route::get('/audit-trail', fn() => Inertia::render('receiving/audit-trail/AuditTrail'));
+        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('receiving/reports/Index'));
     });
 
@@ -263,6 +264,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/workflow', fn() => Inertia::render('department-head/workflow/Index'));
         Route::get('/signature', fn() => Inertia::render('department-head/signature/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('department-head/routing-slips/RoutingSlips'));
+        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('department-head/reports/Index'));
     });
 
@@ -331,6 +333,7 @@ Route::middleware(['auth'])->group(function () {
         });
         Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('mayor/routing-slips/RoutingSlips'));
+        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('mayor/reports/Index'));
         
         // Document Actions
@@ -392,7 +395,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/escalations/documents', fn() => Inertia::render('cart/escalations/Documents'));
         Route::get('/escalations/documents/create', fn() => Inertia::render('cart/escalations/Create'));
         Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
-        Route::get('/audit-trail', fn() => Inertia::render('cart/audit-trail/AuditTrail'));
+        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('cart/reports/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('cart/routing-slips/RoutingSlips'));
         
@@ -462,6 +465,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/leave', fn() => Inertia::render('hr/leave/Index'));
         Route::get('/routing-slips', fn() => Inertia::render('hr/routing-slips/RoutingSlips'));
+        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('hr/reports/Index'));
         
         // Document Actions

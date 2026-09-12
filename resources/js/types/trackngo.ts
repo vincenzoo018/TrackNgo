@@ -157,17 +157,21 @@ export type ArtaEscalation = {
 
 // ── Audit Trail ─────────────────────────────────────────────────────
 export type AuditTrailEntry = {
-    id: number;
-    document_id?: number;
-    user_id?: number;
-    user: string;
-    user_role: UserRole;
-    department: string;
-    document_ref?: string;
+    id?: number;
+    audit_id?: number;
+    category?: 'system' | 'action' | string;
+    document_id?: number | null;
+    user_id?: number | null;
+    user?: string;
+    user_name?: string;
+    user_role: string;
+    department?: string | null;
+    document_ref?: string | null;
     action: string;
     description: string;
     ip_address: string;
     timestamp: string;
+    formatted_time?: string;
 };
 
 // ── SMS Notification ────────────────────────────────────────────────
