@@ -19,29 +19,36 @@ export default function Login() {
         <div className="flex min-h-screen bg-[var(--tng-slate-50)] lg:flex-row flex-col">
             <Head title="Log in — TrackNGo Mati" />
 
-            {/* Branding Panel (Left on Desktop, Top on Mobile) */}
-            <div className="flex flex-col items-center justify-center bg-[var(--tng-blue-900)] p-8 text-center text-white lg:w-1/2 lg:p-12 relative overflow-hidden">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent bg-[length:20px_20px]" />
+            {/* Left Half: City of Mati Image Panel (960px x 1080px scaled to fit half-page layout) */}
+            <div className="relative flex flex-col items-center justify-between bg-[var(--tng-blue-900)] p-6 lg:p-10 text-center text-white lg:w-1/2 lg:min-h-screen overflow-hidden">
+                {/* Background radial highlight */}
+                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-400 via-transparent to-transparent pointer-events-none" />
 
-                <div className="relative z-10 flex flex-col items-center gap-6 max-w-lg">
-                    {/* City Seal Prominently Displayed */}
-                    <img 
-                        src="/image/seal-login-240x240.png" 
-                        alt="City of Mati Seal" 
-                        className="h-40 w-40 md:h-60 md:w-60 object-contain drop-shadow-xl" 
-                    />
-                    
-                    <div>
-                        <h1 className="text-[20px] font-bold tracking-wide">TrackNGo</h1>
-                        <p className="text-[16px] font-normal text-blue-200 mt-2">
-                            Document Management System
-                        </p>
+                {/* Top Subtle Header */}
+                <div className="relative z-10 w-full text-center lg:text-left pt-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-xs border border-white/10 text-xs font-semibold text-blue-100 tracking-wide">
+                        <span>Office of the Mayor &bull; City of Mati</span>
                     </div>
                 </div>
 
-                <div className="relative z-10 text-sm text-blue-300 mt-12 hidden lg:block">
-                    &copy; {new Date().getFullYear()} Office of the Mayor, City of Mati.
+                {/* City of Mati Image: 960x1080 full height, scaled to fit half-page layout */}
+                <div className="relative z-10 flex flex-1 items-center justify-center py-6 w-full max-w-[960px]">
+                    <img 
+                        src="/image/login-half-page-seal-transparent.png" 
+                        alt="City of Mati" 
+                        className="max-h-[50vh] sm:max-h-[60vh] lg:max-h-[75vh] xl:max-h-[82vh] w-auto max-w-full object-contain drop-shadow-[0_25px_40px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.015]" 
+                    />
+                </div>
+
+                {/* Bottom Footer & System Tagline */}
+                <div className="relative z-10 w-full text-center pb-2">
+                    <h1 className="text-xl font-bold tracking-wide">TrackNGo</h1>
+                    <p className="text-sm font-normal text-blue-200/90 mt-1">
+                        Document Management System
+                    </p>
+                    <p className="text-xs text-blue-300/60 mt-3 hidden lg:block">
+                        &copy; {new Date().getFullYear()} City Government of Mati. All rights reserved.
+                    </p>
                 </div>
             </div>
 

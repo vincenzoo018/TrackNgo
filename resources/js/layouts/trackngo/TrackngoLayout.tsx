@@ -116,32 +116,39 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                     mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
                 )}
             >
-                {/* Sidebar Header */}
-                <div className="flex h-16 items-center gap-3 border-b border-[var(--tng-slate-200)] px-4">
-                    <div className={cn(
-                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white',
-                        ROLE_COLORS[userRole] ?? 'bg-blue-600',
-                    )}>
-                        {ROLE_INITIALS[userRole] ?? 'U'}
-                    </div>
-                    {sidebarOpen && (
-                        <div className="tng-slide-left min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-[var(--tng-slate-900)]">
-                                {roleLabel}
-                            </p>
-                            <p className="truncate text-xs text-[var(--tng-slate-500)]">
-                                TrackNGo Mati
-                            </p>
+                {/* Sidebar Header Image (200px x 60px, centered horizontally, 10px padding above & below) */}
+                <div className="flex items-center justify-center border-b border-[var(--tng-slate-200)] py-[10px] px-2">
+                    {sidebarOpen ? (
+                        <div className="flex h-[60px] w-[200px] items-center justify-center">
+                            <img
+                                src="/image/sidebar-banner-transparent.png"
+                                alt="TrackNGo Mati"
+                                className="h-[60px] w-[200px] object-contain"
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex h-[40px] w-[40px] items-center justify-center overflow-hidden">
+                            <img
+                                src="/image/sidebar-banner-transparent.png"
+                                alt="TrackNGo"
+                                className="h-[40px] w-auto max-w-none -translate-x-[6px] object-contain"
+                            />
                         </div>
                     )}
                 </div>
 
-                {/* Sidebar Label */}
+                {/* Sidebar Role Label */}
                 {sidebarOpen && (
-                    <div className="px-4 pt-4 pb-2">
+                    <div className="px-4 pt-3 pb-1 flex items-center justify-between">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--tng-slate-400)]">
                             {roleLabel}
                         </p>
+                        <span className={cn(
+                            'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-2xs',
+                            ROLE_COLORS[userRole] ?? 'bg-blue-600'
+                        )}>
+                            {ROLE_INITIALS[userRole] ?? 'U'}
+                        </span>
                     </div>
                 )}
 

@@ -26,7 +26,7 @@ import {
     ChevronRight,
     Sparkles,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
 import type { AuditTrailEntry } from '@/types/trackngo';
@@ -56,6 +56,26 @@ export default function AuditTrailIndex({
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [liveSyncEnabled, setLiveSyncEnabled] = useState(true);
+    const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+
+    // Live background polling every 4 seconds for real-time audit updates
+    useEffect(() => {
+        if (!liveSyncEnabled) return;
+
+        const interval = setInterval(() => {
+            router.reload({
+                only: ['systemLogs', 'actionLogs'],
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setLastSyncTime(new Date());
+                },
+            });
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [liveSyncEnabled]);
 
     // Active dataset based on selected tab
     const currentDataset = activeTab === 'action' ? actionLogs : systemLogs;
@@ -140,7 +160,11 @@ export default function AuditTrailIndex({
     const handleRefresh = () => {
         setIsRefreshing(true);
         router.reload({
-            onFinish: () => setIsRefreshing(false),
+            only: ['systemLogs', 'actionLogs'],
+            onFinish: () => {
+                setIsRefreshing(false);
+                setLastSyncTime(new Date());
+            },
         });
     };
 
@@ -257,7 +281,7 @@ export default function AuditTrailIndex({
     };
 
     return (
-        <TrackngoLayout>
+        <TrackngoLayout role={currentRole}>
             <Head title="Audit Trail" />
 
             <div className="space-y-6 pb-12">
@@ -391,9 +415,23 @@ export default function AuditTrailIndex({
                         </button>
                     </div>
 
-                    <div className="text-xs text-[var(--tng-slate-500)] flex items-center gap-1.5 self-center sm:self-auto">
-                        <Clock className="h-3.5 w-3.5" />
-                        Live timestamps synchronized with server
+                    <div className="flex items-center gap-2 self-center sm:self-auto bg-white px-3 py-1.5 rounded-lg border border-[var(--tng-slate-200)] shadow-2xs">
+                        <span className="flex h-2 w-2 relative">
+                            <span className={cn(
+                                "absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75",
+                                liveSyncEnabled && "animate-ping"
+                            )}></span>
+                            <span className={cn(
+                                "relative inline-flex rounded-full h-2 w-2",
+                                liveSyncEnabled ? "bg-emerald-500" : "bg-slate-400"
+                            )}></span>
+                        </span>
+                        <span className="text-xs font-semibold text-emerald-700">
+                            {liveSyncEnabled ? 'Live Feed Active' : 'Live Feed Paused'}
+                        </span>
+                        <span className="text-[10px] text-[var(--tng-slate-400)]">
+                            (synced {lastSyncTime.toLocaleTimeString()})
+                        </span>
                     </div>
                 </div>
 
@@ -681,20 +719,38 @@ export default function AuditTrailIndex({
 
                     {/* ── Pagination Footer ─────────────────────────────────── */}
                     <div className="px-5 py-3.5 bg-[var(--tng-slate-50)] border-t border-[var(--tng-slate-200)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--tng-slate-500)]">
-                        <div>
-                            Showing{' '}
-                            <span className="font-semibold text-[var(--tng-slate-900)]">
-                                {filteredLogs.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-                            </span>{' '}
-                            to{' '}
-                            <span className="font-semibold text-[var(--tng-slate-900)]">
-                                {Math.min(currentPage * pageSize, filteredLogs.length)}
-                            </span>{' '}
-                            of{' '}
-                            <span className="font-semibold text-[var(--tng-slate-900)]">
-                                {filteredLogs.length}
-                            </span>{' '}
-                            records
+                        <div className="flex items-center gap-4">
+                            <div>
+                                Showing{' '}
+                                <span className="font-semibold text-[var(--tng-slate-900)]">
+                                    {filteredLogs.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+                                </span>{' '}
+                                to{' '}
+                                <span className="font-semibold text-[var(--tng-slate-900)]">
+                                    {Math.min(currentPage * pageSize, filteredLogs.length)}
+                                </span>{' '}
+                                of{' '}
+                                <span className="font-semibold text-[var(--tng-slate-900)]">
+                                    {filteredLogs.length}
+                                </span>{' '}
+                                records
+                            </div>
+
+                            <div className="flex items-center gap-1.5 border-l border-[var(--tng-slate-200)] pl-4">
+                                <span className="text-[11px] text-[var(--tng-slate-500)]">Per page:</span>
+                                <select
+                                    value={pageSize}
+                                    onChange={(e) => {
+                                        setPageSize(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="rounded-md border border-[var(--tng-slate-300)] bg-white px-2 py-1 text-xs font-semibold text-[var(--tng-slate-700)] shadow-2xs focus:border-[var(--tng-blue-500)] focus:outline-none"
+                                >
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2">
