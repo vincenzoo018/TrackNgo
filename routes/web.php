@@ -41,7 +41,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Admin Routes
     Route::prefix('admin')->middleware('role:Admin')->group(function () {
-        Route::get('/', fn() => Inertia::render('admin/Dashboard'));
+        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
                 ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
@@ -96,7 +96,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Receiving Routes
     Route::prefix('receiving')->middleware('role:Receiving Clerk')->group(function () {
-        Route::get('/', fn() => Inertia::render('receiving/Dashboard'));
+        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
@@ -196,7 +196,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Department Head Routes
     Route::prefix('department-head')->middleware('role:Department Head')->group(function () {
-        Route::get('/', fn() => Inertia::render('department-head/Dashboard'));
+        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $user = auth()->user();
             
@@ -276,7 +276,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Mayor Routes
     Route::prefix('mayor')->middleware('role:Mayor')->group(function () {
-        Route::get('/', fn() => Inertia::render('mayor/Dashboard'));
+        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
@@ -356,7 +356,7 @@ Route::middleware(['auth'])->group(function () {
 
     // CART Routes
     Route::prefix('cart')->middleware('role:CART')->group(function () {
-        Route::get('/', fn() => Inertia::render('cart/Dashboard'));
+        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
                 ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
@@ -418,7 +418,7 @@ Route::middleware(['auth'])->group(function () {
 
     // HR Routes
     Route::prefix('hr')->middleware('role:HR')->group(function () {
-        Route::get('/', fn() => Inertia::render('hr/Dashboard'));
+        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
                 ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
