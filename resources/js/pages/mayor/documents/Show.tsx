@@ -282,23 +282,9 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                 Correct Document
                             </button>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => window.print()}
-                            className="flex items-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-50 shadow-2xs"
-                        >
-                            <Printer className="h-4 w-4" /> Print
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setExportModalOpen(true)}
-                            className="flex items-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-50 shadow-2xs"
-                        >
-                            <Download className="h-4 w-4" /> Export
-                        </button>
                         <Link
                             href="/mayor/documents"
-                            className="flex items-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-medium text-slate-600 transition-colors hover:bg-slate-50 shadow-2xs"
+                            className="flex items-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 shadow-2xs"
                         >
                             <ArrowLeft className="h-4 w-4" />
                             Back to List
@@ -331,159 +317,175 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                     </div>
                 )}
 
-                {/* 3. Collapsible Document Details, Step Progress & Routing History */}
-                <CollapsiblePanel
-                    title={
+                {/* 3. Document Details, Routing History & SLA (Always visible, not a dropdown) */}
+                <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+                    {/* Heading: Document Details, Routing History & SLA (20px bold) */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                        <h2 className="text-[20px] font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            Document Details, Routing History &amp; SLA
+                        </h2>
+                        <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-[6px] bg-slate-100 text-slate-700 border border-slate-200">
+                            Tracking #{doc.tracking_number ?? doc.reference_number}
+                        </span>
+                    </div>
+
+                    {/* Current Holder: Always visible, not a dropdown */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-[8px] border border-blue-200 bg-blue-50/70 p-4">
                         <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-slate-800">📋 Document Details, Routing History & SLA</span>
-                            <span className="text-xs font-normal text-slate-500">
-                                Current Holder: <strong className="text-slate-800">{doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? 'N/A'}</strong>
-                            </span>
-                        </div>
-                    }
-                    defaultExpanded={false}
-                    className="shadow-2xs"
-                >
-                    <div className="space-y-6 pt-2">
-                        {/* Step Progress */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-6 pb-10">
-                            <StepProgress currentStep={doc.current_step_index} totalSteps={7} currentHolderName={doc.currentHolder?.name} auditTrails={trail} />
-                        </div>
-
-                        {/* Current Holder Banner */}
-                        <div className="flex items-center justify-center gap-4 rounded-[8px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                            <span>Tracking No: <strong>{doc.tracking_number ?? doc.reference_number}</strong></span>
-                            <span className="text-slate-300">|</span>
-                            <span>Department: <strong>{doc.department?.department_name ?? 'N/A'}</strong></span>
-                            <span className="text-slate-300">|</span>
-                            <span>
-                                Current Holder:{' '}
-                                <span className="inline-flex rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 uppercase">
-                                    {doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? 'N/A'}
-                                </span>
-                            </span>
-                        </div>
-
-                        {/* AI Executive Briefing */}
-                        <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-5 shadow-sm">
-                            <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-purple-900">
-                                <Sparkles className="h-5 w-5 text-purple-600" />
-                                AI Executive Briefing
-                            </h2>
-                            <ul className="space-y-2 text-sm text-slate-700">
-                                <li className="flex items-start gap-3"><div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-purple-500" /><b>Summary:</b> This document was submitted and recognized by our real-time OCR processor.</li>
-                                <li className="flex items-start gap-3"><div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-purple-500" /><b>Status:</b> Currently pending endorsement/action from the appropriate personnel.</li>
-                                <li className="flex items-start gap-3"><div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-purple-500" /><b>Endorsements:</b> Waiting for further routing slips to be generated.</li>
-                            </ul>
-                        </div>
-
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                            <div className="rounded-xl border border-slate-200 bg-white p-6">
-                                <h2 className="mb-4 text-base font-semibold text-slate-800">
-                                    Document Metadata
-                                </h2>
-                                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                    <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
-                                    <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
-                                    <MetaField
-                                        label="Date Filed"
-                                        value={new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
-                                            month: 'short',
-                                            day: '2-digit',
-                                            year: 'numeric',
-                                        }) + ' - ' + new Date(doc.date_filed || doc.created_at).toLocaleTimeString('en-US', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    />
-                                    <MetaField label="Document Category" value={doc.type?.type_name ?? 'N/A'} />
-                                    <MetaField label="Contact Number" value={doc.contact_number ?? 'N/A'} />
-                                    <MetaField
-                                        label="Expected Due Date (SLA)"
-                                        value={doc.arta_due_date
-                                            ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
-                                                  month: 'short',
-                                                  day: '2-digit',
-                                                  year: 'numeric',
-                                              })
-                                            : 'N/A'}
-                                    />
-                                    <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
-                                    <MetaField
-                                        label="Classification"
-                                        value={
-                                            <span className={doc.classification === 'urgent' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-                                                {(doc.classification ?? 'NORMAL').toUpperCase()}
-                                            </span>
-                                        }
-                                    />
-                                    <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
-                                </div>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0066cc] text-white shadow-xs">
+                                <Users className="h-5 w-5" />
                             </div>
-                            
-                            {/* Initial Routing Slip */}
-                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm font-mono relative overflow-hidden">
-                                {doc.routing_slips && doc.routing_slips.length > 0 ? (
-                                    <div className="flex flex-col gap-6 text-slate-900">
-                                        <div className="flex justify-between items-start border-b border-slate-200 pb-6">
-                                            <div>
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <h2 className="text-lg font-bold uppercase tracking-tight">Routing Slip</h2>
-                                                    <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                                        {doc.tracking_number ?? doc.reference_number}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setQrModalOpen(true)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 transition-colors shadow-2xs font-sans"
-                                                        title="View official routing slip modal"
-                                                    >
-                                                        <Eye className="h-3.5 w-3.5" />
-                                                        View Official Slip
-                                                    </button>
-                                                </div>
-                                                <p className="text-sm font-semibold mt-2">{doc.department?.department_name ?? 'Origin Department'}</p>
-                                                <p className="text-xs text-slate-600">{doc.sender ?? doc.submitter?.name ?? 'Unknown Sender'}</p>
-                                            </div>
-                                            <div className="flex flex-col items-end text-right">
-                                                <img 
-                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${doc.tracking_number ?? doc.reference_number}`}
-                                                    alt="QR Code"
-                                                    className="w-16 h-16 mb-2 mix-blend-multiply"
-                                                />
-                                                <p className="text-sm font-bold tracking-tight">Stop #1</p>
-                                                <p className="text-sm font-semibold">{doc.tracking_number ?? doc.reference_number}</p>
-                                                <p className="text-xs text-slate-600">Submitted on {new Date(doc.routing_slips[0].created_at).toISOString().split('T')[0]}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <div className="w-1/2 pr-4">
-                                                <p className="text-[10px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">From:</p>
-                                                <p className="text-sm font-bold">{doc.routing_slips[0].sender_name ?? doc.routing_slips[0].from_user?.name ?? 'Unknown'}</p>
-                                                <p className="text-xs text-slate-700 mt-0.5 leading-tight">{doc.routing_slips[0].from_department?.department_name ?? 'N/A'}</p>
-                                            </div>
-                                            <div className="w-1/2 pl-4">
-                                                <p className="text-[10px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">To:</p>
-                                                <p className="text-sm font-bold">{doc.routing_slips[0].target_department?.department_name ?? 'N/A'}</p>
-                                                <p className="text-xs text-slate-700 mt-0.5 leading-tight">{doc.routing_slips[0].to_user?.name ?? 'Department Pool'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-slate-200 pt-4">
-                                            <p className="text-[10px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">Instructions:</p>
-                                            <p className="text-sm bg-slate-50 p-2.5 rounded border border-slate-100">{doc.routing_slips[0].instruction || 'No specific instruction provided.'}</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-500 font-sans">
-                                        <FileClock className="mb-2 h-6 w-6 text-slate-400" />
-                                        <p className="text-sm font-medium">No routing slip generated yet.</p>
-                                        <p className="text-xs text-slate-400 mt-1">Pending Registration</p>
-                                    </div>
-                                )}
+                            <div>
+                                <p className="text-[11px] font-bold text-[#0066cc] uppercase tracking-wider">
+                                    Current Holder
+                                </p>
+                                <p className="text-[16px] font-bold text-slate-900 mt-0.5">
+                                    {doc.current_holder_department?.department_name ?? doc.department?.department_name ?? 'Origin Department'}
+                                    <span className="text-[14px] font-normal text-slate-600 ml-2">
+                                        — {doc.current_holder?.name ?? doc.currentHolder?.name ?? 'Assigned Officer / Pool'}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600">
+                            <div className="rounded-[6px] bg-white px-3 py-1.5 border border-slate-200 shadow-2xs">
+                                <span className="text-slate-400 font-normal">Department: </span>
+                                <strong className="text-slate-800">{doc.department?.department_name ?? 'N/A'}</strong>
+                            </div>
+                            <div className="rounded-[6px] bg-white px-3 py-1.5 border border-slate-200 shadow-2xs">
+                                <span className="text-slate-400 font-normal">SLA Expected: </span>
+                                <strong className="text-slate-800">
+                                    {doc.arta_due_date
+                                        ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
+                                              month: 'short',
+                                              day: '2-digit',
+                                              year: 'numeric',
+                                          })
+                                        : 'Normal Processing'}
+                                </strong>
                             </div>
                         </div>
                     </div>
-                </CollapsiblePanel>
+
+                    {/* FSM (workflow tracker): Display immediately under Current Holder when opening a document, showing all 6 stages */}
+                    <div className="rounded-[8px] border border-slate-200 bg-slate-50/50 p-5">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-4 px-1">
+                            Workflow State Tracker (6 Stages)
+                        </p>
+                        <StepProgress
+                            currentStep={doc.current_step_index || 1}
+                            totalSteps={6}
+                            currentHolderName={doc.current_holder?.name ?? doc.currentHolder?.name}
+                            auditTrails={trail}
+                        />
+                    </div>
+
+                    {/* Metadata & Routing Slip Grid */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-1">
+                        <div className="rounded-[8px] border border-slate-200 bg-white p-5">
+                            <h3 className="mb-4 text-sm font-semibold text-slate-800">
+                                Document Metadata
+                            </h3>
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
+                                <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
+                                <MetaField
+                                    label="Date Filed"
+                                    value={new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: '2-digit',
+                                        year: 'numeric',
+                                    }) + ' - ' + new Date(doc.date_filed || doc.created_at).toLocaleTimeString('en-US', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                />
+                                <MetaField label="Document Category" value={doc.type?.type_name ?? 'N/A'} />
+                                <MetaField label="Contact Number" value={doc.contact_number ?? 'N/A'} />
+                                <MetaField
+                                    label="Expected Due Date (SLA)"
+                                    value={doc.arta_due_date
+                                        ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
+                                              month: 'short',
+                                              day: '2-digit',
+                                              year: 'numeric',
+                                          })
+                                        : 'N/A'}
+                                />
+                                <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
+                                <MetaField
+                                    label="Classification"
+                                    value={
+                                        <span className={doc.classification === 'urgent' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                                            {(doc.classification ?? 'NORMAL').toUpperCase()}
+                                        </span>
+                                    }
+                                />
+                                <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
+                            </div>
+                        </div>
+
+                        {/* Initial Routing Slip */}
+                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xs font-mono relative overflow-hidden">
+                            {doc.routing_slips && doc.routing_slips.length > 0 ? (
+                                <div className="flex flex-col gap-5 text-slate-900">
+                                    <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+                                        <div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <h3 className="text-base font-bold uppercase tracking-tight">Routing Slip</h3>
+                                                <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                    {doc.tracking_number ?? doc.reference_number}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setQrModalOpen(true)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors shadow-2xs font-sans"
+                                                    title="View official routing slip modal"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    View Official Slip
+                                                </button>
+                                            </div>
+                                            <p className="text-xs font-semibold text-slate-800 mt-1.5">{doc.department?.department_name ?? 'Origin Department'}</p>
+                                            <p className="text-xs text-slate-500">{doc.sender ?? doc.submitter?.name ?? 'Unknown Sender'}</p>
+                                        </div>
+                                        <div className="flex flex-col items-end text-right">
+                                            <img 
+                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${doc.tracking_number ?? doc.reference_number}`}
+                                                alt="QR Code"
+                                                className="w-14 h-14 mb-1 mix-blend-multiply"
+                                            />
+                                            <p className="text-xs font-bold tracking-tight">Stop #1</p>
+                                            <p className="text-[11px] text-slate-500">Submitted {new Date(doc.routing_slips[0].created_at).toISOString().split('T')[0]}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                        <div className="w-1/2 pr-3">
+                                            <p className="text-[10px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wider">From:</p>
+                                            <p className="font-bold text-slate-800">{doc.routing_slips[0].sender_name ?? doc.routing_slips[0].from_user?.name ?? 'Unknown'}</p>
+                                            <p className="text-slate-600 mt-0.5">{doc.routing_slips[0].from_department?.department_name ?? 'N/A'}</p>
+                                        </div>
+                                        <div className="w-1/2 pl-3">
+                                            <p className="text-[10px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wider">To:</p>
+                                            <p className="font-bold text-slate-800">{doc.routing_slips[0].target_department?.department_name ?? 'N/A'}</p>
+                                            <p className="text-slate-600 mt-0.5">{doc.routing_slips[0].to_user?.name ?? 'Department Pool'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="border-t border-slate-200 pt-3">
+                                        <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Instructions:</p>
+                                        <p className="text-xs bg-slate-50 p-2 rounded border border-slate-100 text-slate-700">{doc.routing_slips[0].instruction || 'No specific instruction provided.'}</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex h-36 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-500 font-sans">
+                                    <FileClock className="mb-1.5 h-5 w-5 text-slate-400" />
+                                    <p className="text-xs font-medium">No routing slip generated yet.</p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Pending Registration</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
                 {/* 4. Main 100% Screen Width Work Surface */}
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 w-full items-start">

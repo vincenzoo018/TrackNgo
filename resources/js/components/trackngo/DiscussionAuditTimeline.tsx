@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { getStandardizedStatus, STATUS_STYLE_CONFIG, StandardizedStatus } from '@/lib/status-helper';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
+import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 
 export interface TimelineEntry {
     _id: string;
@@ -55,6 +56,7 @@ interface DiscussionAuditTimelineProps {
     onOpenCorrectionModal?: () => void;
     className?: string;
     onActionCompleted?: () => void;
+    defaultPanel?: 'discussion' | 'audit';
 }
 
 function formatBytes(bytes?: number): string {
@@ -75,12 +77,13 @@ export function DiscussionAuditTimeline({
     onOpenCorrectionModal,
     className,
     onActionCompleted,
+    defaultPanel = 'audit',
 }: DiscussionAuditTimelineProps) {
     const { auth } = usePage<any>().props;
     const authUser = auth?.user;
 
-    // Distinct Panels: 'discussion' vs 'audit'
-    const [activePanel, setActivePanel] = useState<'discussion' | 'audit'>('discussion');
+    // Distinct Panels: 'discussion' vs 'audit' (defaults to 'audit' for real-time visibility)
+    const [activePanel, setActivePanel] = useState<'discussion' | 'audit'>(defaultPanel);
     const [commentText, setCommentText] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -565,174 +568,14 @@ export function DiscussionAuditTimeline({
                 </div>
             )}
 
-            {/* ── PANEL 2: AUDIT TRAIL PANEL ── */}
+            {/* ── PANEL 2: AUDIT TRAIL PANEL (Vertical Timeline Style) ── */}
             {activePanel === 'audit' && (
                 <div className="flex flex-col flex-1 min-h-[380px]">
-                    <div className="flex-1 overflow-y-auto tng-scrollbar p-4 space-y-3.5 max-h-[520px]">
-                        {auditEntries.length > 0 ? (
-                            auditEntries.map((item) => {
-                                if (item._type === 'attachment') {
-                                    // Rich Attachment Card in Audit Trail
-                                    return (
-                                        <div
-                                            key={item._id}
-                                            className="rounded-[8px] border border-emerald-200 bg-white p-3.5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all hover:border-emerald-300"
-                                        >
-                                            <div className="flex items-center justify-between gap-2 mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="inline-flex items-center gap-1.5 rounded-[6px] px-2.5 py-0.5 text-[12px] font-semibold border bg-emerald-50 text-emerald-800 border-emerald-200">
-                                                        <Paperclip className="h-3.5 w-3.5 text-emerald-600" />
-                                                        Corrected Attachment
-                                                    </span>
-                                                    {item.document_ref && (
-                                                        <span className="text-[12px] font-medium text-slate-500">
-                                                            • Ref: {item.document_ref}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <span className="text-[12px] font-medium text-slate-400">
-                                                    {item._date.toLocaleString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: 'numeric',
-                                                        minute: '2-digit',
-                                                        hour12: true
-                                                    })}
-                                                </span>
-                                            </div>
-
-                                            {/* Actor Information */}
-                                            <div className="flex items-center gap-2 mb-2.5 text-[13px] text-slate-600">
-                                                <div className="h-5 w-5 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-[10px] font-bold text-emerald-800 uppercase">
-                                                    {(item.user_name || 'U').charAt(0)}
-                                                </div>
-                                                <span className="font-semibold text-slate-800">{item.user_name}</span>
-                                                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200">
-                                                    {item.user_role}
-                                                </span>
-                                            </div>
-
-                                            {/* File Box */}
-                                            <div className="flex items-center justify-between gap-3 rounded-[6px] border border-slate-200 bg-slate-50 p-2.5">
-                                                <div className="flex items-center gap-2.5 truncate">
-                                                    <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
-                                                        <FileText className="h-5 w-5 shrink-0" />
-                                                    </div>
-                                                    <div className="truncate">
-                                                        <p className="text-[14px] font-semibold text-slate-800 truncate">
-                                                            {item.file_name}
-                                                        </p>
-                                                        {item.file_size && (
-                                                            <p className="text-[12px] text-slate-500">
-                                                                {formatBytes(item.file_size)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {item.url && (
-                                                    <a
-                                                        href={item.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1.5 rounded-[6px] bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-xs shrink-0"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5" />
-                                                        Download / View
-                                                    </a>
-                                                )}
-                                            </div>
-
-                                            {item.reason && (
-                                                <p className="mt-2 text-[14px] text-slate-700 leading-relaxed">
-                                                    <span className="font-semibold text-slate-800">Correction Note: </span>
-                                                    {item.reason}
-                                                </p>
-                                            )}
-                                        </div>
-                                    );
-                                }
-
-                                // Authenticated Workflow Action Entry
-                                const badge = getActionBadge(item.action);
-                                const isReturnAction = (item.action || '').toLowerCase().includes('return');
-
-                                return (
-                                    <div
-                                        key={item._id}
-                                        className={cn(
-                                            "rounded-[8px] border p-3.5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all",
-                                            isReturnAction 
-                                                ? "border-rose-200 bg-rose-50/40 hover:border-rose-300" 
-                                                : "border-slate-200/90 bg-white hover:border-slate-300"
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className={cn("inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 text-[11px] font-semibold border", badge.bg)}>
-                                                    {badge.icon}
-                                                    {badge.label}
-                                                </span>
-                                                {item.document_ref && (
-                                                    <span className="text-[12px] font-medium text-slate-500">
-                                                        • Ref: {item.document_ref}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-[12px] font-medium text-slate-400">
-                                                {item._date.toLocaleString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    hour: 'numeric',
-                                                    minute: '2-digit',
-                                                    hour12: true
-                                                })}
-                                            </span>
-                                        </div>
-
-                                        {/* Actor Information */}
-                                        <div className="flex items-center gap-2 mb-2 text-[13px] text-slate-600">
-                                            <div className="h-5 w-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-700 uppercase">
-                                                {(item.user_name || 'U').charAt(0)}
-                                            </div>
-                                            <span className="font-semibold text-slate-800">{item.user_name}</span>
-                                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200">
-                                                {item.user_role}
-                                            </span>
-                                            {item.department && (
-                                                <span className="text-[12px] text-slate-400">
-                                                    • {item.department}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Action Description: 14px body text */}
-                                        <p className="text-[14px] text-slate-700 leading-relaxed">
-                                            {item.description}
-                                        </p>
-
-                                        {/* Highlight Box for Return Action */}
-                                        {isReturnAction && item.description && (
-                                            <div className="mt-2.5 rounded-[6px] border border-rose-200 bg-white p-2.5 text-[13px] text-rose-900 shadow-2xs">
-                                                <span className="font-semibold block text-[11px] uppercase tracking-wider text-rose-700 mb-0.5">
-                                                    Official Reason for Return:
-                                                </span>
-                                                <p className="text-[14px] text-slate-800 font-medium">
-                                                    {item.description.replace(/^Document (?:marked as )?Returned\.? (?:Reason(?: for return)?: )?/i, '')}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full py-12 text-center text-slate-400">
-                                <History className="h-8 w-8 text-slate-300 mb-2" />
-                                <p className="text-[14px] font-semibold text-slate-700">No actions logged yet</p>
-                                <p className="text-[12px] text-slate-400 mt-0.5">
-                                    All authenticated workflow actions (Submit, Review, Return, etc.) are recorded here.
-                                </p>
-                            </div>
-                        )}
+                    <div className="flex-1 overflow-y-auto tng-scrollbar p-4 max-h-[560px]">
+                        <AuditTrailTimeline
+                            entries={auditEntries}
+                            documentRef={doc?.reference_number || doc?.tracking_number}
+                        />
                         <div ref={auditEndRef} />
                     </div>
                 </div>

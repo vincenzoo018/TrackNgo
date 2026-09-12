@@ -3,96 +3,97 @@ import { Check } from 'lucide-react';
 import { WORKFLOW_STEPS } from '@/types/trackngo';
 
 type StepProgressProps = {
-    currentStep: number; // 1-indexed
+    currentStep: number; // 1-indexed (1 to 6)
     totalSteps?: number;
     className?: string;
     currentHolderName?: string;
     auditTrails?: any[];
 };
 
-export function StepProgress({ currentStep, totalSteps = 6, className, currentHolderName, auditTrails = [] }: StepProgressProps) {
+export function StepProgress({
+    currentStep,
+    totalSteps = 6,
+    className,
+    currentHolderName,
+    auditTrails = [],
+}: StepProgressProps) {
     const steps = WORKFLOW_STEPS.slice(0, totalSteps);
 
     return (
-        <div className={cn('flex items-center', className)}>
-            {steps.map((step, idx) => {
-                const stepNum = idx + 1;
-                const isCompleted = stepNum < currentStep;
-                const isCurrent = stepNum === currentStep;
-                const isPending = stepNum > currentStep;
+        <div className={cn('w-full overflow-x-auto py-2', className)}>
+            <div className="flex items-center min-w-[580px] sm:min-w-full px-2">
+                {steps.map((step, idx) => {
+                    const stepNum = idx + 1;
+                    const isCompleted = stepNum < currentStep;
+                    const isCurrent = stepNum === currentStep;
+                    const isPending = stepNum > currentStep;
 
-                return (
-                    <div key={step.key} className="flex flex-1 items-center">
-                        {/* Step Circle + Label */}
-                        <div className="flex flex-col items-center relative">
-                            <div
-                                className={cn(
-                                    'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300',
-                                    isCompleted && 'bg-[var(--tng-blue-600)] text-white',
-                                    isCurrent && 'border-2 border-[var(--tng-blue-600)] bg-white text-[var(--tng-blue-600)] shadow-md shadow-blue-500/20',
-                                    isPending && 'border-2 border-[var(--tng-slate-200)] bg-white text-[var(--tng-slate-400)]',
-                                )}
-                            >
-                                {isCompleted ? <Check className="h-4 w-4" /> : stepNum}
-                            </div>
-                            <span
-                                className={cn(
-                                    'mt-1.5 text-[11px] font-medium whitespace-nowrap',
-                                    isCompleted && 'text-[var(--tng-blue-600)]',
-                                    isCurrent && 'text-[var(--tng-blue-700)] font-semibold',
-                                    isPending && 'text-[var(--tng-slate-400)]',
-                                )}
-                            >
-                                {step.label}
-                            </span>
-                            
-                            {(() => {
-                                // Find the actor for completed/current steps
-                                const matchingAudit = auditTrails.slice().reverse().find(a => a.action === step.key);
-                                const actorName = matchingAudit?.user?.name || matchingAudit?.user_name || matchingAudit?.user;
-                                
-                                if (actorName && (isCompleted || isCurrent)) {
-                                    return (
-                                        <span className="absolute top-[48px] text-[9px] font-medium text-[var(--tng-slate-400)] whitespace-nowrap bg-white/80 px-1 py-0.5 rounded shadow-sm border border-[var(--tng-slate-100)]">
-                                            {actorName}
-                                        </span>
-                                    );
-                                }
-                                
-                                if (isCurrent && currentHolderName && !actorName) {
-                                    return (
-                                        <span className="absolute top-[48px] text-[10px] font-medium text-[var(--tng-slate-500)] whitespace-nowrap bg-white px-1.5 py-0.5 rounded-full border border-[var(--tng-slate-200)] shadow-sm">
-                                            Held by: {currentHolderName}
-                                        </span>
-                                    );
-                                }
-                                return null;
-                            })()}
-                        </div>
+                    // Actor name if available in audit trails
+                    const matchingAudit = auditTrails.slice().reverse().find(a => a.action === step.key);
+                    const actorName = matchingAudit?.user?.name || matchingAudit?.user_name || matchingAudit?.user;
 
-                        {/* Connector Line */}
-                        {idx < steps.length - 1 && (
-                            <div className="mx-1 mb-5 h-0.5 flex-1">
+                    return (
+                        <div key={step.key} className="flex flex-1 items-center">
+                            {/* Step Circle + Label */}
+                            <div className="flex flex-col items-center relative flex-1">
                                 <div
                                     className={cn(
-                                        'h-full rounded-full transition-all duration-500',
-                                        stepNum < currentStep
-                                            ? 'bg-[var(--tng-blue-600)]'
-                                            : 'bg-[var(--tng-slate-200)]',
+                                        'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 select-none',
+                                        isCompleted && 'bg-[#0066cc] text-white shadow-xs',
+                                        isCurrent && 'border-2 border-[#0066cc] bg-white text-[#0066cc] shadow-md shadow-[#0066cc]/20 ring-4 ring-[#0066cc]/10',
+                                        isPending && 'border-2 border-slate-200 bg-white text-slate-400'
                                     )}
-                                />
+                                    aria-current={isCurrent ? 'step' : undefined}
+                                >
+                                    {isCompleted ? <Check className="h-4 w-4 stroke-[2.5]" /> : stepNum}
+                                </div>
+                                <span
+                                    className={cn(
+                                        'mt-2 text-[12px] whitespace-nowrap tracking-tight',
+                                        isCompleted && 'text-[#0066cc] font-semibold',
+                                        isCurrent && 'text-slate-900 font-bold',
+                                        isPending && 'text-slate-400 font-normal'
+                                    )}
+                                >
+                                    {step.label}
+                                </span>
+
+                                {actorName && (isCompleted || isCurrent) ? (
+                                    <span className="mt-0.5 text-[10px] text-slate-500 whitespace-nowrap max-w-[100px] truncate">
+                                        {actorName}
+                                    </span>
+                                ) : isCurrent && currentHolderName ? (
+                                    <span className="mt-0.5 text-[10px] font-medium text-blue-700 whitespace-nowrap bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 max-w-[120px] truncate">
+                                        {currentHolderName}
+                                    </span>
+                                ) : (
+                                    <span className="mt-0.5 text-[10px] text-transparent select-none">
+                                        &nbsp;
+                                    </span>
+                                )}
                             </div>
-                        )}
-                    </div>
-                );
-            })}
+
+                            {/* Connector Line */}
+                            {idx < steps.length - 1 && (
+                                <div className="mx-1.5 mb-7 h-0.5 flex-1 min-w-[24px]">
+                                    <div
+                                        className={cn(
+                                            'h-full rounded-full transition-all duration-500',
+                                            stepNum < currentStep ? 'bg-[#0066cc]' : 'bg-slate-200'
+                                        )}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
 
 /**
  * Dot-style step progress for table rows (compact view)
- * Matches the ●●○○○ pattern from the screenshots
  */
 type StepDotsProps = {
     current: number;
@@ -103,21 +104,19 @@ type StepDotsProps = {
 export function StepDots({ current, total, className }: StepDotsProps) {
     return (
         <div className={cn('flex items-center gap-0.5', className)}>
-            <span className="mr-1 text-[var(--tng-blue-600)]">●</span>
+            <span className="mr-1 text-[#0066cc]">●</span>
             {Array.from({ length: total }, (_, i) => (
                 <span
                     key={i}
                     className={cn(
                         'text-sm',
-                        i < current
-                            ? 'text-[var(--tng-blue-600)]'
-                            : 'text-[var(--tng-slate-300)]',
+                        i < current ? 'text-[#0066cc]' : 'text-slate-300'
                     )}
                 >
                     ●
                 </span>
             ))}
-            <span className="ml-1.5 text-xs text-[var(--tng-slate-500)]">
+            <span className="ml-1.5 text-xs text-slate-500">
                 {current}/{total}
             </span>
         </div>
