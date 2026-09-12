@@ -3,6 +3,7 @@ import { Users, Search, Filter, UserPlus, Mail, Phone, Edit, Trash2 } from 'luci
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { useState, useMemo } from 'react';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import AddEmployeeModal from '@/components/AddEmployeeModal';
 
 type Employee = {
     id: number;
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles = [] }: Props) {
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('all');
     const [deptFilter, setDeptFilter] = useState('all');
@@ -76,13 +78,14 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                             Manage employee information, departments, and personnel records
                         </p>
                     </div>
-                    <Link 
-                        href="/hr/employees/create"
-                        className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)]"
+                    <button 
+                        type="button"
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] active:scale-[0.98] cursor-pointer"
                     >
                         <UserPlus className="h-4 w-4" />
                         Add Employee
-                    </Link>
+                    </button>
                 </div>
 
                 {/* ── Tabbed Navigation ─────────────────────────────────────── */}
@@ -218,6 +221,13 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                     </div>
                 </div>
             </div>
+
+            <AddEmployeeModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                departments={dbDepartments}
+                roles={dbRoles}
+            />
         </TrackngoLayout>
     );
 }
