@@ -62,9 +62,9 @@ Section 1. Implementation. All departments must immediately adopt and utilize Tr
                     </div>
                     <Link
                         href={`/receiving/documents/${documentId}`}
-                        className="inline-flex items-center gap-2 rounded-[8px] border border-slate-300 bg-white px-4 py-2 text-[16px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 shadow-xs"
+                        className="inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 shadow-xs"
                     >
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="h-3.5 w-3.5" />
                         Back to Document
                     </Link>
                 </div>

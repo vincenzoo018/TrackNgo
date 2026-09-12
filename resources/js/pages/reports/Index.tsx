@@ -40,6 +40,7 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 
 export interface Metrics {
     totalProcessed: number;
@@ -201,6 +202,21 @@ export default function ReportsIndex({
             );
         });
     }, [activityLogs, activitySearch, activityActionFilter]);
+
+    const activityCounts = useMemo(() => {
+        let workflowCount = 0;
+        let securityCount = 0;
+        activityLogs.forEach((l) => {
+            const isSec = ['login', 'logout', 'session'].some((a) => l.action.toLowerCase().includes(a));
+            if (isSec) securityCount++;
+            else workflowCount++;
+        });
+        return {
+            all: activityLogs.length,
+            workflow: workflowCount,
+            security: securityCount,
+        };
+    }, [activityLogs]);
 
     const paginatedLogs = useMemo(() => {
         const start = (logPage - 1) * logPageSize;
@@ -786,18 +802,18 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-[14px]">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)]">
+                        <table className="w-full text-left text-xs sm:text-[13px]">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                 <tr>
-                                    <th className="py-3 px-4">Department Name</th>
-                                    <th className="py-3 px-3">Code</th>
-                                    <th className="py-3 px-3 text-center">Total Docs</th>
-                                    <th className="py-3 px-3 text-center">Pending</th>
-                                    <th className="py-3 px-3 text-center">Delayed</th>
-                                    <th className="py-3 px-3 text-center">Avg Days</th>
-                                    <th className="py-3 px-3 text-center">Legal SLA</th>
-                                    <th className="py-3 px-3 text-center">Variance</th>
-                                    <th className="py-3 px-4 text-right">Status</th>
+                                    <th className="py-2.5 px-4">Department Name</th>
+                                    <th className="py-2.5 px-3">Code</th>
+                                    <th className="py-2.5 px-3 text-center">Total Docs</th>
+                                    <th className="py-2.5 px-3 text-center">Pending</th>
+                                    <th className="py-2.5 px-3 text-center">Delayed</th>
+                                    <th className="py-2.5 px-3 text-center">Avg Days</th>
+                                    <th className="py-2.5 px-3 text-center">Legal SLA</th>
+                                    <th className="py-2.5 px-3 text-center">Variance</th>
+                                    <th className="py-2.5 px-4 text-right">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">
@@ -894,68 +910,47 @@ export default function ReportsIndex({
                             </p>
                         </div>
 
-                        {/* Search & Action Category Filter */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            {/* Action filter tabs */}
-                            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-medium text-slate-600">
-                                <button
-                                    onClick={() => { setActivityActionFilter('ALL'); setLogPage(1); }}
-                                    className={`px-2.5 py-1 rounded-md transition-colors ${
-                                        activityActionFilter === 'ALL'
-                                            ? 'bg-slate-900 text-white font-semibold shadow-2xs'
-                                            : 'hover:text-slate-900'
-                                    }`}
-                                >
-                                    All Logs
-                                </button>
-                                <button
-                                    onClick={() => { setActivityActionFilter('WORKFLOW'); setLogPage(1); }}
-                                    className={`px-2.5 py-1 rounded-md transition-colors ${
-                                        activityActionFilter === 'WORKFLOW'
-                                            ? 'bg-slate-900 text-white font-semibold shadow-2xs'
-                                            : 'hover:text-slate-900'
-                                    }`}
-                                >
-                                    Workflows
-                                </button>
-                                <button
-                                    onClick={() => { setActivityActionFilter('SECURITY'); setLogPage(1); }}
-                                    className={`px-2.5 py-1 rounded-md transition-colors ${
-                                        activityActionFilter === 'SECURITY'
-                                            ? 'bg-slate-900 text-white font-semibold shadow-2xs'
-                                            : 'hover:text-slate-900'
-                                    }`}
-                                >
-                                    Auth & Session
-                                </button>
-                            </div>
-
-                            {/* Search */}
-                            <div className="relative w-full sm:w-56">
-                                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                                <input
-                                    type="text"
-                                    value={activitySearch}
-                                    onChange={(e) => { setActivitySearch(e.target.value); setLogPage(1); }}
-                                    placeholder="Search logs, user, ref..."
-                                    className="w-full h-8 pl-8 pr-3 rounded-lg border border-slate-200 text-xs focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-                                />
-                            </div>
+                        {/* Search */}
+                        <div className="relative w-full sm:w-80">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                            <input
+                                type="text"
+                                value={activitySearch}
+                                onChange={(e) => { setActivitySearch(e.target.value); setLogPage(1); }}
+                                placeholder="Search by reference number, tracking number, type, or name..."
+                                className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-xs focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                            />
                         </div>
                     </div>
 
+                    {/* Standardized Tabbed Navigation */}
+                    <div className="px-4 pt-3 bg-white border-b border-slate-100">
+                        <TabNavigation
+                            tabs={[
+                                { id: 'ALL', label: 'All Audit Logs', count: activityCounts.all },
+                                { id: 'WORKFLOW', label: 'Workflow Actions', count: activityCounts.workflow },
+                                { id: 'SECURITY', label: 'Auth & Session', count: activityCounts.security },
+                            ]}
+                            activeTab={activityActionFilter}
+                            onChange={(tabId) => {
+                                setActivityActionFilter(tabId);
+                                setLogPage(1);
+                            }}
+                        />
+                    </div>
+
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-[14px]">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)]">
+                        <table className="w-full text-left text-xs sm:text-[13px]">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                 <tr>
-                                    <th className="py-3 px-4">Timestamp</th>
-                                    <th className="py-3 px-3">Action</th>
-                                    <th className="py-3 px-3">User</th>
-                                    <th className="py-3 px-3">Role</th>
-                                    <th className="py-3 px-3">Department</th>
-                                    <th className="py-3 px-3">Document Ref</th>
-                                    <th className="py-3 px-3 font-mono text-[13px]">IP Address</th>
-                                    <th className="py-3 px-4">Description</th>
+                                    <th className="py-2.5 px-4">Timestamp</th>
+                                    <th className="py-2.5 px-3">Action</th>
+                                    <th className="py-2.5 px-3">User</th>
+                                    <th className="py-2.5 px-3">Role</th>
+                                    <th className="py-2.5 px-3">Department</th>
+                                    <th className="py-2.5 px-3">Document Ref</th>
+                                    <th className="py-2.5 px-3 font-mono text-[11px]">IP Address</th>
+                                    <th className="py-2.5 px-4">Description</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">

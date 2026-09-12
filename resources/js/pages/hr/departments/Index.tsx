@@ -80,75 +80,75 @@ export default function DepartmentIndex({ dbDepartments, dbUsers }: Props) {
                 <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
                         <table className="w-full text-left border-collapse">
-                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                 <tr>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Department Name</th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Department Head</th>
-                                    <th className="px-6 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Employees</th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
-                                    <th className="px-6 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Actions</th>
+                                    <th className="px-6 py-2.5">Department Name</th>
+                                    <th className="px-6 py-2.5">Department Head</th>
+                                    <th className="px-6 py-2.5 text-center">Employees</th>
+                                    <th className="px-6 py-2.5">Status</th>
+                                    <th className="px-6 py-2.5 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                 {filteredDepartments.length > 0 ? filteredDepartments.map((dept) => (
                                     <tr key={dept.department_id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-xs sm:text-[13px] font-normal text-[var(--tng-slate-700)]">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--tng-blue-50)] text-[var(--tng-blue-600)]">
-                                                    <Building2 className="h-5 w-5" />
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--tng-blue-50)] text-[var(--tng-blue-600)]">
+                                                    <Building2 className="h-4 w-4" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-semibold text-[var(--tng-slate-900)] text-[14px]">{dept.department_name}</div>
-                                                    <div className="text-[12px] text-[var(--tng-slate-500)]">{dept.code || 'No Code'}</div>
+                                                    <div className="font-semibold text-[var(--tng-slate-900)] text-xs sm:text-[13px]">{dept.department_name}</div>
+                                                    <div className="text-[11px] text-[var(--tng-slate-500)]">{dept.code || 'No Code'}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-xs sm:text-[13px] font-normal text-[var(--tng-slate-700)]">
                                             {dept.head ? (
-                                                <div className="font-medium text-[var(--tng-slate-700)] text-[14px]">{dept.head.name}</div>
+                                                <div className="font-medium text-[var(--tng-slate-700)] text-xs sm:text-[13px]">{dept.head.name}</div>
                                             ) : (
-                                                <div className="text-[var(--tng-slate-400)] italic text-[14px]">Unassigned</div>
+                                                <div className="text-[var(--tng-slate-400)] italic text-xs sm:text-[13px]">Unassigned</div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-center font-medium">
-                                            <span className="bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)] px-2.5 py-1 rounded-full text-[13px] font-bold">
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-center font-medium">
+                                            <span className="bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)] px-2 py-0.5 rounded-full text-xs font-semibold">
                                                 {dept.users_count}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap">
+                                        <td className="px-6 py-2.5 whitespace-nowrap">
                                             {dept.is_active ? (
-                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[13px] font-bold text-emerald-700">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                                                     Active
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[13px] font-bold text-red-700">
+                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
                                                     Inactive
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-right">
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <button 
                                                     title="Edit Department"
                                                     aria-label="Edit Department"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Edit className="h-[18px] w-[18px]" />
+                                                    <Edit className="h-4 w-4" />
                                                 </button>
                                                 <button 
                                                     onClick={() => handleDelete(dept.department_id)}
                                                     title="Delete Department"
                                                     aria-label="Delete Department"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50"
+                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50"
                                                 >
-                                                    <Trash2 className="h-[18px] w-[18px]" />
+                                                    <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-[var(--tng-slate-500)] text-[14px]">
+                                        <td colSpan={5} className="px-6 py-6 text-center text-[var(--tng-slate-500)] text-xs sm:text-[13px]">
                                             No departments found.
                                         </td>
                                     </tr>

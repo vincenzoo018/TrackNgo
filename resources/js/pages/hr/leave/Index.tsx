@@ -1,6 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { CalendarDays, Search, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import { useState, useMemo } from 'react';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 
 const mockLeaveRequests = [
     { id: 1, employee: 'Ana Garcia', type: 'Vacation Leave', start: '2026-07-25', end: '2026-07-30', days: 4, status: 'pending', reason: 'Family vacation' },
@@ -18,6 +20,38 @@ const statusConfig: Record<string, { icon: typeof Clock; bg: string; text: strin
 };
 
 export default function LeaveIndex() {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+
+    const counts = useMemo(() => {
+        return {
+            all: mockLeaveRequests.length,
+            pending: mockLeaveRequests.filter((r) => r.status === 'pending').length,
+            approved: mockLeaveRequests.filter((r) => r.status === 'approved').length,
+            rejected: mockLeaveRequests.filter((r) => r.status === 'rejected').length,
+        };
+    }, []);
+
+    const tabs: TabItem[] = [
+        { id: 'all', label: 'All Requests', count: counts.all },
+        { id: 'pending', label: 'Pending', count: counts.pending },
+        { id: 'approved', label: 'Approved', count: counts.approved },
+        { id: 'rejected', label: 'Rejected', count: counts.rejected },
+    ];
+
+    const filteredRequests = useMemo(() => {
+        return mockLeaveRequests.filter((req) => {
+            if (activeTab !== 'all' && req.status !== activeTab) return false;
+            if (!searchQuery.trim()) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+                req.employee.toLowerCase().includes(q) ||
+                req.type.toLowerCase().includes(q) ||
+                req.reason.toLowerCase().includes(q)
+            );
+        });
+    }, [activeTab, searchQuery]);
+
     return (
         <TrackngoLayout>
             <Head title="Leave Management — TrackNGo Mati" />
@@ -37,7 +71,7 @@ export default function LeaveIndex() {
                             <Clock className="h-6 w-6 text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{mockLeaveRequests.filter(r => r.status === 'pending').length}</p>
+                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{counts.pending}</p>
                             <p className="text-xs text-[var(--tng-slate-500)]">Pending Requests</p>
                         </div>
                     </div>
@@ -46,7 +80,7 @@ export default function LeaveIndex() {
                             <CheckCircle className="h-6 w-6 text-emerald-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{mockLeaveRequests.filter(r => r.status === 'approved').length}</p>
+                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{counts.approved}</p>
                             <p className="text-xs text-[var(--tng-slate-500)]">Approved This Month</p>
                         </div>
                     </div>
@@ -55,34 +89,31 @@ export default function LeaveIndex() {
                             <XCircle className="h-6 w-6 text-red-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{mockLeaveRequests.filter(r => r.status === 'rejected').length}</p>
+                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{counts.rejected}</p>
                             <p className="text-xs text-[var(--tng-slate-500)]">Rejected</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* ── Tabbed Navigation ─────────────────────────────────────── */}
+                <TabNavigation
+                    tabs={tabs}
+                    activeTab={activeTab}
+                    onChange={(tabId) => setActiveTab(tabId as any)}
+                />
+
+                {/* ── Filters Toolbar ───────────────────────────────────────── */}
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="relative flex-1 min-w-[250px] max-w-md">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
                         <input
                             type="text"
-                            placeholder="Search by employee name..."
+                            placeholder="Search by reference number, tracking number, type, or name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-10 w-full rounded-lg border border-[var(--tng-slate-200)] bg-white pl-9 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                         />
                     </div>
-                    {['All', 'Pending', 'Approved', 'Rejected'].map((filter) => (
-                        <button
-                            key={filter}
-                            className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                                filter === 'All'
-                                    ? 'bg-[var(--tng-blue-600)] text-white shadow-md shadow-blue-600/25'
-                                    : 'border border-[var(--tng-slate-200)] bg-white text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]'
-                            }`}
-                        >
-                            {filter}
-                        </button>
-                    ))}
                 </div>
 
                 {/* Leave Requests Table */}
@@ -99,38 +130,46 @@ export default function LeaveIndex() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                            {mockLeaveRequests.map((req) => {
-                                const config = statusConfig[req.status] ?? statusConfig.pending;
-                                return (
-                                    <tr key={req.id} className="transition-colors hover:bg-[var(--tng-slate-50)]">
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-[var(--tng-slate-800)]">{req.employee}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">{req.type}</td>
-                                        <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">
-                                            {req.start} — {req.end}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-semibold text-[var(--tng-slate-800)]">{req.days}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${config.bg} ${config.text}`}>
-                                                {config.label}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {req.status === 'pending' && (
-                                                <div className="flex items-center gap-2">
-                                                    <button className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
-                                                        Approve
-                                                    </button>
-                                                    <button className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100">
-                                                        Reject
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {filteredRequests.length > 0 ? (
+                                filteredRequests.map((req) => {
+                                    const config = statusConfig[req.status] ?? statusConfig.pending;
+                                    return (
+                                        <tr key={req.id} className="transition-colors hover:bg-[var(--tng-slate-50)]">
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm font-medium text-[var(--tng-slate-800)]">{req.employee}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">{req.type}</td>
+                                            <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">
+                                                {req.start} — {req.end}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-semibold text-[var(--tng-slate-800)]">{req.days}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${config.bg} ${config.text}`}>
+                                                    {config.label}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {req.status === 'pending' && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
+                                                            Approve
+                                                        </button>
+                                                        <button className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100">
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-[var(--tng-slate-400)]">
+                                        No leave requests found for this filter.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

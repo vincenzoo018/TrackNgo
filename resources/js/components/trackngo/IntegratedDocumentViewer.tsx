@@ -547,20 +547,20 @@ export default function IntegratedDocumentViewer({
                 </div>
             </div>
 
-            {/* Right Core Actions: Scan Text, Highlight OCR Toggle, Copy, Export (Consistent 16px buttons, 6-8px rounded) */}
+            {/* Right Core Actions: Scan Text, Highlight OCR Toggle, Copy, Export */}
             <div className="flex flex-wrap items-center gap-2">
                 {/* 1. Scan Text Action Button */}
                 <button
                     type="button"
                     onClick={handleScanText}
                     disabled={isScanning}
-                    className="inline-flex items-center gap-2 rounded-[8px] bg-[var(--tng-blue-600)] px-3.5 py-1.5 text-[16px] font-semibold text-white shadow-xs transition-all hover:bg-[var(--tng-blue-700)] active:scale-[0.98] disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-[8px] bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-white shadow-xs transition-all hover:bg-[var(--tng-blue-700)] active:scale-[0.98] disabled:opacity-60"
                     title="Run interactive OCR scan on this document"
                 >
                     {isScanning ? (
-                        <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-white" />
                     ) : (
-                        <ScanText className="h-4 w-4 text-white" />
+                        <ScanText className="h-3.5 w-3.5 text-white" />
                     )}
                     <span>{isScanning ? 'Scanning...' : 'Scan Text'}</span>
                 </button>
@@ -570,7 +570,7 @@ export default function IntegratedDocumentViewer({
                     type="button"
                     onClick={() => setHighlightsActive(!highlightsActive)}
                     className={cn(
-                        "inline-flex items-center gap-2 rounded-[8px] border px-3.5 py-1.5 text-[16px] font-semibold transition-all shadow-xs active:scale-[0.98]",
+                        "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-xs sm:text-[13px] font-semibold transition-all shadow-xs active:scale-[0.98]",
                         highlightsActive
                             ? "border-amber-300 bg-amber-50/90 text-amber-900 hover:bg-amber-100"
                             : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -578,10 +578,10 @@ export default function IntegratedDocumentViewer({
                     title={highlightsActive ? "Hide yellow OCR text highlights" : "Show yellow OCR text highlights"}
                 >
                     <span className={cn(
-                        "h-2.5 w-2.5 rounded-full transition-all",
+                        "h-2 w-2 rounded-full transition-all",
                         highlightsActive ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" : "bg-slate-300"
                     )} />
-                    <Highlighter className="h-4 w-4 text-amber-600" />
+                    <Highlighter className="h-3.5 w-3.5 text-amber-600" />
                     <span className="hidden sm:inline">Highlights</span>
                 </button>
 
@@ -589,17 +589,17 @@ export default function IntegratedDocumentViewer({
                 <button
                     type="button"
                     onClick={handleCopyAction}
-                    className="inline-flex items-center gap-2 rounded-[8px] border border-slate-300 bg-white px-3.5 py-1.5 text-[16px] font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-100 active:scale-[0.98]"
+                    className="inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-100 active:scale-[0.98]"
                     title={activeInlineSelection ? `Copy selected: "${activeInlineSelection.text}"` : "Copy all recognized OCR text"}
                 >
                     {copiedText ? (
                         <>
-                            <Check className="h-4 w-4 text-emerald-600" />
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
                             <span className="text-emerald-700">Copied!</span>
                         </>
                     ) : (
                         <>
-                            <Copy className="h-4 w-4 text-slate-600" />
+                            <Copy className="h-3.5 w-3.5 text-slate-600" />
                             <span>Copy</span>
                         </>
                     )}
@@ -610,10 +610,10 @@ export default function IntegratedDocumentViewer({
                     <button
                         type="button"
                         onClick={() => setIsExportOpen(!isExportOpen)}
-                        className="inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3.5 py-1.5 text-[16px] font-semibold text-slate-700 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition-colors"
                         title="Export recognized document text"
                     >
-                        <Download className="h-4 w-4 text-slate-500" />
+                        <Download className="h-3.5 w-3.5 text-slate-500" />
                         <span>Export</span>
                         <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                     </button>

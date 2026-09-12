@@ -165,12 +165,18 @@
 
 /* ── Base Styles ─────────────────────────────────────────────────── */
 @layer base {
+    html {
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
     * {
         @apply border-border;
     }
 
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-foreground text-[13px] leading-relaxed;
     }
 }
 

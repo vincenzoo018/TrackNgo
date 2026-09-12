@@ -31,6 +31,7 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
 import type { AuditTrailEntry } from '@/types/trackngo';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 
 type Props = {
     systemLogs?: AuditTrailEntry[];
@@ -49,7 +50,8 @@ export default function AuditTrailIndex({
     userRoleName = 'Staff',
     userName = 'User',
 }: Props) {
-    const [activeTab, setActiveTab] = useState<'action' | 'system'>('action');
+    type AuditTab = 'all' | 'action' | 'system';
+    const [activeTab, setActiveTab] = useState<AuditTab>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [actionFilter, setActionFilter] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
@@ -67,7 +69,6 @@ export default function AuditTrailIndex({
         const interval = setInterval(() => {
             router.reload({
                 only: ['systemLogs', 'actionLogs'],
-                preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
                     setLastSyncTime(new Date());
@@ -79,7 +80,15 @@ export default function AuditTrailIndex({
     }, [liveSyncEnabled]);
 
     // Active dataset based on selected tab
-    const currentDataset = activeTab === 'action' ? actionLogs : systemLogs;
+    const currentDataset = useMemo(() => {
+        if (activeTab === 'action') return actionLogs;
+        if (activeTab === 'system') return systemLogs;
+        return [...actionLogs, ...systemLogs].sort((a, b) => {
+            const timeA = new Date(a.timestamp || a.formatted_time || 0).getTime();
+            const timeB = new Date(b.timestamp || b.formatted_time || 0).getTime();
+            return timeB - timeA;
+        });
+    }, [activeTab, actionLogs, systemLogs]);
 
     // Extract unique actions for filtering
     const uniqueActions = useMemo(() => {
@@ -151,7 +160,7 @@ export default function AuditTrailIndex({
     }, [filteredLogs, currentPage, pageSize]);
 
     // Reset pagination on filter or tab change
-    const handleTabChange = (tab: 'action' | 'system') => {
+    const handleTabChange = (tab: AuditTab) => {
         setActiveTab(tab);
         setCurrentPage(1);
         setActionFilter('all');
@@ -364,59 +373,20 @@ export default function AuditTrailIndex({
                     </span>
                 </div>
 
-                {/* ── Category Tabs & Counter Cards ─────────────────────────── */}
+                {/* ── Category Tabs & Live Status ─────────────────────────── */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                    {/* Tabs */}
-                    <div className="flex bg-[var(--tng-slate-100)] p-1 rounded-xl border border-[var(--tng-slate-200)] max-w-md w-full">
-                        <button
-                            type="button"
-                            onClick={() => handleTabChange('action')}
-                            className={cn(
-                                'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold transition-all',
-                                activeTab === 'action'
-                                    ? 'bg-white text-[var(--tng-slate-900)] shadow-xs'
-                                    : 'text-[var(--tng-slate-600)] hover:text-[var(--tng-slate-900)]'
-                            )}
-                        >
-                            <FileText className="h-4 w-4 text-[var(--tng-blue-600)]" />
-                            Action Trail
-                            <span
-                                className={cn(
-                                    'px-2 py-0.5 text-xs rounded-full font-bold',
-                                    activeTab === 'action'
-                                        ? 'bg-[var(--tng-blue-50)] text-[var(--tng-blue-700)]'
-                                        : 'bg-[var(--tng-slate-200)] text-[var(--tng-slate-600)]'
-                                )}
-                            >
-                                {actionLogs.length}
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleTabChange('system')}
-                            className={cn(
-                                'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold transition-all',
-                                activeTab === 'system'
-                                    ? 'bg-white text-[var(--tng-slate-900)] shadow-xs'
-                                    : 'text-[var(--tng-slate-600)] hover:text-[var(--tng-slate-900)]'
-                            )}
-                        >
-                            <Lock className="h-4 w-4 text-purple-600" />
-                            System Trail
-                            <span
-                                className={cn(
-                                    'px-2 py-0.5 text-xs rounded-full font-bold',
-                                    activeTab === 'system'
-                                        ? 'bg-purple-50 text-purple-700'
-                                        : 'bg-[var(--tng-slate-200)] text-[var(--tng-slate-600)]'
-                                )}
-                            >
-                                {systemLogs.length}
-                            </span>
-                        </button>
-                    </div>
+                    <TabNavigation
+                        tabs={[
+                            { id: 'all', label: 'All Audit Logs', icon: <Activity className="h-4 w-4" />, count: actionLogs.length + systemLogs.length },
+                            { id: 'action', label: 'Action Trail', icon: <FileText className="h-4 w-4 text-blue-600" />, count: actionLogs.length },
+                            { id: 'system', label: 'System Trail', icon: <Lock className="h-4 w-4 text-purple-600" />, count: systemLogs.length },
+                        ]}
+                        activeTab={activeTab}
+                        onChange={handleTabChange}
+                        className="max-w-2xl"
+                    />
 
-                    <div className="flex items-center gap-2 self-center sm:self-auto bg-white px-3 py-1.5 rounded-lg border border-[var(--tng-slate-200)] shadow-2xs">
+                    <div className="flex items-center gap-2 self-center sm:self-auto bg-white px-3 py-2 rounded-xl border border-[var(--tng-slate-200)] shadow-2xs shrink-0">
                         <span className="flex h-2 w-2 relative">
                             <span className={cn(
                                 "absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75",
@@ -449,11 +419,7 @@ export default function AuditTrailIndex({
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder={
-                                    activeTab === 'action'
-                                        ? 'Search by document ref, user, action, description, or IP...'
-                                        : 'Search by user, auth event, IP address, or session detail...'
-                                }
+                                placeholder="Search by reference number, tracking number, type, or name..."
                                 className="w-full pl-10 pr-4 py-2 bg-[var(--tng-slate-50)] border border-[var(--tng-slate-200)] rounded-lg text-sm text-[var(--tng-slate-900)] placeholder-[var(--tng-slate-400)] focus:bg-white focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] transition-all outline-none"
                             />
                             {searchQuery && (
@@ -568,18 +534,18 @@ export default function AuditTrailIndex({
                 {/* ── Table Section ─────────────────────────────────────────── */}
                 <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-[14px] text-[var(--tng-slate-600)]">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)]">
+                        <table className="w-full text-left text-xs sm:text-[13px] text-[var(--tng-slate-600)]">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                 <tr>
-                                    <th className="px-5 py-3.5 whitespace-nowrap">Timestamp</th>
-                                    <th className="px-5 py-3.5 whitespace-nowrap">Action Type</th>
-                                    <th className="px-5 py-3.5 whitespace-nowrap">User Name</th>
-                                    <th className="px-5 py-3.5 whitespace-nowrap">Role & Dept</th>
+                                    <th className="px-5 py-2.5 whitespace-nowrap">Timestamp</th>
+                                    <th className="px-5 py-2.5 whitespace-nowrap">Action Type</th>
+                                    <th className="px-5 py-2.5 whitespace-nowrap">User Name</th>
+                                    <th className="px-5 py-2.5 whitespace-nowrap">Role & Dept</th>
                                     {activeTab === 'action' && (
-                                        <th className="px-5 py-3.5 whitespace-nowrap">Document Ref</th>
+                                        <th className="px-5 py-2.5 whitespace-nowrap">Document Ref</th>
                                     )}
-                                    <th className="px-5 py-3.5">Description</th>
-                                    <th className="px-5 py-3.5 text-right whitespace-nowrap">IP Address</th>
+                                    <th className="px-5 py-2.5">Description</th>
+                                    <th className="px-5 py-2.5 text-right whitespace-nowrap">IP Address</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-200)] font-normal">
@@ -597,36 +563,36 @@ export default function AuditTrailIndex({
                                                 className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
                                             >
                                                 {/* Timestamp */}
-                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                    <div className="text-[14px] font-semibold text-[var(--tng-slate-900)]">
+                                                <td className="px-5 py-2.5 whitespace-nowrap">
+                                                    <div className="text-xs sm:text-[13px] font-semibold text-[var(--tng-slate-900)]">
                                                         {log.formatted_time || log.timestamp}
                                                     </div>
-                                                    <div className="text-[12px] text-[var(--tng-slate-400)]">
+                                                    <div className="text-[11px] text-[var(--tng-slate-400)]">
                                                         ID #{log.audit_id || log.id || '-'}
                                                     </div>
                                                 </td>
 
                                                 {/* Action Type */}
-                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                <td className="px-5 py-2.5 whitespace-nowrap">
                                                     <span
                                                         className={cn(
-                                                            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-bold border',
+                                                            'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border',
                                                             actionBadge.bg
                                                         )}
                                                     >
-                                                        <ActionIcon className="h-3.5 w-3.5" />
+                                                        <ActionIcon className="h-3 w-3" />
                                                         {log.action}
                                                     </span>
                                                 </td>
 
                                                 {/* User Name */}
-                                                <td className="px-5 py-4 whitespace-nowrap">
+                                                <td className="px-5 py-2.5 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="h-7 w-7 rounded-full bg-[var(--tng-slate-100)] border border-[var(--tng-slate-300)] flex items-center justify-center text-xs font-bold text-[var(--tng-slate-700)]">
+                                                        <div className="h-6 w-6 rounded-full bg-[var(--tng-slate-100)] border border-[var(--tng-slate-300)] flex items-center justify-center text-[11px] font-bold text-[var(--tng-slate-700)]">
                                                             {(log.user_name || log.user || 'U').charAt(0).toUpperCase()}
                                                         </div>
                                                         <div>
-                                                            <div className="font-semibold text-[14px] text-[var(--tng-slate-900)]">
+                                                            <div className="font-semibold text-xs sm:text-[13px] text-[var(--tng-slate-900)]">
                                                                 {log.user_name || log.user || 'System'}
                                                             </div>
                                                         </div>
@@ -634,18 +600,18 @@ export default function AuditTrailIndex({
                                                 </td>
 
                                                 {/* Role & Dept */}
-                                                <td className="px-5 py-4 whitespace-nowrap">
-                                                    <div className="space-y-1">
+                                                <td className="px-5 py-2.5 whitespace-nowrap">
+                                                    <div className="space-y-0.5">
                                                         <span
                                                             className={cn(
-                                                                'inline-block px-2.5 py-0.5 rounded-full text-[13px] font-bold border',
+                                                                'inline-block px-2 py-0.5 rounded-full text-xs font-semibold border',
                                                                 getRoleBadgeClass(log.user_role)
                                                             )}
                                                         >
                                                             {log.user_role || 'Staff'}
                                                         </span>
                                                         {log.department && (
-                                                            <div className="text-[12px] text-[var(--tng-slate-400)] truncate max-w-[140px]">
+                                                            <div className="text-[11px] text-[var(--tng-slate-400)] truncate max-w-[140px]">
                                                                 {log.department}
                                                             </div>
                                                         )}
@@ -654,23 +620,23 @@ export default function AuditTrailIndex({
 
                                                 {/* Document Ref (only for Action Trail) */}
                                                 {activeTab === 'action' && (
-                                                    <td className="px-5 py-4 whitespace-nowrap">
+                                                    <td className="px-5 py-2.5 whitespace-nowrap">
                                                         {log.document_ref ? (
                                                             docUrl ? (
                                                                 <Link
                                                                     href={docUrl}
-                                                                    className="inline-flex items-center gap-1 font-mono text-[13px] font-semibold text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-800)] hover:underline bg-[var(--tng-blue-50)] px-2 py-1 rounded border border-[var(--tng-blue-100)]"
+                                                                    className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-800)] hover:underline bg-[var(--tng-blue-50)] px-2 py-0.5 rounded border border-[var(--tng-blue-100)]"
                                                                 >
                                                                     {log.document_ref}
-                                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                                    <ExternalLink className="h-3 w-3" />
                                                                 </Link>
                                                             ) : (
-                                                                <span className="font-mono text-[13px] font-medium text-[var(--tng-slate-700)] bg-[var(--tng-slate-100)] px-2 py-1 rounded">
+                                                                <span className="font-mono text-xs font-medium text-[var(--tng-slate-700)] bg-[var(--tng-slate-100)] px-2 py-0.5 rounded">
                                                                     {log.document_ref}
                                                                 </span>
                                                             )
                                                         ) : (
-                                                            <span className="text-[13px] text-[var(--tng-slate-400)] italic">
+                                                            <span className="text-xs text-[var(--tng-slate-400)] italic">
                                                                 General
                                                             </span>
                                                         )}
@@ -678,14 +644,14 @@ export default function AuditTrailIndex({
                                                 )}
 
                                                 {/* Description */}
-                                                <td className="px-5 py-4 text-[14px] font-normal text-[var(--tng-slate-700)] max-w-sm">
+                                                <td className="px-5 py-2.5 text-xs sm:text-[13px] font-normal text-[var(--tng-slate-700)] max-w-sm">
                                                     <p className="line-clamp-2">{log.description}</p>
                                                 </td>
 
                                                 {/* IP Address */}
-                                                <td className="px-5 py-4 whitespace-nowrap text-right">
-                                                    <span className="inline-flex items-center gap-1 font-mono text-[13px] text-[var(--tng-slate-600)] bg-[var(--tng-slate-100)] px-2 py-1 rounded border border-[var(--tng-slate-200)]">
-                                                        <Globe className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
+                                                <td className="px-5 py-2.5 whitespace-nowrap text-right">
+                                                    <span className="inline-flex items-center gap-1 font-mono text-xs text-[var(--tng-slate-600)] bg-[var(--tng-slate-100)] px-2 py-0.5 rounded border border-[var(--tng-slate-200)]">
+                                                        <Globe className="h-3 w-3 text-[var(--tng-slate-400)]" />
                                                         {log.ip_address || '127.0.0.1'}
                                                     </span>
                                                 </td>

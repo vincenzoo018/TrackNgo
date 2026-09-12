@@ -1,11 +1,12 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { FileText, Search, Plus, ArrowUp, ArrowDown, X, Download, Lock, Inbox, Clock, Send, RotateCcw, Eye } from 'lucide-react';
+import { FileText, Search, Plus, ArrowUp, ArrowDown, X, Download, Lock, Inbox, Clock, Send, RotateCcw, Eye, Archive, Users, CalendarDays, AlertTriangle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { cn } from '@/lib/utils';
 
 export default function HrDocuments() {
@@ -14,13 +15,8 @@ export default function HrDocuments() {
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
 
-    // Only active, ongoing, received, sent, or returned documents
-    const documents = useMemo(() => {
-        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
-    }, [rawDocuments]);
-
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'employee_records' | 'leave_requests' | 'violations'>('all');
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
@@ -32,25 +28,36 @@ export default function HrDocuments() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
 
+    // HR Category Classifier (Employee Records, Leave Requests, Violations)
+    const classifyHrCategory = (doc: any): 'employee_records' | 'leave_requests' | 'violations' => {
+        const text = `${doc.title || ''} ${doc.type?.type_name || ''} ${doc.reference_number || ''}`.toLowerCase();
+        if (text.includes('leave') || text.includes('vacation') || text.includes('sick') || text.includes('absence') || text.includes('voucher') || text.includes('requisition') || text.includes('permit') || [4, 7].includes(doc.type_id)) {
+            return 'leave_requests';
+        }
+        if (text.includes('violation') || text.includes('disciplinary') || text.includes('show cause') || text.includes('warning') || text.includes('reprimand') || text.includes('resolution') || text.includes('report') || [5, 6, 8].includes(doc.type_id)) {
+            return 'violations';
+        }
+        return 'employee_records';
+    };
+
     const tabCounts = useMemo(() => {
-        const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
-        documents.forEach((doc: any) => {
-            const std = getStandardizedStatus(doc.status).toLowerCase() as keyof typeof counts;
-            if (counts[std] !== undefined) {
-                counts[std]++;
-            }
+        const counts = { all: rawDocuments.length, employee_records: 0, leave_requests: 0, violations: 0 };
+        rawDocuments.forEach((doc: any) => {
+            const cat = classifyHrCategory(doc);
+            counts[cat]++;
         });
         return counts;
-    }, [documents]);
+    }, [rawDocuments]);
 
-    const statusOptions: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned'];
+    const statusOptions: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned', 'Archived'];
 
     const filteredDocs = useMemo(() => {
-        let result = documents.filter((doc: any) => {
+        let result = rawDocuments.filter((doc: any) => {
             const stdStatus = getStandardizedStatus(doc.status);
+            const category = classifyHrCategory(doc);
 
-            // Tab filtering logic
-            if (activeTab !== 'all' && stdStatus.toLowerCase() !== activeTab) {
+            // Tab filtering logic (HR: All, Employee Records, Leave Requests, Violations)
+            if (activeTab !== 'all' && category !== activeTab) {
                 return false;
             }
 
@@ -65,7 +72,7 @@ export default function HrDocuments() {
 
             const matchesType = !filterType || String(doc.type_id) === filterType;
             const matchesDept = !filterDept || String(doc.department_id) === filterDept;
-            const matchesStatus = !filterStatus || stdStatus === filterStatus;
+            const matchesStatus = !filterStatus || stdStatus.toLowerCase() === filterStatus.toLowerCase();
 
             return matchesSearch && matchesType && matchesDept && matchesStatus;
         });
@@ -77,7 +84,7 @@ export default function HrDocuments() {
         });
 
         return result;
-    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
+    }, [rawDocuments, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
 
     const paginatedDocs = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
@@ -103,7 +110,7 @@ export default function HrDocuments() {
                     <div>
                         <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">HR Documents</h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
-                            {filteredDocs.length} of {documents.length} records • Manage human resources policies, memos, and tracking
+                            {filteredDocs.length} of {rawDocuments.length} records • Manage human resources policies, memos, and tracking
                             {activeFilterCount > 0 && <span className="ml-1 text-[var(--tng-blue-600)]">({activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active)</span>}
                         </p>
                     </div>
@@ -119,36 +126,20 @@ export default function HrDocuments() {
                     </div>
                 )}
 
-                {/* Tabs */}
-                <div className="flex items-center gap-2 border-b border-[var(--tng-slate-200)]">
-                    {[
-                        { id: 'all', label: 'All Documents', icon: null, count: tabCounts.all },
-                        { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 mr-1.5" />, count: tabCounts.received },
-                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-1.5" />, count: tabCounts.ongoing },
-                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-1.5" />, count: tabCounts.sent },
-                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 mr-1.5" />, count: tabCounts.returned }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={cn(
-                                "flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                                activeTab === tab.id
-                                    ? "border-[var(--tng-blue-600)] text-[var(--tng-blue-600)]"
-                                    : "border-transparent text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)]"
-                            )}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                            <span className={cn(
-                                "ml-2 rounded-full px-2 py-0.5 text-xs font-semibold",
-                                activeTab === tab.id ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600"
-                            )}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+                {/* ── Standardized Tabbed Navigation (HR: All, Employee Records, Leave Requests, Violations) ── */}
+                <TabNavigation
+                    tabs={[
+                        { id: 'all', label: 'All Records', icon: <FileText className="h-4 w-4" />, count: tabCounts.all },
+                        { id: 'employee_records', label: 'Employee Records', icon: <Users className="h-4 w-4" />, count: tabCounts.employee_records },
+                        { id: 'leave_requests', label: 'Leave Requests', icon: <CalendarDays className="h-4 w-4" />, count: tabCounts.leave_requests },
+                        { id: 'violations', label: 'Violations', icon: <AlertTriangle className="h-4 w-4" />, count: tabCounts.violations },
+                    ]}
+                    activeTab={activeTab}
+                    onChange={(tab) => {
+                        setActiveTab(tab as any);
+                        setCurrentPage(1);
+                    }}
+                />
 
                 {/* Search & Filters */}
                 <div className="flex flex-wrap items-center gap-3">
@@ -156,7 +147,7 @@ export default function HrDocuments() {
                         <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
                         <input
                             type="text"
-                            placeholder="Search by reference no, title..."
+                            placeholder="Search by reference number, tracking number, type, or name..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                             className="h-10 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-10 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]"
@@ -220,22 +211,22 @@ export default function HrDocuments() {
                 <div className="w-full rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
                         <table className="w-full text-left border-collapse">
-                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                 <tr>
                                     <th
-                                        className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-6 py-2.5 cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
                                             Reference No.
-                                            {sortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                                            {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                                         </span>
                                     </th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Title</th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Type</th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Date</th>
-                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)] text-right">Action</th>
+                                    <th className="px-6 py-2.5">Title</th>
+                                    <th className="px-6 py-2.5">Type</th>
+                                    <th className="px-6 py-2.5">Status</th>
+                                    <th className="px-6 py-2.5">Date</th>
+                                    <th className="px-6 py-2.5 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -245,33 +236,33 @@ export default function HrDocuments() {
                                         onClick={() => router.visit(`/hr/documents/${doc.document_id}`)}
                                         className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 cursor-pointer group"
                                     >
-                                        <td className="px-6 py-3.5 text-[14px] font-semibold text-[var(--tng-blue-600)] group-hover:underline">
+                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-semibold text-[var(--tng-blue-600)] group-hover:underline">
                                             {doc.reference_number}
                                             {doc.tracking_number && (
-                                                <div className="text-[12px] text-[var(--tng-slate-400)]">{doc.tracking_number}</div>
+                                                <div className="text-[11px] text-[var(--tng-slate-400)]">{doc.tracking_number}</div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-3.5 text-[14px] font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
-                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
-                                        <td className="px-6 py-3.5">
+                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
+                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-normal text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-6 py-2.5">
                                             <SeverityPill status={doc.status} />
                                         </td>
-                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-500)]">
+                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-normal text-[var(--tng-slate-500)]">
                                             {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
-                                        <td className="px-6 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-6 py-2.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link
                                                     href={`/hr/documents/${doc.document_id}`}
                                                     title="View Document"
                                                     aria-label="View Document"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Eye className="h-[18px] w-[18px]" />
+                                                    <Eye className="h-4 w-4" />
                                                 </Link>
                                             </div>
                                         </td>

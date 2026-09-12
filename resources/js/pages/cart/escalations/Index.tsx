@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import {
     BaseModal,
     ModalSection,
@@ -150,6 +151,30 @@ export default function CartEscalatedDocsIndex({
             { preserveState: true, preserveScroll: true }
         );
     };
+
+    type CartTab = 'all' | 'escalated' | 'resolved' | 'pending';
+    const activeTab: CartTab =
+        selectedSeverity === 'all'
+            ? 'all'
+            : selectedSeverity === 'overdue' || selectedSeverity === 'critical'
+            ? 'escalated'
+            : selectedSeverity === 'resolved'
+            ? 'resolved'
+            : 'pending';
+
+    const handleTabChange = (tab: CartTab) => {
+        if (tab === 'all') applyFilters({ severity: 'all' });
+        else if (tab === 'escalated') applyFilters({ severity: 'overdue' });
+        else if (tab === 'resolved') applyFilters({ severity: 'resolved' });
+        else if (tab === 'pending') applyFilters({ severity: 'warning' });
+    };
+
+    const cartTabs: TabItem<CartTab>[] = [
+        { id: 'all', label: 'All Records', icon: <FileText className="h-4 w-4" />, count: kpis.total },
+        { id: 'escalated', label: 'Escalated', icon: <ShieldAlert className="h-4 w-4 text-red-600" />, count: kpis.overdue },
+        { id: 'resolved', label: 'Resolved', icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />, count: kpis.resolved },
+        { id: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4 text-amber-600" />, count: kpis.warnings },
+    ];
 
     // Quick filter from KPI Card
     const handleKpiClick = (severityTarget: string) => {
@@ -346,6 +371,13 @@ export default function CartEscalatedDocsIndex({
                     </div>
                 </div>
 
+                {/* ── Standardized Tabbed Navigation (CART: All, Escalated, Resolved, Pending) ── */}
+                <TabNavigation
+                    tabs={cartTabs}
+                    activeTab={activeTab}
+                    onChange={handleTabChange}
+                />
+
                 {/* ── FILTERS AT THE TOP ────────────────────────────────────── */}
                 <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-4 shadow-xs space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -356,7 +388,7 @@ export default function CartEscalatedDocsIndex({
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => applyFilters({ search: e.target.value })}
-                                placeholder="Search by tracking #, doc title, originating dept, holder, or user..."
+                                placeholder="Search by reference number, tracking number, type, or name..."
                                 className="h-10 w-full rounded-xl border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]/50 pl-10 pr-4 text-xs font-medium text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-all"
                             />
                             {searchQuery && (
@@ -473,15 +505,15 @@ export default function CartEscalatedDocsIndex({
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Tracking #</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Document Title</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Severity</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Days Elapsed vs SLA</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Originating Dept</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Current Holder / Office</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Notified User</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Escalated At</th>
-                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Action</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Tracking #</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Document Title</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Severity</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Days Elapsed vs SLA</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Originating Dept</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Current Holder / Office</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Notified User</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Escalated At</th>
+                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">

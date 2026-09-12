@@ -163,7 +163,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                                 key={item.title}
                                 href={item.href}
                                 className={cn(
-                                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-all duration-200',
+                                    'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-[13px] font-medium transition-all duration-200',
                                     active
                                         ? 'bg-[var(--tng-blue-600)] text-white shadow-md shadow-blue-600/25 font-semibold'
                                         : 'text-[var(--tng-slate-600)] hover:bg-[var(--tng-blue-50)] hover:text-[var(--tng-blue-700)]',
@@ -173,7 +173,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                                 {Icon && (
                                     <Icon
                                         className={cn(
-                                            'h-5 w-5 shrink-0 transition-colors',
+                                            'h-4 w-4 shrink-0 transition-colors',
                                             active
                                                 ? 'text-white'
                                                 : 'text-[var(--tng-slate-400)] group-hover:text-[var(--tng-blue-600)]',
@@ -193,11 +193,11 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                         method="post"
                         as="button"
                         className={cn(
-                            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium text-red-500 transition-colors hover:bg-red-50',
+                            'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-[13px] font-medium text-red-500 transition-colors hover:bg-red-50',
                             !sidebarOpen && 'justify-center px-0',
                         )}
                     >
-                        <LogOut className="h-5 w-5 shrink-0" />
+                        <LogOut className="h-4 w-4 shrink-0" />
                         {sidebarOpen && <span>Sign Out</span>}
                     </Link>
                 </div>

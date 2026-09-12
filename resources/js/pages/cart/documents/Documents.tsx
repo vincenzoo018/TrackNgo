@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
+import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw, Archive } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
@@ -8,6 +8,7 @@ import { StepDots } from '@/components/trackngo/StepProgress';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { cn } from '@/lib/utils';
 
 export default function CartDocumentsIndex() {
@@ -16,14 +17,10 @@ export default function CartDocumentsIndex() {
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
 
-    // Only active, ongoing, received, sent, or returned documents
-    const documents = useMemo(() => {
-        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
-    }, [rawDocuments]);
-
+    // Active documents or archived depending on tab
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned' | 'archived'>('all');
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
@@ -35,16 +32,26 @@ export default function CartDocumentsIndex() {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
 
+    const documents = useMemo(() => {
+        if (activeTab === 'archived') {
+            return rawDocuments.filter((doc: any) => isFinalizedOrArchived(doc.status));
+        }
+        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
+    }, [rawDocuments, activeTab]);
+
     const tabCounts = useMemo(() => {
-        const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
-        documents.forEach((doc: any) => {
+        const counts = { all: rawDocuments.length, received: 0, ongoing: 0, sent: 0, returned: 0, archived: 0 };
+        rawDocuments.forEach((doc: any) => {
+            if (isFinalizedOrArchived(doc.status)) {
+                counts.archived++;
+            }
             const std = getStandardizedStatus(doc.status).toLowerCase() as keyof typeof counts;
-            if (counts[std] !== undefined) {
+            if (counts[std] !== undefined && std !== 'archived') {
                 counts[std]++;
             }
         });
         return counts;
-    }, [documents]);
+    }, [rawDocuments]);
 
     const statusOptions: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned'];
 
@@ -53,7 +60,9 @@ export default function CartDocumentsIndex() {
             const stdStatus = getStandardizedStatus(doc.status);
 
             // Tab filtering logic
-            if (activeTab !== 'all' && stdStatus.toLowerCase() !== activeTab) {
+            if (activeTab === 'archived') {
+                if (!isFinalizedOrArchived(doc.status)) return false;
+            } else if (activeTab !== 'all' && stdStatus.toLowerCase() !== activeTab) {
                 return false;
             }
 
@@ -148,43 +157,29 @@ export default function CartDocumentsIndex() {
                     </div>
                 )}
 
-                {/* Tabs */}
-                <div className="flex items-center gap-2 border-b border-[var(--tng-slate-200)]">
-                    {[
-                        { id: 'all', label: 'All Documents', icon: null, count: tabCounts.all },
-                        { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 mr-1.5" />, count: tabCounts.received },
-                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-1.5" />, count: tabCounts.ongoing },
-                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-1.5" />, count: tabCounts.sent },
-                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 mr-1.5" />, count: tabCounts.returned }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={cn(
-                                "flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                                activeTab === tab.id
-                                    ? "border-[var(--tng-blue-600)] text-[var(--tng-blue-600)]"
-                                    : "border-transparent text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)]"
-                            )}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                            <span className={cn(
-                                "ml-2 rounded-full px-2 py-0.5 text-xs font-semibold",
-                                activeTab === tab.id ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600"
-                            )}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+                {/* ── Standardized Tabbed Navigation (All, Received, Ongoing, Sent, Returned, Archived) ── */}
+                <TabNavigation
+                    tabs={[
+                        { id: 'all', label: 'All Documents', icon: <FileText className="h-4 w-4" />, count: tabCounts.all },
+                        { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4" />, count: tabCounts.received },
+                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4" />, count: tabCounts.ongoing },
+                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4" />, count: tabCounts.sent },
+                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4" />, count: tabCounts.returned },
+                        { id: 'archived', label: 'Archived', icon: <Archive className="h-4 w-4" />, count: tabCounts.archived },
+                    ]}
+                    activeTab={activeTab}
+                    onChange={(tab) => {
+                        setActiveTab(tab);
+                        setCurrentPage(1);
+                    }}
+                />
 
                 {/* Search */}
                 <div className="relative">
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
                     <input
                         type="text"
-                        placeholder="Search by reference number, tracking number, title, department, or status..."
+                        placeholder="Search by reference number, tracking number, type, or name..."
                         value={searchQuery}
                         onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                         className="h-12 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-12 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
@@ -261,36 +256,36 @@ export default function CartDocumentsIndex() {
                                         />
                                     </th>
                                     <th
-                                        className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
                                             Ref No.
-                                            {sortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                                            {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                                         </span>
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Document Type
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Department
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Date Filed
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Step Progress
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Status
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         ARTA
                                     </th>
-                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         QR
                                     </th>
-                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Actions
                                     </th>
                                 </tr>

@@ -26,6 +26,7 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
 import { RoutingSlipModal } from '@/components/trackngo/RoutingSlipModal';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 
 export type RoutingSlipItem = {
     slip_id: number;
@@ -410,6 +411,21 @@ export default function RoutingSlipsIndex({
                     </div>
                 </div>
 
+                {/* ── Standardized Tabbed Navigation (Routing Slips: All, Active, Completed, Returned) ── */}
+                <TabNavigation
+                    tabs={[
+                        { id: 'all', label: 'All Routing Slips', icon: <RouteIcon className="h-4 w-4" />, count: metrics.total },
+                        { id: 'active', label: 'Active', icon: <Clock className="h-4 w-4 text-emerald-600" />, count: metrics.active },
+                        { id: 'completed', label: 'Completed', icon: <CheckCircle2 className="h-4 w-4 text-indigo-600" />, count: metrics.completed },
+                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 text-amber-600" />, count: metrics.returned },
+                    ]}
+                    activeTab={statusFilter}
+                    onChange={(tabId) => {
+                        setStatusFilter(tabId);
+                        setCurrentPage(1);
+                    }}
+                />
+
                 {/* ── Toolbar & Filters ─────────────────────────────────────── */}
                 <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] p-4 shadow-xs space-y-3">
                     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
@@ -423,7 +439,7 @@ export default function RoutingSlipsIndex({
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder="Search by tracking #, document ref, title, sender, recipient, or instruction..."
+                                placeholder="Search by reference number, tracking number, type, or name..."
                                 className="w-full pl-10 pr-4 py-2 bg-[var(--tng-slate-50)] border border-[var(--tng-slate-200)] rounded-lg text-sm text-[var(--tng-slate-900)] placeholder-[var(--tng-slate-400)] focus:bg-white focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] transition-all outline-none"
                             />
                             {searchQuery && (
@@ -560,14 +576,14 @@ export default function RoutingSlipsIndex({
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Slip ID</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Document Reference</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">From</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">To</th>
-                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Action</th>
-                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Instruction</th>
-                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
-                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Actions</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Slip ID</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Document Reference</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">From</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">To</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Action</th>
+                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Instruction</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Status</th>
+                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">

@@ -291,8 +291,8 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                 <RotateCcw className="h-5 w-5" />
                             </div>
                             <div>
-                                <h3 className="text-[16px] font-semibold text-rose-950">Document Returned for Correction</h3>
-                                <p className="text-[14px] text-slate-700 mt-0.5 leading-relaxed">
+                                <h3 className="text-sm font-semibold text-rose-950">Document Returned for Correction</h3>
+                                <p className="text-xs sm:text-[13px] text-slate-700 mt-0.5 leading-relaxed">
                                     <strong>Official Reason for return:</strong> "{doc.return_reason || 'Missing files or corrections required.'}"
                                 </p>
                             </div>
@@ -312,7 +312,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 <CollapsiblePanel
                     title={
                         <div className="flex items-center gap-3">
-                            <span className="text-[16px] font-semibold text-slate-800">📋 Document Details, Routing History & SLA</span>
+                            <span className="text-sm font-semibold text-slate-800">📋 Document Details, Routing History & SLA</span>
                             <span className="text-xs font-normal text-slate-500">
                                 Current Holder: <strong className="text-slate-800">{doc.current_holder_department?.department_name ?? doc.current_holder?.name ?? 'N/A'}</strong>
                             </span>
@@ -468,7 +468,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                     <div className="xl:col-span-7 2xl:col-span-8 flex flex-col gap-4">
                         <div className="rounded-[8px] border border-slate-200 bg-white overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
                             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-5 py-3.5">
-                                <h2 className="text-[16px] font-semibold text-slate-800 flex items-center gap-2">
+                                <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                                     <FileText className="h-4 w-4 text-blue-600" />
                                     Integrated Document Viewer & OCR Workspace
                                 </h2>
@@ -479,7 +479,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                         setAnchorModalOpen(true);
                                     }}
                                     className={cn(
-                                        "rounded-[8px] border px-3.5 py-1.5 text-[16px] font-semibold transition-colors shadow-xs",
+                                        "rounded-[8px] border px-3 py-1 text-xs sm:text-[13px] font-semibold transition-colors shadow-xs",
                                         selectedOcrText
                                             ? "border-blue-400 bg-blue-50 text-blue-700 shadow-xs"
                                             : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -510,7 +510,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                     <div className="xl:col-span-5 2xl:col-span-4 flex flex-col gap-5">
                         {/* Review Actions Card */}
                         <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
-                            <h2 className="mb-3.5 flex items-center gap-2 text-[16px] font-semibold text-slate-800">
+                            <h2 className="mb-3.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
                                 ⚡ Review Actions
                             </h2>
                             <div className="space-y-3">
@@ -611,7 +611,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
 
                         {/* Signatories Section */}
                         <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] flex flex-col gap-6">
-                            <h3 className="text-[16px] font-semibold text-slate-800 flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                                 <span className="text-base">✍️</span> Signatories
                             </h3>
                             {/* Sender */}

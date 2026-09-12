@@ -425,10 +425,10 @@ export function DiscussionAuditTimeline({
                                 <AlertCircle className="h-4 w-4" />
                             </div>
                             <div>
-                                <h4 className="text-[16px] font-semibold text-rose-950">
+                                <h4 className="text-sm font-semibold text-rose-950">
                                     Document Returned for Correction
                                 </h4>
-                                <p className="text-[14px] font-medium text-slate-800 mt-1 leading-relaxed">
+                                <p className="text-xs sm:text-[13px] font-medium text-slate-800 mt-1 leading-relaxed">
                                     <span className="font-semibold text-rose-900">Reason for return: </span>
                                     "{returnReason}"
                                 </p>
@@ -439,9 +439,9 @@ export function DiscussionAuditTimeline({
                             <button
                                 type="button"
                                 onClick={onOpenCorrectionModal}
-                                className="inline-flex items-center gap-1.5 rounded-[8px] bg-rose-600 px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.2)] hover:bg-rose-700 transition-all shrink-0 active:scale-98"
+                                className="inline-flex items-center gap-1.5 rounded-[8px] bg-rose-600 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.2)] hover:bg-rose-700 transition-all shrink-0 active:scale-98"
                             >
-                                <Paperclip className="h-4 w-4" />
+                                <Paperclip className="h-3.5 w-3.5" />
                                 Correct Document
                             </button>
                         )}

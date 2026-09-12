@@ -76,38 +76,38 @@ export default function Login() {
                                     name="email"
                                     value={data.email}
                                     onChange={(e) => setData('email', e.target.value)}
-                                    className="block w-full rounded-[6px] border border-[var(--tng-slate-200)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 transition-colors placeholder:text-[var(--tng-slate-400)]"
+                                    className="block w-full rounded-[6px] border border-[var(--tng-slate-200)] py-2 pl-10 pr-4 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 transition-colors placeholder:text-[var(--tng-slate-400)]"
                                     autoComplete="username"
                                     placeholder="name@trackngo.gov.ph"
                                 />
                             </div>
-                            {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+                            {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
                         </div>
 
                         {/* Password Input */}
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                                <label htmlFor="password" className="block text-[14px] font-medium text-[var(--tng-slate-700)]">
+                                <label htmlFor="password" className="block text-xs font-medium text-[var(--tng-slate-700)]">
                                     Password
                                 </label>
-                                <Link href="/forgot-password" className="text-sm font-medium text-[var(--tng-blue-600)] hover:underline">
+                                <Link href="/forgot-password" className="text-xs font-medium text-[var(--tng-blue-600)] hover:underline">
                                     Forgot password?
                                 </Link>
                             </div>
                             <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
+                                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
                                 <input
                                     id="password"
                                     type="password"
                                     name="password"
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
-                                    className="block w-full rounded-[6px] border border-[var(--tng-slate-200)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 transition-colors"
+                                    className="block w-full rounded-[6px] border border-[var(--tng-slate-200)] py-2 pl-10 pr-4 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 transition-colors"
                                     autoComplete="current-password"
                                     placeholder="••••••••"
                                 />
                             </div>
-                            {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
+                            {errors.password && <p className="text-xs text-red-600">{errors.password}</p>}
                         </div>
 
                         {/* Remember Me */}
@@ -117,7 +117,7 @@ export default function Login() {
                                 checked={data.remember}
                                 onCheckedChange={(checked) => setData('remember', checked as boolean)}
                             />
-                            <label htmlFor="remember" className="text-[14px] font-normal text-[var(--tng-slate-600)] cursor-pointer select-none">
+                            <label htmlFor="remember" className="text-xs font-normal text-[var(--tng-slate-600)] cursor-pointer select-none">
                                 Remember me for 30 days
                             </label>
                         </div>
@@ -126,7 +126,7 @@ export default function Login() {
                         <button
                             type="submit"
                             disabled={processing}
-                            className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-3 text-[16px] font-bold text-white shadow-md shadow-blue-600/20 transition-all hover:bg-[var(--tng-blue-700)] disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition-all hover:bg-[var(--tng-blue-700)] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             Log in
                         </button>

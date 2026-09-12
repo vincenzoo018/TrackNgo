@@ -11,6 +11,7 @@ import CreateDocumentModal from './CreateDocumentModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
@@ -19,10 +20,8 @@ export default function MayorFinalApproval() {
     const documentTypes = (props.dbDocumentTypes || []) as any[];
     const users = (props.dbUsers || []) as any[];
 
-    // Only active, ongoing, received, sent, or returned documents
-    const documents = useMemo(() => {
-        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
-    }, [rawDocuments]);
+    type MayorTab = 'all' | 'for_approval' | 'approved' | 'returned';
+    const [activeTab, setActiveTab] = useState<MayorTab>('all');
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
@@ -32,8 +31,6 @@ export default function MayorFinalApproval() {
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    
-    const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned'>('all');
 
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
@@ -41,16 +38,41 @@ export default function MayorFinalApproval() {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [exportModalOpen, setExportModalOpen] = useState(false);
 
+    // Dynamic document list based on active tab
+    const documents = useMemo(() => {
+        if (activeTab === 'approved') {
+            return rawDocuments.filter((doc: any) => {
+                const s = (doc.status || '').toLowerCase();
+                return s === 'approved' || s === 'completed';
+            });
+        }
+        return rawDocuments.filter((doc: any) => {
+            const s = (doc.status || '').toLowerCase();
+            return s !== 'archived';
+        });
+    }, [rawDocuments, activeTab]);
+
     const tabCounts = useMemo(() => {
-        const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
-        documents.forEach((doc: any) => {
-            const std = getStandardizedStatus(doc.status).toLowerCase() as keyof typeof counts;
-            if (counts[std] !== undefined) {
-                counts[std]++;
+        let forApproval = 0;
+        let approved = 0;
+        let returned = 0;
+        rawDocuments.forEach((doc: any) => {
+            const s = (doc.status || '').toLowerCase();
+            if (s === 'endorsed' || s === 'in_review' || s === 'pending_approval' || s === 'pending' || s === 'ongoing') {
+                forApproval++;
+            } else if (s === 'approved' || s === 'completed') {
+                approved++;
+            } else if (s === 'returned') {
+                returned++;
             }
         });
-        return counts;
-    }, [documents]);
+        return {
+            all: rawDocuments.length,
+            for_approval: forApproval,
+            approved: approved,
+            returned: returned,
+        };
+    }, [rawDocuments]);
 
     const handleExportList = () => {
         const header = ['Ref No', 'Tracking No', 'Document Type', 'Department', 'Date Filed', 'Status'];
@@ -70,10 +92,21 @@ export default function MayorFinalApproval() {
     const filteredDocs = useMemo(() => {
         let result = documents.filter((doc: any) => {
             const stdStatus = getStandardizedStatus(doc.status);
+            const rawStatus = (doc.status || '').toLowerCase();
             
-            // Tab filtering logic
-            if (activeTab !== 'all' && stdStatus.toLowerCase() !== activeTab) {
-                return false;
+            // Mayor Tab filtering logic: All, For Approval, Approved, Returned
+            if (activeTab === 'for_approval') {
+                if (!(rawStatus === 'endorsed' || rawStatus === 'in_review' || rawStatus === 'pending_approval' || rawStatus === 'pending' || rawStatus === 'ongoing')) {
+                    return false;
+                }
+            } else if (activeTab === 'approved') {
+                if (!(rawStatus === 'approved' || rawStatus === 'completed')) {
+                    return false;
+                }
+            } else if (activeTab === 'returned') {
+                if (rawStatus !== 'returned') {
+                    return false;
+                }
             }
 
             const q = searchQuery.toLowerCase();
@@ -167,36 +200,20 @@ export default function MayorFinalApproval() {
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex items-center gap-2 border-b border-[var(--tng-slate-200)]">
-                    {[
-                        { id: 'all', label: 'All Documents', icon: null, count: tabCounts.all },
-                        { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 mr-1.5" />, count: tabCounts.received },
-                        { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 mr-1.5" />, count: tabCounts.ongoing },
-                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 mr-1.5" />, count: tabCounts.sent },
-                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 mr-1.5" />, count: tabCounts.returned }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => { setActiveTab(tab.id as any); setCurrentPage(1); }}
-                            className={cn(
-                                "flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                                activeTab === tab.id
-                                    ? "border-[var(--tng-blue-600)] text-[var(--tng-blue-600)]"
-                                    : "border-transparent text-[var(--tng-slate-500)] hover:text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)]"
-                            )}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                            <span className={cn(
-                                "ml-2 rounded-full px-2 py-0.5 text-xs font-semibold",
-                                activeTab === tab.id ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600"
-                            )}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+                {/* ── Standardized Tabbed Navigation (Mayor: All, For Approval, Approved, Returned) ── */}
+                <TabNavigation
+                    tabs={[
+                        { id: 'all', label: 'All Documents', icon: <FileText className="h-4 w-4" />, count: tabCounts.all },
+                        { id: 'for_approval', label: 'For Approval', icon: <FileSignature className="h-4 w-4 text-blue-600" />, count: tabCounts.for_approval },
+                        { id: 'approved', label: 'Approved', icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />, count: tabCounts.approved },
+                        { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 text-amber-600" />, count: tabCounts.returned },
+                    ]}
+                    activeTab={activeTab}
+                    onChange={(tab) => {
+                        setActiveTab(tab);
+                        setCurrentPage(1);
+                    }}
+                />
 
                 {toastMessage && (
                     <div className="rounded-lg bg-green-50 border border-green-200 p-4 flex items-center gap-3 text-green-700 animate-in slide-in-from-top-2">
@@ -300,36 +317,36 @@ export default function MayorFinalApproval() {
                                         />
                                     </th>
                                     <th
-                                        className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
                                             Ref No.
-                                            {sortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                                            {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                                         </span>
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Document Type
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Department
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Date Filed
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Step Progress
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Status
                                     </th>
-                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         ARTA
                                     </th>
-                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         QR
                                     </th>
-                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">
+                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
                                         Actions
                                     </th>
                                 </tr>

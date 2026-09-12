@@ -27,6 +27,7 @@ import {
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
+import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { QrDetailModal, type QrCodeItem } from '@/components/trackngo/QrDetailModal';
 import { RoutingSlipModal, type RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
 
@@ -385,6 +386,21 @@ export default function QrCodesIndex({
                     </div>
                 </div>
 
+                {/* ── Tabbed Navigation ─────────────────────────────────────── */}
+                <TabNavigation
+                    tabs={[
+                        { id: 'all', label: 'All QR Codes', count: metrics.total },
+                        { id: 'active', label: 'Active', count: metrics.active },
+                        { id: 'completed', label: 'Completed', count: metrics.completed },
+                        { id: 'archived', label: 'Archived', count: metrics.archived },
+                    ]}
+                    activeTab={statusFilter}
+                    onChange={(tabId) => {
+                        setStatusFilter(tabId);
+                        setCurrentPage(1);
+                    }}
+                />
+
                 {/* ── Filters Toolbar ───────────────────────────────────────── */}
                 <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] p-4 shadow-xs space-y-3">
                     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
@@ -398,7 +414,7 @@ export default function QrCodesIndex({
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder="Search by QR Code ID, document ref, routing slip, title, or department..."
+                                placeholder="Search by reference number, tracking number, type, or name..."
                                 className="w-full pl-10 pr-4 py-2 bg-[var(--tng-slate-50)] border border-[var(--tng-slate-200)] rounded-lg text-sm text-[var(--tng-slate-900)] placeholder-[var(--tng-slate-400)] focus:bg-white focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] transition-all outline-none"
                             />
                             {searchQuery && (
@@ -537,14 +553,14 @@ export default function QrCodesIndex({
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">QR Code ID</th>
-                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Document Reference</th>
-                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Routing Slip ID</th>
-                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Department</th>
-                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Type</th>
-                                        <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
-                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Date Generated</th>
-                                        <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Actions</th>
+                                        <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">QR Code ID</th>
+                                        <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Document Reference</th>
+                                        <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Routing Slip ID</th>
+                                        <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Department</th>
+                                        <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Type</th>
+                                        <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Status</th>
+                                        <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Date Generated</th>
+                                        <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-100)]">
