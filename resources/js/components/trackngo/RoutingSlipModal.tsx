@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, ExternalLink, QrCode } from 'lucide-react';
+import { X, Printer, ExternalLink, QrCode, Download, Loader2 } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +39,8 @@ export function RoutingSlipModal({
     slip,
     currentRole = 'receiving',
 }: RoutingSlipModalProps) {
+    const [isDownloading, setIsDownloading] = useState(false);
+
     if (!isOpen || !slip) return null;
 
     const trackingNumber = slip.tracking_number || slip.formatted_slip_id || `RS-2026-${String(slip.slip_id || '0001').padStart(4, '0')}`;
@@ -47,6 +49,33 @@ export function RoutingSlipModal({
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const handleDownloadPdf = async () => {
+        const element = document.getElementById('printable-routing-slip-card');
+        if (!element) return;
+
+        try {
+            setIsDownloading(true);
+            const html2pdfModule = await import('html2pdf.js');
+            const html2pdf = html2pdfModule.default || html2pdfModule;
+
+            const opt = {
+                margin: [12, 12, 12, 12], // 12mm margins
+                filename: `${trackingNumber}_Routing_Slip.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            };
+
+            await html2pdf().set(opt).from(element).save();
+        } catch (error) {
+            console.error('Error generating routing slip PDF:', error);
+            // Graceful fallback to browser print/save as PDF
+            window.print();
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const modalContent = (
@@ -219,11 +248,11 @@ export function RoutingSlipModal({
                 </div>
 
                 {/* ── Standardized Footer Action Bar ────────────────────────── */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50 shrink-0 print:hidden">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 shrink-0 print:hidden">
                     {slip.document_id ? (
                         <Link
                             href={`/${currentRole}/documents/${slip.document_id}`}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline self-start sm:self-auto"
                         >
                             <ExternalLink className="h-3.5 w-3.5" />
                             Open Document Workspace
@@ -232,24 +261,71 @@ export function RoutingSlipModal({
                         <div />
                     )}
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 flex-wrap justify-end w-full sm:w-auto">
                         <button
                             type="button"
                             onClick={handlePrint}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors shadow-2xs"
+                            title="Open system print dialog"
                         >
                             <Printer className="h-3.5 w-3.5" />
-                            Print Slip
+                            <span>Print Routing Slip</span>
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={handleDownloadPdf}
+                            disabled={isDownloading}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] rounded-lg transition-colors shadow-2xs disabled:opacity-60"
+                            title="Export routing slip as a PDF file"
+                        >
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    <span>Exporting PDF...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-3.5 w-3.5" />
+                                    <span>Download Routing Slip</span>
+                                </>
+                            )}
+                        </button>
+
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded-lg transition-colors shadow-2xs"
+                            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors shadow-2xs"
                         >
                             Close
                         </button>
                     </div>
                 </div>
+
+                {/* Print Stylesheet for clean voucher print */}
+                <style>{`
+                    @media print {
+                        body * {
+                            visibility: hidden;
+                        }
+                        #printable-routing-slip-card, #printable-routing-slip-card * {
+                            visibility: visible;
+                        }
+                        #printable-routing-slip-card {
+                            position: fixed;
+                            left: 0;
+                            top: 0;
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            border: 2px solid #000 !important;
+                            box-shadow: none !important;
+                            padding: 24px !important;
+                            background: white !important;
+                            color: black !important;
+                            z-index: 999999 !important;
+                        }
+                    }
+                `}</style>
             </div>
         </div>
     );

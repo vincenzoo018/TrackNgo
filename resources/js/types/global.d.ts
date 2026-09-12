@@ -20,3 +20,5 @@ declare module '@inertiajs/core' {
         };
     }
 }
+
+declare module 'html2pdf.js';

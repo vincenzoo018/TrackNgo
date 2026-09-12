@@ -86,10 +86,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/users/create', fn() => Inertia::render('admin/users/Create'));
         Route::get('/users', fn() => Inertia::render('admin/users/Index'));
         Route::get('/system', fn() => Inertia::render('admin/system/SystemConfiguration'));
-        Route::get('/reports', fn() => Inertia::render('admin/reports/Index'));
+        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
         Route::get('/templates', fn() => Inertia::render('admin/templates/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
+        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
     });
 
     // Receiving Routes
@@ -187,7 +189,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
-        Route::get('/reports', fn() => Inertia::render('receiving/reports/Index'));
+        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
     });
 
     // Department Head Routes
@@ -265,7 +269,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/signature', fn() => Inertia::render('department-head/signature/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
-        Route::get('/reports', fn() => Inertia::render('department-head/reports/Index'));
+        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
     });
 
     // Mayor Routes
@@ -334,7 +340,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
-        Route::get('/reports', fn() => Inertia::render('mayor/reports/Index'));
+        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
         
         // Document Actions
         Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving']);
@@ -396,8 +404,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/escalations/documents/create', fn() => Inertia::render('cart/escalations/Create'));
         Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
-        Route::get('/reports', fn() => Inertia::render('cart/reports/Index'));
+        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
+        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
         
         // Document Actions
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
@@ -466,7 +476,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/leave', fn() => Inertia::render('hr/leave/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
-        Route::get('/reports', fn() => Inertia::render('hr/reports/Index'));
+        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
         
         // Document Actions
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
