@@ -27,7 +27,7 @@ export default function MayorFinalApproval() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -364,11 +364,11 @@ export default function MayorFinalApproval() {
                                             {doc.department?.department_name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
-                                            {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
+                                            {doc.date_filed || doc.created_at ? new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
-                                            })}
+                                            }) : 'N/A'}
                                         </td>
                                         <td className="px-4 py-3">
                                             <StepDots current={doc.current_step_index} total={7} />
@@ -432,6 +432,9 @@ export default function MayorFinalApproval() {
                 open={forwardModalOpen}
                 onClose={() => setForwardModalOpen(false)}
                 onForward={handleBulkEndorse}
+                onConfirm={(_type, destId, rem) => handleBulkEndorse(destId, rem)}
+                departments={departments}
+                users={users}
                 defaultRemarks="Digitally signed and approved by the Mayor's Office."
             />
             

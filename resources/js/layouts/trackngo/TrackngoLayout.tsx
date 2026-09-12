@@ -51,9 +51,10 @@ const ROLE_INITIALS: Record<string, string> = {
 type TrackngoLayoutProps = {
     children: ReactNode;
     breadcrumbs?: { title: string; href: string }[];
+    role?: string;
 };
 
-export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayoutProps) {
+export default function TrackngoLayout({ children, breadcrumbs, role }: TrackngoLayoutProps) {
     const { url, props } = usePage<{
         auth: { user: { name: string; email: string; role: UserRole } };
     }>();
@@ -64,7 +65,7 @@ export default function TrackngoLayout({ children, breadcrumbs }: TrackngoLayout
     const isValidRole = ['admin', 'receiving', 'department_head', 'mayor', 'cart', 'hr'].includes(mappedSegment);
     const inferredRole = isValidRole ? (mappedSegment as UserRole) : 'receiving';
 
-    const userRole = props.auth?.user?.role ?? inferredRole;
+    const userRole = (role as UserRole) ?? props.auth?.user?.role ?? inferredRole;
     
     // Mock user names based on inferred role
     const mockNames: Record<string, string> = {

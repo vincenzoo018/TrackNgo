@@ -6,27 +6,38 @@ import { BaseModal } from './BaseModal';
 type ForwardModalProps = {
     open: boolean;
     onClose: () => void;
-    onConfirm: (destinationType: string, destinationId: string, remarks: string) => void;
-    departments: any[];
-    users: any[];
+    onConfirm?: (destinationType: string, destinationId: string, remarks: string) => void;
+    onForward?: (destinationId: string, remarks: string) => void;
+    departments?: any[];
+    users?: any[];
     identifier?: string;
+    defaultRemarks?: string;
 };
 
-export function ForwardModal({ open, onClose, onConfirm, departments, users, identifier }: ForwardModalProps) {
+export function ForwardModal({ 
+    open, 
+    onClose, 
+    onConfirm, 
+    onForward,
+    departments = [], 
+    users = [], 
+    identifier,
+    defaultRemarks = ''
+}: ForwardModalProps) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'all' | 'department' | 'user'>('all');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [selectedType, setSelectedType] = useState<string | null>(null);
-    const [remarks, setRemarks] = useState('');
+    const [remarks, setRemarks] = useState(defaultRemarks);
 
     const destinations = [
-        ...departments.map(d => ({
+        ...(departments || []).map(d => ({
             id: d.department_id,
             type: 'department',
             name: d.department_name,
             description: d.description || 'Department'
         })),
-        ...users.map(u => ({
+        ...(users || []).map(u => ({
             id: u.id,
             type: 'user',
             name: u.name,
@@ -41,8 +52,12 @@ export function ForwardModal({ open, onClose, onConfirm, departments, users, ide
     });
 
     const handleConfirm = () => {
-        if (selectedId && selectedType) {
-            onConfirm(selectedType, selectedId, remarks);
+        if (selectedId) {
+            if (onConfirm && selectedType) {
+                onConfirm(selectedType, selectedId, remarks);
+            } else if (onForward) {
+                onForward(selectedId, remarks);
+            }
         }
     };
 

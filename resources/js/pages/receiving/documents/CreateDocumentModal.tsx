@@ -4,22 +4,28 @@ import { Plus, ScanLine, X, Loader2, FileText, CheckCircle2, QrCode } from 'luci
 import * as pdfjsLib from 'pdfjs-dist';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 
-// Set up the PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Set up the PDF.js worker safely
+if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
+    try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+    } catch (e) {
+        console.warn('Could not set pdf workerSrc', e);
+    }
+}
 
 interface CreateDocumentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    departments: any[];
-    documentTypes: any[];
-    users: any[];
+    departments?: any[];
+    documentTypes?: any[];
+    users?: any[];
 }
 
-export default function CreateDocumentModal({ isOpen, onClose, departments, documentTypes, users }: CreateDocumentModalProps) {
+export default function CreateDocumentModal({ isOpen, onClose, departments = [], documentTypes = [], users = [] }: CreateDocumentModalProps) {
     const { props } = usePage();
-    const authUser = props.auth.user as any;
+    const authUser = (props.auth as any)?.user;
 
-    const receivingDept = departments.find(d => d.code === 'REC' || d.department_name.toLowerCase().includes('receiving'));
+    const receivingDept = (departments || []).find(d => d.code === 'REC' || (d.department_name && d.department_name.toLowerCase().includes('receiving')));
 
     const { data, setData, post, processing, errors, reset } = useForm({
         title: '',
@@ -53,7 +59,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
 
     // Dependent dropdown for Forward To Users
     const availableUsers = data.forward_to 
-        ? users.filter(u => String(u.department_id) === String(data.forward_to))
+        ? (users || []).filter(u => String(u.department_id) === String(data.forward_to))
         : [];
 
     const handleFileUploadClick = () => {
