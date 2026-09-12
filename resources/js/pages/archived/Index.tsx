@@ -608,21 +608,22 @@ export default function ArchivedDocumentsIndex() {
 
                                             {/* Actions */}
                                             <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-1.5">
+                                                <div className="flex items-center justify-end gap-1">
                                                     <button
                                                         onClick={() => setPreviewDoc(doc)}
                                                         title="Quick Overview"
-                                                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                                                        aria-label="Quick Overview"
+                                                        className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                     >
                                                         <Eye className="h-4 w-4" />
                                                     </button>
                                                     <Link
                                                         href={showUrl}
                                                         title="Full Details & Audit Trail"
-                                                        className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow"
+                                                        aria-label="View Full Details"
+                                                        className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400/50"
                                                     >
-                                                        <span>View</span>
-                                                        <ExternalLink className="h-3 w-3" />
+                                                        <ExternalLink className="h-4 w-4" />
                                                     </Link>
                                                 </div>
                                             </td>

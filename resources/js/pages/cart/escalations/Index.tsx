@@ -624,26 +624,28 @@ export default function CartEscalatedDocsIndex({
 
                                                 {/* 9. Action (Resolve button) */}
                                                 <td className="px-4 py-4 whitespace-nowrap text-right">
-                                                    <div className="flex items-center justify-end gap-2">
+                                                    <div className="flex items-center justify-end gap-1">
                                                         <Link
                                                             href={`/cart/documents/${item.id}`}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
+                                                            title="Inspect Document"
+                                                            aria-label="Inspect Document"
+                                                            className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                         >
-                                                            Inspect
+                                                            <Eye className="h-4 w-4" />
                                                         </Link>
 
                                                         {item.resolved ? (
-                                                            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
-                                                                <Check className="h-3.5 w-3.5" />
-                                                                Resolved
+                                                            <span className="rounded-lg p-2 text-emerald-500" title="Resolved">
+                                                                <CheckCircle2 className="h-4 w-4" />
                                                             </span>
                                                         ) : (
                                                             <button
                                                                 onClick={() => setResolvingItem(item)}
-                                                                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-2xs cursor-pointer"
+                                                                title="Resolve Escalation"
+                                                                aria-label="Resolve Escalation"
+                                                                className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-emerald-50 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 cursor-pointer"
                                                             >
-                                                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                Resolve
+                                                                <CheckCircle2 className="h-4 w-4" />
                                                             </button>
                                                         )}
                                                     </div>

@@ -353,16 +353,17 @@ export default function ReceivingDocumentsIndex() {
                                             <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
                                         </td>
                                         <td className="px-4 py-3 text-right whitespace-nowrap">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                                <button className="rounded-md p-1.5 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-blue-600)]" title="View QR">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-slate-50 hover:text-[var(--tng-blue-600)] focus:outline-none focus:ring-2 focus:ring-blue-400/50" title="View QR Code" aria-label="View QR">
                                                     <QrCode className="h-4 w-4" />
                                                 </button>
                                                 <Link
                                                     href={`/receiving/documents/${doc.document_id}`}
-                                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[var(--tng-blue-700)] shadow-2xs hover:shadow-xs"
+                                                    title="View Document"
+                                                    aria-label="View Document"
+                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Eye className="h-3.5 w-3.5" />
-                                                    View
+                                                    <Eye className="h-4 w-4" />
                                                 </Link>
                                             </div>
                                         </td>

@@ -669,12 +669,11 @@ export default function RoutingSlipsIndex({
                                                 <button
                                                     type="button"
                                                     onClick={() => setSelectedSlip(slip)}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] rounded-lg transition-all shadow-2xs hover:shadow-xs active:scale-98 whitespace-nowrap"
-                                                    title="View detailed official routing slip"
+                                                    title="View Routing Slip"
                                                     aria-label="View Routing Slip"
+                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 active:scale-95"
                                                 >
-                                                    <Eye className="h-3.5 w-3.5 shrink-0" />
-                                                    <span>View <span className="hidden xl:inline">Routing </span>Slip</span>
+                                                    <Eye className="h-4 w-4" />
                                                 </button>
                                             </td>
                                         </tr>

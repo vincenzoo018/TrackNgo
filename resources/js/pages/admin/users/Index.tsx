@@ -431,41 +431,41 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
 
                                             {/* 6. Actions (Edit, Override, Delete) */}
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    {/* Edit Button */}
+                                                <div className="flex items-center justify-end gap-1">
+                                                    {/* Edit */}
                                                     <button
                                                         onClick={() => setEditingUser(user)}
                                                         title={isHr ? "Override Employee Information" : "Edit User Information"}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-[var(--tng-slate-200)] bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--tng-slate-700)] hover:border-[var(--tng-blue-400)] hover:bg-[var(--tng-blue-50)] hover:text-[var(--tng-blue-700)] transition-all shadow-2xs active:scale-95 cursor-pointer"
+                                                        aria-label="Edit"
+                                                        className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-amber-50 hover:text-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 active:scale-95 cursor-pointer"
                                                     >
-                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                        Edit
+                                                        <Edit2 className="h-4 w-4" />
                                                     </button>
 
-                                                    {/* Override Button */}
+                                                    {/* Override */}
                                                     <button
                                                         onClick={() => setOverridingUser(user)}
                                                         title={isHr ? "Override Department Assignment" : "Override Role & Access"}
-                                                        className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 hover:border-purple-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                                                        aria-label="Override"
+                                                        className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-purple-50 hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400/50 active:scale-95 cursor-pointer"
                                                     >
-                                                        <KeyRound className="h-3.5 w-3.5" />
-                                                        Override
+                                                        <KeyRound className="h-4 w-4" />
                                                     </button>
 
-                                                    {/* Delete Button (Admin Only) */}
+                                                    {/* Delete (Admin Only) */}
                                                     {isAdmin && (
                                                         <button
                                                             onClick={() => setDeletingUser(user)}
                                                             disabled={user.id === currentUserId}
                                                             title={user.id === currentUserId ? "Cannot delete yourself" : "Delete User Account"}
-                                                            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all shadow-2xs active:scale-95 ${
+                                                            aria-label="Delete"
+                                                            className={`rounded-lg p-2 transition-all focus:outline-none focus:ring-2 focus:ring-rose-400/50 active:scale-95 ${
                                                                 user.id === currentUserId
-                                                                    ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                                    : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300 cursor-pointer'
+                                                                    ? 'text-slate-300 cursor-not-allowed'
+                                                                    : 'text-[var(--tng-slate-400)] hover:bg-rose-50 hover:text-rose-600 cursor-pointer'
                                                             }`}
                                                         >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                            Delete
+                                                            <Trash2 className="h-4 w-4" />
                                                         </button>
                                                     )}
                                                 </div>
