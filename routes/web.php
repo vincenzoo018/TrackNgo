@@ -92,6 +92,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
         Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
+        Route::get('/escalations', [\App\Http\Controllers\CartEscalationController::class, 'index']);
+        Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\CartEscalationController::class, 'resolve']);
     });
 
     // Receiving Routes
@@ -265,8 +267,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
-        Route::get('/workflow', fn() => Inertia::render('department-head/workflow/Index'));
-        Route::get('/signature', fn() => Inertia::render('department-head/signature/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
@@ -399,9 +399,9 @@ Route::middleware(['auth'])->group(function () {
                 'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
-        Route::get('/escalations', fn() => Inertia::render('cart/escalations/ArtaEscalations'));
-        Route::get('/escalations/documents', fn() => Inertia::render('cart/escalations/Documents'));
-        Route::get('/escalations/documents/create', fn() => Inertia::render('cart/escalations/Create'));
+        Route::get('/escalations', [\App\Http\Controllers\CartEscalationController::class, 'index']);
+        Route::get('/escalations/documents', [\App\Http\Controllers\CartEscalationController::class, 'index']);
+        Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\CartEscalationController::class, 'resolve']);
         Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
