@@ -83,10 +83,56 @@ Route::middleware(['auth'])->group(function () {
                 'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
-        Route::get('/users/create', fn() => Inertia::render('admin/users/Create'));
-        Route::get('/users', fn() => Inertia::render('admin/users/Index'));
+        // User Accounts Management (Full CRUD & Role Override)
+        Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('admin.users.index');
+        Route::get('/users/create', [\App\Http\Controllers\Admin\UserController::class, 'create'])->name('admin.users.create');
+        Route::post('/users', [\App\Http\Controllers\Admin\UserController::class, 'store'])->name('admin.users.store');
+        Route::put('/users/{id}', [\App\Http\Controllers\Admin\UserController::class, 'update'])->name('admin.users.update');
+        Route::delete('/users/{id}', [\App\Http\Controllers\Admin\UserController::class, 'destroy'])->name('admin.users.destroy');
+        Route::post('/users/{id}/override-role', [\App\Http\Controllers\Admin\UserController::class, 'overrideRole'])->name('admin.users.overrideRole');
+
+        // Document Management CRUD & Admin Overrides
+        Route::delete('/documents/{id}', function ($id) {
+            $doc = \App\Models\Document::findOrFail($id);
+            $ref = $doc->reference_number;
+            \App\Models\AuditTrail::create([
+                'user_id' => auth()->id(),
+                'user_role' => auth()->user()->role->role_name ?? 'Admin',
+                'department' => auth()->user()->department->department_name ?? null,
+                'action' => 'Delete Document',
+                'description' => "Admin permanently deleted document {$ref}",
+                'ip_address' => request()->ip(),
+                'timestamp' => now(),
+            ]);
+            $doc->delete();
+            return redirect()->back()->with('success', "Document {$ref} permanently deleted.");
+        });
+        Route::post('/documents/{id}/override', function (\Illuminate\Http\Request $request, $id) {
+            $doc = \App\Models\Document::findOrFail($id);
+            $validated = $request->validate([
+                'status' => 'nullable|string',
+                'current_holder_department_id' => 'nullable|exists:departments,department_id',
+                'current_holder_id' => 'nullable|exists:users,id',
+            ]);
+            $doc->update(array_filter($validated));
+            \App\Models\AuditTrail::create([
+                'document_id' => $doc->document_id,
+                'document_ref' => $doc->reference_number,
+                'user_id' => auth()->id(),
+                'user_role' => auth()->user()->role->role_name ?? 'Admin',
+                'department' => auth()->user()->department->department_name ?? null,
+                'action' => 'Admin Override',
+                'description' => "Admin overrode document status/holder for {$doc->reference_number}",
+                'ip_address' => $request->ip(),
+                'timestamp' => now(),
+            ]);
+            return redirect()->back()->with('success', "Document {$doc->reference_number} overridden successfully.");
+        });
+
         Route::get('/system', fn() => Inertia::render('admin/system/SystemConfiguration'));
         Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
+        Route::get('/compliance-reports', [\App\Http\Controllers\ReportController::class, 'index']);
+        Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
         Route::get('/templates', fn() => Inertia::render('admin/templates/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
@@ -467,6 +513,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/employees/{employee}/edit', [\App\Http\Controllers\HR\EmployeeController::class, 'edit'])->name('hr.employees.edit');
         Route::put('/employees/{employee}', [\App\Http\Controllers\HR\EmployeeController::class, 'update'])->name('hr.employees.update');
         Route::delete('/employees/{employee}', [\App\Http\Controllers\HR\EmployeeController::class, 'destroy'])->name('hr.employees.destroy');
+        
+        // User Accounts Management (HR Override employee info & department assignments)
+        Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('hr.users.index');
+        Route::put('/users/{id}', [\App\Http\Controllers\Admin\UserController::class, 'update'])->name('hr.users.update');
+        Route::post('/users/{id}/override-role', [\App\Http\Controllers\Admin\UserController::class, 'overrideRole'])->name('hr.users.overrideRole');
         
         Route::get('/departments', [\App\Http\Controllers\HR\DepartmentController::class, 'index'])->name('hr.departments.index');
         Route::post('/departments', [\App\Http\Controllers\HR\DepartmentController::class, 'store'])->name('hr.departments.store');

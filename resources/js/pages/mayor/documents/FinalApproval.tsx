@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import CreateDocumentModal from './CreateDocumentModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
+import TablePagination from '@/components/trackngo/TablePagination';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
@@ -25,6 +26,8 @@ export default function MayorFinalApproval() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<number[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -98,7 +101,15 @@ export default function MayorFinalApproval() {
         return result;
     }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
 
-    const pendingApprovals = filteredDocs.filter((doc: any) => doc.status === 'endorsed' || doc.status === 'in_review');
+    const paginatedDocs = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredDocs.slice(start, start + pageSize);
+    }, [filteredDocs, currentPage, pageSize]);
+
+    const pendingApprovals = useMemo(() => {
+        return paginatedDocs.filter((doc: any) => doc.status === 'endorsed' || doc.status === 'in_review');
+    }, [paginatedDocs]);
+
     const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,6 +136,7 @@ export default function MayorFinalApproval() {
         setFilterDept('');
         setFilterStatus('');
         setSearchQuery('');
+        setCurrentPage(1);
     };
 
     return (
@@ -166,7 +178,7 @@ export default function MayorFinalApproval() {
                     ].map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => { setActiveTab(tab.id as any); setCurrentPage(1); }}
                             className={cn(
                                 "flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors",
                                 activeTab === tab.id
@@ -216,7 +228,7 @@ export default function MayorFinalApproval() {
                         type="text"
                         placeholder="Search by reference number, tracking number, type, or name..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                         className="h-12 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-12 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     />
                 </div>
@@ -225,7 +237,7 @@ export default function MayorFinalApproval() {
                 <div className="flex flex-wrap items-center gap-3">
                     <select
                         value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
+                        onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
                         className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     >
                         <option value="">All Document Types</option>
@@ -236,7 +248,7 @@ export default function MayorFinalApproval() {
 
                     <select
                         value={filterDept}
-                        onChange={(e) => setFilterDept(e.target.value)}
+                        onChange={(e) => { setFilterDept(e.target.value); setCurrentPage(1); }}
                         className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     >
                         <option value="">All Departments</option>
@@ -247,7 +259,7 @@ export default function MayorFinalApproval() {
 
                     <select
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
+                        onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                         className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     >
                         <option value="">All Statuses</option>
@@ -275,7 +287,7 @@ export default function MayorFinalApproval() {
 
                 {/* Table */}
                 <div className="overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto w-full">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
@@ -317,17 +329,16 @@ export default function MayorFinalApproval() {
                                     <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
                                         QR
                                     </th>
-                                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
                                         Actions
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredDocs.map((doc: any, idx: number) => (
+                                {paginatedDocs.map((doc: any) => (
                                     <tr
                                         key={doc.document_id}
-                                        className="group transition-colors hover:bg-[var(--tng-blue-50)]/50"
-                                        style={{ animationDelay: `${idx * 40}ms` }}
+                                        className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
                                     >
                                         <td className="px-4 py-3">
                                             <input
@@ -373,14 +384,16 @@ export default function MayorFinalApproval() {
                                                 <QrCode className="h-4 w-4" />
                                             </button>
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <Link
-                                                href={`/mayor/documents/${doc.document_id}`}
-                                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
-                                            >
-                                                <Eye className="h-3.5 w-3.5" />
-                                                Review
-                                            </Link>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <Link
+                                                    href={`/mayor/documents/${doc.document_id}`}
+                                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    Review
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -401,6 +414,15 @@ export default function MayorFinalApproval() {
                             )}
                         </div>
                     )}
+
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredDocs.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="documents"
+                    />
                 </div>
             </div>
 

@@ -39,6 +39,7 @@ import {
     Cell,
 } from 'recharts';
 import { toast } from 'sonner';
+import TablePagination from '@/components/trackngo/TablePagination';
 
 export interface Metrics {
     totalProcessed: number;
@@ -158,6 +159,8 @@ export default function ReportsIndex({
     const [selectedDept, setSelectedDept] = useState(filters.department || 'all');
     const [activitySearch, setActivitySearch] = useState('');
     const [activityActionFilter, setActivityActionFilter] = useState('ALL');
+    const [logPage, setLogPage] = useState(1);
+    const [logPageSize, setLogPageSize] = useState(10);
     const [deptSearch, setDeptSearch] = useState('');
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [isExportingCsv, setIsExportingCsv] = useState(false);
@@ -198,6 +201,11 @@ export default function ReportsIndex({
             );
         });
     }, [activityLogs, activitySearch, activityActionFilter]);
+
+    const paginatedLogs = useMemo(() => {
+        const start = (logPage - 1) * logPageSize;
+        return filteredLogs.slice(start, start + logPageSize);
+    }, [filteredLogs, logPage, logPageSize]);
 
     // Filtered Department Bottlenecks Table
     const filteredBottlenecks = useMemo(() => {
@@ -777,7 +785,7 @@ export default function ReportsIndex({
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto w-full">
                         <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 text-[var(--tng-slate-600)] font-semibold border-b border-slate-200">
                                 <tr>
@@ -795,7 +803,7 @@ export default function ReportsIndex({
                             <tbody className="divide-y divide-slate-100">
                                 {filteredBottlenecks.length > 0 ? (
                                     filteredBottlenecks.map((dept) => (
-                                        <tr key={dept.id} className="hover:bg-slate-50/70 transition-colors">
+                                        <tr key={dept.id} className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40">
                                             <td className="py-2.5 px-4 font-semibold text-slate-800">
                                                 {dept.name}
                                             </td>
@@ -891,7 +899,7 @@ export default function ReportsIndex({
                             {/* Action filter tabs */}
                             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-medium text-slate-600">
                                 <button
-                                    onClick={() => setActivityActionFilter('ALL')}
+                                    onClick={() => { setActivityActionFilter('ALL'); setLogPage(1); }}
                                     className={`px-2.5 py-1 rounded-md transition-colors ${
                                         activityActionFilter === 'ALL'
                                             ? 'bg-slate-900 text-white font-semibold shadow-2xs'
@@ -901,7 +909,7 @@ export default function ReportsIndex({
                                     All Logs
                                 </button>
                                 <button
-                                    onClick={() => setActivityActionFilter('WORKFLOW')}
+                                    onClick={() => { setActivityActionFilter('WORKFLOW'); setLogPage(1); }}
                                     className={`px-2.5 py-1 rounded-md transition-colors ${
                                         activityActionFilter === 'WORKFLOW'
                                             ? 'bg-slate-900 text-white font-semibold shadow-2xs'
@@ -911,7 +919,7 @@ export default function ReportsIndex({
                                     Workflows
                                 </button>
                                 <button
-                                    onClick={() => setActivityActionFilter('SECURITY')}
+                                    onClick={() => { setActivityActionFilter('SECURITY'); setLogPage(1); }}
                                     className={`px-2.5 py-1 rounded-md transition-colors ${
                                         activityActionFilter === 'SECURITY'
                                             ? 'bg-slate-900 text-white font-semibold shadow-2xs'
@@ -928,7 +936,7 @@ export default function ReportsIndex({
                                 <input
                                     type="text"
                                     value={activitySearch}
-                                    onChange={(e) => setActivitySearch(e.target.value)}
+                                    onChange={(e) => { setActivitySearch(e.target.value); setLogPage(1); }}
                                     placeholder="Search logs, user, ref..."
                                     className="w-full h-8 pl-8 pr-3 rounded-lg border border-slate-200 text-xs focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                                 />
@@ -936,9 +944,9 @@ export default function ReportsIndex({
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto max-h-96 tng-scrollbar">
+                    <div className="overflow-x-auto w-full">
                         <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 text-[var(--tng-slate-600)] font-semibold border-b border-slate-200 sticky top-0 z-10">
+                            <thead className="bg-slate-50 text-[var(--tng-slate-600)] font-semibold border-b border-slate-200">
                                 <tr>
                                     <th className="py-2.5 px-4">Timestamp</th>
                                     <th className="py-2.5 px-3">Action</th>
@@ -951,8 +959,8 @@ export default function ReportsIndex({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">
-                                {filteredLogs.length > 0 ? (
-                                    filteredLogs.slice(0, 50).map((log) => {
+                                {paginatedLogs.length > 0 ? (
+                                    paginatedLogs.map((log) => {
                                         const actionLower = log.action.toLowerCase();
                                         const isApproval = ['approve', 'completed', 'endorse', 'release'].some((a) =>
                                             actionLower.includes(a)
@@ -963,7 +971,7 @@ export default function ReportsIndex({
                                         const isAuth = ['login', 'logout'].some((a) => actionLower.includes(a));
 
                                         return (
-                                            <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                                            <tr key={log.id} className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40">
                                                 <td className="py-2 px-4 text-slate-500 font-mono text-[11px] whitespace-nowrap">
                                                     {log.timestamp}
                                                 </td>
@@ -1013,6 +1021,15 @@ export default function ReportsIndex({
                             </tbody>
                         </table>
                     </div>
+
+                    <TablePagination
+                        currentPage={logPage}
+                        pageSize={logPageSize}
+                        totalItems={filteredLogs.length}
+                        onPageChange={setLogPage}
+                        onPageSizeChange={setLogPageSize}
+                        itemLabel="logs"
+                    />
                 </div>
 
                 {/* ── HIDDEN PRINTABLE CONTAINER FOR PDF REPORT EXPORT ───────── */}

@@ -7,6 +7,7 @@ import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { StepDots } from '@/components/trackngo/StepProgress';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
+import TablePagination from '@/components/trackngo/TablePagination';
 import { cn } from '@/lib/utils';
 
 export default function CartDocumentsIndex() {
@@ -29,6 +30,10 @@ export default function CartDocumentsIndex() {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    // Pagination state (default: 10 per page, expandable to 20, 50, 100)
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const tabCounts = useMemo(() => {
         const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
@@ -77,6 +82,11 @@ export default function CartDocumentsIndex() {
         return result;
     }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
 
+    const paginatedDocs = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredDocs.slice(start, start + pageSize);
+    }, [filteredDocs, currentPage, pageSize]);
+
     const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
 
     const toggleSelect = (id: number) => {
@@ -98,6 +108,7 @@ export default function CartDocumentsIndex() {
         setFilterDept('');
         setFilterStatus('');
         setSearchQuery('');
+        setCurrentPage(1);
     };
 
     return (
@@ -279,16 +290,16 @@ export default function CartDocumentsIndex() {
                                     <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
                                         QR
                                     </th>
-                                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
                                         Actions
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredDocs.map((doc: any, idx: number) => (
+                                {paginatedDocs.map((doc: any, idx: number) => (
                                     <tr
                                         key={doc.document_id}
-                                        className="group transition-colors hover:bg-[var(--tng-blue-50)]/50"
+                                        className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
                                         style={{ animationDelay: `${idx * 40}ms` }}
                                     >
                                         <td className="px-4 py-3">
@@ -330,19 +341,19 @@ export default function CartDocumentsIndex() {
                                         <td className="px-4 py-3">
                                             <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <button className="rounded-md p-1.5 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-blue-600)]">
-                                                <QrCode className="h-4 w-4" />
-                                            </button>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <Link
-                                                href={`/cart/documents/${doc.document_id}`}
-                                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
-                                            >
-                                                <Eye className="h-3.5 w-3.5" />
-                                                View
-                                            </Link>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <button className="rounded-md p-1.5 text-[var(--tng-slate-400)] transition-colors hover:bg-[var(--tng-slate-100)] hover:text-[var(--tng-blue-600)]" title="View QR">
+                                                    <QrCode className="h-4 w-4" />
+                                                </button>
+                                                <Link
+                                                    href={`/cart/documents/${doc.document_id}`}
+                                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[var(--tng-blue-700)] shadow-2xs hover:shadow-xs"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    View
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -350,19 +361,15 @@ export default function CartDocumentsIndex() {
                         </table>
                     </div>
 
-                    {filteredDocs.length === 0 && (
-                        <div className="py-12 text-center">
-                            <FileText className="mx-auto h-12 w-12 text-[var(--tng-slate-300)]" />
-                            <p className="mt-3 text-sm text-[var(--tng-slate-500)]">
-                                No documents found matching your search.
-                            </p>
-                            {activeFilterCount > 0 && (
-                                <button onClick={clearFilters} className="mt-2 text-sm text-[var(--tng-blue-600)] hover:underline">
-                                    Clear all filters
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    {/* Pagination Controls at Bottom */}
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredDocs.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="documents"
+                    />
                 </div>
             </div>
 

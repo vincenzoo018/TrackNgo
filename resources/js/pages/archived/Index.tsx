@@ -24,8 +24,10 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
+import { BaseModal, ModalSection, ModalSecondaryButton } from '@/components/trackngo/BaseModal';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { cn } from '@/lib/utils';
+import TablePagination from '@/components/trackngo/TablePagination';
 
 export default function ArchivedDocumentsIndex() {
     const { props, url } = usePage();
@@ -39,6 +41,8 @@ export default function ArchivedDocumentsIndex() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [activeTab, setActiveTab] = useState<'all' | 'approved' | 'completed' | 'archived'>('all');
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
@@ -139,6 +143,11 @@ export default function ArchivedDocumentsIndex() {
         return result;
     }, [documents, searchQuery, activeTab, filterType, filterDept, filterArta, sortField, sortDir]);
 
+    const paginatedDocs = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredDocs.slice(start, start + pageSize);
+    }, [filteredDocs, currentPage, pageSize]);
+
     const activeFilterCount = [
         filterType,
         filterDept,
@@ -152,10 +161,10 @@ export default function ArchivedDocumentsIndex() {
     };
 
     const toggleAll = () => {
-        if (selectedIds.length === filteredDocs.length) {
+        if (selectedIds.length === paginatedDocs.length && paginatedDocs.length > 0) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(filteredDocs.map((d: any) => d.document_id));
+            setSelectedIds(paginatedDocs.map((d: any) => d.document_id));
         }
     };
 
@@ -165,6 +174,7 @@ export default function ArchivedDocumentsIndex() {
         setFilterArta('all');
         setSearchQuery('');
         setActiveTab('all');
+        setCurrentPage(1);
     };
 
     const handleSort = (field: 'ref' | 'date_filed' | 'completed_at') => {
@@ -331,7 +341,7 @@ export default function ArchivedDocumentsIndex() {
                             ].map((tab) => (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as any)}
+                                    onClick={() => { setActiveTab(tab.id as any); setCurrentPage(1); }}
                                     className={cn(
                                         'flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all',
                                         activeTab === tab.id
@@ -365,13 +375,13 @@ export default function ArchivedDocumentsIndex() {
                             <input
                                 type="text"
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                                 placeholder="Search Ref, Tracking, Title..."
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50/50 pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                             {searchQuery && (
                                 <button
-                                    onClick={() => setSearchQuery('')}
+                                    onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
                                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                 >
                                     <X className="h-3.5 w-3.5" />
@@ -383,7 +393,7 @@ export default function ArchivedDocumentsIndex() {
                         <div>
                             <select
                                 value={filterDept}
-                                onChange={(e) => setFilterDept(e.target.value)}
+                                onChange={(e) => { setFilterDept(e.target.value); setCurrentPage(1); }}
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 <option value="">All Departments</option>
@@ -399,7 +409,7 @@ export default function ArchivedDocumentsIndex() {
                         <div>
                             <select
                                 value={filterType}
-                                onChange={(e) => setFilterType(e.target.value)}
+                                onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 <option value="">All Document Types</option>
@@ -415,7 +425,7 @@ export default function ArchivedDocumentsIndex() {
                         <div>
                             <select
                                 value={filterArta}
-                                onChange={(e) => setFilterArta(e.target.value as any)}
+                                onChange={(e) => { setFilterArta(e.target.value as any); setCurrentPage(1); }}
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
                                 <option value="all">All ARTA Status</option>
@@ -444,14 +454,14 @@ export default function ArchivedDocumentsIndex() {
 
                 {/* ── Main Data Table ────────────────────────────────────── */}
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto w-full">
                         <table className="w-full text-left text-xs text-slate-600">
                             <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                                 <tr>
                                     <th className="w-10 px-4 py-3 text-center">
                                         <input
                                             type="checkbox"
-                                            checked={selectedIds.length === filteredDocs.length && filteredDocs.length > 0}
+                                            checked={selectedIds.length === paginatedDocs.length && paginatedDocs.length > 0}
                                             onChange={toggleAll}
                                             className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                                         />
@@ -481,11 +491,11 @@ export default function ArchivedDocumentsIndex() {
                                     </th>
                                     <th className="px-4 py-3">Final Status</th>
                                     <th className="px-4 py-3">ARTA Compliance</th>
-                                    <th className="px-4 py-3 text-center">Actions</th>
+                                    <th className="px-4 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredDocs.map((doc: any) => {
+                                {paginatedDocs.map((doc: any) => {
                                     const showUrl = `/${currentRole}/documents/${doc.document_id}`;
                                     const dateFiled = doc.date_filed || doc.created_at;
                                     const formattedDateFiled = dateFiled
@@ -502,7 +512,7 @@ export default function ArchivedDocumentsIndex() {
                                     return (
                                         <tr
                                             key={doc.document_id}
-                                            className="group transition-colors hover:bg-slate-50/60"
+                                            className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
                                         >
                                             {/* Checkbox */}
                                             <td className="px-4 py-3.5 text-center">
@@ -597,8 +607,8 @@ export default function ArchivedDocumentsIndex() {
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="px-4 py-3.5 text-center">
-                                                <div className="flex items-center justify-center gap-1.5">
+                                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1.5">
                                                     <button
                                                         onClick={() => setPreviewDoc(doc)}
                                                         title="Quick Overview"
@@ -645,113 +655,113 @@ export default function ArchivedDocumentsIndex() {
                             )}
                         </div>
                     )}
+
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredDocs.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="documents"
+                    />
                 </div>
 
-                {/* ── Quick Overview Modal ───────────────────────────────── */}
-                {previewDoc && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-                        <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-                            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-                                        <Archive className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-bold text-slate-900">
-                                            {previewDoc.reference_number}
-                                        </h3>
-                                        <p className="text-xs text-slate-500 font-mono">
-                                            {previewDoc.tracking_number || 'No Tracking Number'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setPreviewDoc(null)}
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                {/* ── Standardized Quick Overview Modal ────────────────────── */}
+                <BaseModal
+                    isOpen={!!previewDoc}
+                    onClose={() => setPreviewDoc(null)}
+                    title={previewDoc?.reference_number || 'Archived Document'}
+                    description={previewDoc?.tracking_number ? `Tracking No: ${previewDoc.tracking_number}` : 'Archived document record overview'}
+                    icon={Archive}
+                    badge="Archived"
+                    badgeVariant="default"
+                    maxWidth="lg"
+                    footer={
+                        previewDoc && (
+                            <>
+                                <ModalSecondaryButton onClick={() => setPreviewDoc(null)}>
+                                    Close
+                                </ModalSecondaryButton>
+                                <Link
+                                    href={`/${currentRole}/documents/${previewDoc.document_id}`}
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors"
                                 >
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
+                                    <span>Open Full Show Page</span>
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                </Link>
+                            </>
+                        )
+                    }
+                >
+                    {previewDoc && (
+                        <div className="space-y-4">
+                            <ModalSection title="Document Information">
+                                <div className="space-y-3">
+                                    <div>
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                            Document Title
+                                        </span>
+                                        <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                                            {previewDoc.title || 'Untitled Document'}
+                                        </p>
+                                    </div>
 
-                            <div className="mt-4 space-y-4 text-xs">
-                                <div>
-                                    <span className="text-slate-400 font-medium uppercase tracking-wider text-[10px]">
-                                        Document Title
-                                    </span>
-                                    <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                                        {previewDoc.title || 'Untitled Document'}
-                                    </p>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-3.5 border border-slate-100">
-                                    <div>
-                                        <span className="text-slate-400 text-[10px] font-medium uppercase">
-                                            Department
-                                        </span>
-                                        <p className="font-semibold text-slate-800">
-                                            {previewDoc.department?.department_name || 'General'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 text-[10px] font-medium uppercase">
-                                            Document Type
-                                        </span>
-                                        <p className="font-semibold text-slate-800">
-                                            {previewDoc.type?.type_name || 'General'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 text-[10px] font-medium uppercase">
-                                            Date Filed
-                                        </span>
-                                        <p className="font-semibold text-slate-800">
-                                            {previewDoc.date_filed ? new Date(previewDoc.date_filed).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 text-[10px] font-medium uppercase">
-                                            Final Status
-                                        </span>
-                                        <div className="mt-0.5">
-                                            <SeverityPill status={previewDoc.status} />
+                                    <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 border border-slate-100">
+                                        <div>
+                                            <span className="text-slate-400 text-[10px] font-medium uppercase">
+                                                Department
+                                            </span>
+                                            <p className="font-semibold text-slate-800 text-xs mt-0.5">
+                                                {previewDoc.department?.department_name || 'General'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 text-[10px] font-medium uppercase">
+                                                Document Type
+                                            </span>
+                                            <p className="font-semibold text-slate-800 text-xs mt-0.5">
+                                                {previewDoc.type?.type_name || 'General'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 text-[10px] font-medium uppercase">
+                                                Date Filed
+                                            </span>
+                                            <p className="font-semibold text-slate-800 text-xs mt-0.5">
+                                                {previewDoc.date_filed ? new Date(previewDoc.date_filed).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 text-[10px] font-medium uppercase">
+                                                Final Status
+                                            </span>
+                                            <div className="mt-1">
+                                                <SeverityPill status={previewDoc.status} />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            </ModalSection>
 
+                            <ModalSection title="ARTA Compliance Standard">
                                 <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3.5">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-semibold text-blue-900">
-                                            ARTA Compliance Overview
+                                        <span className="text-xs font-semibold text-blue-900">
+                                            Processing Standard
                                         </span>
                                         <ArtaBadge
                                             daysLeft={previewDoc.arta_days_left ?? 3}
                                             threshold={previewDoc.type?.arta_processing_days ?? 3}
                                         />
                                     </div>
-                                    <p className="mt-1 text-[11px] text-blue-700">
-                                        Required processing standard: <b>{previewDoc.type?.arta_processing_days ?? 3} working days</b> under ARTA Citizen's Charter.
+                                    <p className="mt-1.5 text-xs text-blue-700 leading-relaxed">
+                                        Mandated processing window: <span className="font-semibold">{previewDoc.type?.arta_processing_days ?? 3} working days</span> under ARTA Citizen's Charter.
                                     </p>
                                 </div>
-                            </div>
-
-                            <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-                                <button
-                                    onClick={() => setPreviewDoc(null)}
-                                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                >
-                                    Close
-                                </button>
-                                <Link
-                                    href={`/${currentRole}/documents/${previewDoc.document_id}`}
-                                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800"
-                                >
-                                    <span>Open Full Show Page</span>
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                </Link>
-                            </div>
+                            </ModalSection>
                         </div>
-                    </div>
-                )}
+                    )}
+                </BaseModal>
 
                 {/* ── Export Password Modal ──────────────────────────────── */}
                 <ExportPasswordModal

@@ -5,6 +5,7 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
+import TablePagination from '@/components/trackngo/TablePagination';
 import { cn } from '@/lib/utils';
 
 export default function HrDocuments() {
@@ -26,6 +27,10 @@ export default function HrDocuments() {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    // Pagination state (default: 10 per page, expandable to 20, 50, 100)
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const tabCounts = useMemo(() => {
         const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
@@ -74,6 +79,11 @@ export default function HrDocuments() {
         return result;
     }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
 
+    const paginatedDocs = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredDocs.slice(start, start + pageSize);
+    }, [filteredDocs, currentPage, pageSize]);
+
     const activeFilterCount = [filterType, filterDept, filterStatus].filter(Boolean).length;
 
     const clearFilters = () => {
@@ -81,6 +91,7 @@ export default function HrDocuments() {
         setFilterDept('');
         setFilterStatus('');
         setSearchQuery('');
+        setCurrentPage(1);
     };
 
     return (
@@ -225,15 +236,15 @@ export default function HrDocuments() {
                                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Type</th>
                                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Status</th>
                                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Date</th>
-                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] text-center">Action</th>
+                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredDocs.map((doc: any) => (
+                                {paginatedDocs.map((doc: any) => (
                                     <tr 
                                         key={doc.document_id} 
                                         onClick={() => router.visit(`/hr/documents/${doc.document_id}`)}
-                                        className="transition-colors hover:bg-[var(--tng-blue-50)]/50 cursor-pointer group"
+                                        className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40 cursor-pointer group"
                                     >
                                         <td className="px-6 py-4 text-sm font-semibold text-[var(--tng-blue-600)] group-hover:underline">
                                             {doc.reference_number}
@@ -253,14 +264,16 @@ export default function HrDocuments() {
                                                 year: 'numeric',
                                             })}
                                         </td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                            <Link
-                                                href={`/hr/documents/${doc.document_id}`}
-                                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-[var(--tng-blue-700)] hover:shadow-md"
-                                            >
-                                                <Eye className="h-3.5 w-3.5" />
-                                                View
-                                            </Link>
+                                        <td className="px-6 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <Link
+                                                    href={`/hr/documents/${doc.document_id}`}
+                                                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[var(--tng-blue-700)] shadow-2xs hover:shadow-xs"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                    View
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -268,19 +281,15 @@ export default function HrDocuments() {
                         </table>
                     </div>
 
-                    {filteredDocs.length === 0 && (
-                        <div className="py-12 text-center">
-                            <FileText className="mx-auto h-12 w-12 text-[var(--tng-slate-300)]" />
-                            <p className="mt-3 text-sm text-[var(--tng-slate-500)]">
-                                No documents found matching your search.
-                            </p>
-                            {activeFilterCount > 0 && (
-                                <button onClick={clearFilters} className="mt-2 text-sm text-[var(--tng-blue-600)] hover:underline">
-                                    Clear all filters
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    {/* Pagination Controls at Bottom */}
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredDocs.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="documents"
+                    />
                 </div>
             </div>
 

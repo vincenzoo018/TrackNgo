@@ -1,6 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import TablePagination from '@/components/trackngo/TablePagination';
+import {
+    BaseModal,
+    ModalSection,
+    ModalField,
+    ModalPrimaryButton,
+    ModalSecondaryButton,
+} from '@/components/trackngo/BaseModal';
 import {
     ShieldAlert,
     AlertTriangle,
@@ -99,10 +107,20 @@ export default function CartEscalatedDocsIndex({
     const [selectedRange, setSelectedRange] = useState(filters.range || 'all');
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
 
+    // Pagination state (default: 10 per page, expandable to 20, 50, 100)
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
     // Resolve Modal State
     const [resolvingItem, setResolvingItem] = useState<EscalationItem | null>(null);
     const [resolveRemarks, setResolveRemarks] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Sliced records for paginated view
+    const paginatedEscalations = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return escalations.slice(startIndex, startIndex + pageSize);
+    }, [escalations, currentPage, pageSize]);
 
     // Apply filters
     const applyFilters = (newFilters: {
@@ -123,6 +141,7 @@ export default function CartEscalatedDocsIndex({
         setSelectedType(type);
         setSelectedRange(range);
         setSearchQuery(search);
+        setCurrentPage(1);
 
         router.get(
             window.location.pathname,
@@ -465,12 +484,12 @@ export default function CartEscalatedDocsIndex({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {escalations.length > 0 ? (
-                                    escalations.map((item) => {
+                                {paginatedEscalations.length > 0 ? (
+                                    paginatedEscalations.map((item) => {
                                         return (
                                             <tr
                                                 key={item.id}
-                                                className="even:bg-slate-50/40 hover:bg-blue-50/30 transition-colors group"
+                                                className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40 group"
                                             >
                                                 {/* 1. Tracking # */}
                                                 <td className="px-4 py-4 whitespace-nowrap">
@@ -650,103 +669,100 @@ export default function CartEscalatedDocsIndex({
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Controls at Bottom */}
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={escalations.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="ARTA escalations"
+                    />
                 </div>
 
-                {/* ── RESOLUTION MODAL ──────────────────────────────────────── */}
+                {/* ── RESOLUTION MODAL (Standardized) ──────────────────────── */}
                 {resolvingItem && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-                        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
-                            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                                        <CheckCircle2 className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-bold text-slate-900">
-                                            Resolve ARTA Escalation
-                                        </h3>
-                                        <p className="text-xs text-slate-500 font-mono">
-                                            Tracking #: {resolvingItem.tracking_number}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setResolvingItem(null)}
-                                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-3 rounded-xl bg-slate-50 p-4 border border-slate-200/80 text-xs">
-                                <div>
-                                    <span className="font-semibold text-slate-500">Document Title:</span>
-                                    <p className="font-bold text-slate-800 text-sm mt-0.5">
-                                        {resolvingItem.title}
-                                    </p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
-                                    <div>
-                                        <span className="font-semibold text-slate-500">Originating Dept:</span>
-                                        <p className="font-semibold text-slate-800">
-                                            {resolvingItem.originating_department} ({resolvingItem.originating_department_code})
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <span className="font-semibold text-slate-500">Current Holder:</span>
-                                        <p className="font-semibold text-slate-800">
-                                            {resolvingItem.current_holder_user} ({resolvingItem.current_holder_office})
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="pt-2 border-t border-slate-200">
-                                    <span className="font-semibold text-slate-500">Days Elapsed vs SLA:</span>
-                                    <p className="font-semibold text-red-600">
-                                        {resolvingItem.days_elapsed} days elapsed (Statutory SLA target: {resolvingItem.sla_threshold}d)
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                                    CART Resolution Remarks / Corrective Actions Taken
-                                </label>
-                                <textarea
-                                    rows={3}
-                                    value={resolveRemarks}
-                                    onChange={(e) => setResolveRemarks(e.target.value)}
-                                    placeholder="e.g. CART facilitated expediting with the controlling department. Action completed pursuant to ARTA MC No. 2020-07."
-                                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                                <button
-                                    type="button"
+                    <BaseModal
+                        isOpen={Boolean(resolvingItem)}
+                        onClose={() => setResolvingItem(null)}
+                        title="Resolve ARTA Escalation"
+                        identifier={resolvingItem.tracking_number}
+                        description="Document corrective actions taken pursuant to ARTA Memorandum Circular No. 2020-07."
+                        icon={<CheckCircle2 className="h-5 w-5" />}
+                        iconContainerClassName="bg-emerald-100 text-emerald-700"
+                        maxWidth="max-w-lg"
+                        footer={
+                            <>
+                                <ModalSecondaryButton
                                     onClick={() => setResolvingItem(null)}
                                     disabled={isSubmitting}
-                                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                                 >
                                     Cancel
-                                </button>
-                                <button
-                                    type="button"
+                                </ModalSecondaryButton>
+                                <ModalPrimaryButton
                                     onClick={handleConfirmResolve}
-                                    disabled={isSubmitting}
-                                    className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                    isLoading={isSubmitting}
+                                    loadingText="Resolving..."
+                                    className="bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
                                 >
-                                    {isSubmitting ? (
-                                        <>Resolving...</>
-                                    ) : (
-                                        <>
-                                            <Check className="h-4 w-4" />
-                                            Confirm Resolution
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                                    <Check className="h-4 w-4" />
+                                    Confirm Resolution
+                                </ModalPrimaryButton>
+                            </>
+                        }
+                    >
+                        <div className="space-y-5">
+                            {/* Section 1: Escalation & Document Status */}
+                            <ModalSection title="Document & Escalation Status">
+                                <div className="space-y-3 rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs">
+                                    <div>
+                                        <span className="font-semibold text-slate-500">Document Title:</span>
+                                        <p className="font-bold text-slate-900 text-sm mt-0.5">
+                                            {resolvingItem.title}
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200/80">
+                                        <div>
+                                            <span className="font-semibold text-slate-500">Originating Dept:</span>
+                                            <p className="font-semibold text-slate-800 mt-0.5">
+                                                {resolvingItem.originating_department} ({resolvingItem.originating_department_code})
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="font-semibold text-slate-500">Current Holder:</span>
+                                            <p className="font-semibold text-slate-800 mt-0.5">
+                                                {resolvingItem.current_holder_user} ({resolvingItem.current_holder_office})
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-200/80">
+                                        <span className="font-semibold text-slate-500">Days Elapsed vs SLA Target:</span>
+                                        <p className="font-semibold text-red-600 mt-0.5">
+                                            {resolvingItem.days_elapsed} days elapsed (Statutory SLA target: {resolvingItem.sla_threshold} days)
+                                        </p>
+                                    </div>
+                                </div>
+                            </ModalSection>
+
+                            {/* Section 2: Corrective Actions & Resolution */}
+                            <ModalSection title="Resolution Remarks & Corrective Actions">
+                                <ModalField
+                                    label="Corrective Actions Taken"
+                                    required
+                                    description="Detail the interventions implemented to expedite this transaction."
+                                >
+                                    <textarea
+                                        rows={3}
+                                        value={resolveRemarks}
+                                        onChange={(e) => setResolveRemarks(e.target.value)}
+                                        placeholder="e.g., CART intervened with the controlling office; transaction expedited and routed for immediate signature."
+                                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                                    />
+                                </ModalField>
+                            </ModalSection>
                         </div>
-                    </div>
+                    </BaseModal>
                 )}
             </div>
         </TrackngoLayout>

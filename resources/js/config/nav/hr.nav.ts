@@ -16,6 +16,7 @@ export const hrNav: NavItem[] = [
     { title: 'Dashboard', href: '/hr', icon: LayoutDashboard },
     { title: 'HR Documents', href: '/hr/documents', icon: FileText },
     { title: 'Departments', href: '/hr/departments', icon: Building2 },
+    { title: 'User Accounts', href: '/hr/users', icon: Users },
     { title: 'Employee Records', href: '/hr/employees', icon: Users },
     { title: 'Leave Management', href: '/hr/leave', icon: CalendarDays },
     { title: 'Routing Slips', href: '/hr/routing-slips', icon: Route },

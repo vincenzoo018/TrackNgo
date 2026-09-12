@@ -261,7 +261,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                                             <div className="grid grid-cols-2 gap-4 mb-4">
                                                 <div>
                                                     <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                                        Title
+                                                        Title <span className="text-red-500 font-semibold">*</span>
                                                     </label>
                                                     <input
                                                         type="text"
@@ -269,11 +269,11 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                                                         onChange={e => setData('title', e.target.value)}
                                                         className="h-9 w-full rounded-lg border border-[var(--tng-blue-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                                                     />
-                                                    {errors.title && <p className="text-[11px] text-red-600 mt-1">{errors.title}</p>}
+                                                    {errors.title && <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.title}</p>}
                                                 </div>
                                                 <div>
                                                     <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                                        Document Category
+                                                        Document Category <span className="text-red-500 font-semibold">*</span>
                                                     </label>
                                                     <select 
                                                         value={data.type_id}
@@ -285,7 +285,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                                                             <option key={type.type_id} value={type.type_id}>{type.type_name}</option>
                                                         ))}
                                                     </select>
-                                                    {errors.type_id && <p className="text-[11px] text-red-600 mt-1">{errors.type_id}</p>}
+                                                    {errors.type_id && <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.type_id}</p>}
                                                 </div>
                                             </div>
                                         </div>
@@ -364,7 +364,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div>
                                             <label className="mb-1.5 block text-xs font-medium text-[var(--tng-slate-700)]">
-                                                Forward To (Department)
+                                                Forward To (Department) <span className="text-red-500 font-semibold">*</span>
                                             </label>
                                             <select 
                                                 value={data.forward_to}
@@ -376,7 +376,7 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
                                                     <option key={dept.department_id} value={dept.department_id}>{dept.department_name}</option>
                                                 ))}
                                             </select>
-                                            {errors.forward_to && <p className="text-[11px] text-red-600 mt-1">{errors.forward_to}</p>}
+                                            {errors.forward_to && <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.forward_to}</p>}
                                         </div>
 
                                         <div>

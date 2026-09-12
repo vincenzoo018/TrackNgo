@@ -25,6 +25,7 @@ import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
 import { RoutingSlipModal } from '@/components/trackngo/RoutingSlipModal';
+import TablePagination from '@/components/trackngo/TablePagination';
 
 export type RoutingSlipItem = {
     slip_id: number;
@@ -555,41 +556,32 @@ export default function RoutingSlipsIndex({
 
                 {/* ── Table Section ─────────────────────────────────────────── */}
                 <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
-                    <table className="w-full table-fixed text-left text-xs text-[var(--tng-slate-600)]">
-                        <colgroup>
-                            <col className="w-[11%]" />
-                            <col className="w-[16%]" />
-                            <col className="w-[13%]" />
-                            <col className="w-[13%]" />
-                            <col className="w-[9%]" />
-                            <col className="w-[19%]" />
-                            <col className="w-[8%]" />
-                            <col className="w-[11%]" />
-                        </colgroup>
-                        <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)] uppercase tracking-wider font-semibold text-[11px]">
-                            <tr>
-                                <th className="px-3 py-3">Slip ID</th>
-                                <th className="px-3 py-3">Document Reference</th>
-                                <th className="px-3 py-3">From</th>
-                                <th className="px-3 py-3">To</th>
-                                <th className="px-3 py-3 text-center">Action</th>
-                                <th className="px-3 py-3">Instruction</th>
-                                <th className="px-3 py-3 text-center">Status</th>
-                                <th className="px-3 py-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--tng-slate-200)]">
-                            {paginatedSlips.length > 0 ? (
-                                paginatedSlips.map((slip) => {
-                                    const actionBadge = getActionBadge(slip.action);
-                                    const ActionIcon = actionBadge.icon;
-                                    const docUrl = `/${currentRole}/documents/${slip.document_id}`;
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left text-xs text-[var(--tng-slate-600)]">
+                            <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)] uppercase tracking-wider font-semibold text-[11px]">
+                                <tr>
+                                    <th className="px-3.5 py-3">Slip ID</th>
+                                    <th className="px-3.5 py-3">Document Reference</th>
+                                    <th className="px-3.5 py-3">From</th>
+                                    <th className="px-3.5 py-3">To</th>
+                                    <th className="px-3.5 py-3 text-center">Action</th>
+                                    <th className="px-3.5 py-3">Instruction</th>
+                                    <th className="px-3.5 py-3 text-center">Status</th>
+                                    <th className="px-3.5 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--tng-slate-200)]">
+                                {paginatedSlips.length > 0 ? (
+                                    paginatedSlips.map((slip) => {
+                                        const actionBadge = getActionBadge(slip.action);
+                                        const ActionIcon = actionBadge.icon;
+                                        const docUrl = `/${currentRole}/documents/${slip.document_id}`;
 
-                                    return (
-                                        <tr
-                                            key={slip.slip_id}
-                                            className="hover:bg-[var(--tng-slate-50)]/80 transition-colors"
-                                        >
+                                        return (
+                                            <tr
+                                                key={slip.slip_id}
+                                                className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
+                                            >
                                             {/* 1. Slip ID */}
                                             <td className="px-3.5 py-3">
                                                 <div className="font-mono text-xs font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2 py-0.5 rounded border border-[var(--tng-blue-200)] inline-block truncate max-w-full">
@@ -708,52 +700,18 @@ export default function RoutingSlipsIndex({
                                 </tr>
                             )}
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
 
                     {/* Pagination Footer */}
-                    <div className="px-4 py-3 bg-[var(--tng-slate-50)] border-t border-[var(--tng-slate-200)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--tng-slate-500)]">
-                        <div>
-                            Showing{' '}
-                            <span className="font-semibold text-[var(--tng-slate-900)]">
-                                {filteredSlips.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-                            </span>{' '}
-                            to{' '}
-                            <span className="font-semibold text-[var(--tng-slate-900)]">
-                                {Math.min(currentPage * pageSize, filteredSlips.length)}
-                            </span>{' '}
-                            of{' '}
-                            <span className="font-semibold text-[var(--tng-slate-900)]">
-                                {filteredSlips.length}
-                            </span>{' '}
-                            slips
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                disabled={currentPage === 1}
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--tng-slate-300)] bg-white text-xs font-medium text-[var(--tng-slate-700)] hover:bg-[var(--tng-slate-50)] disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
-                            >
-                                <ChevronLeft className="h-3.5 w-3.5" />
-                                Previous
-                            </button>
-
-                            <span className="px-2 text-xs font-medium text-[var(--tng-slate-600)]">
-                                Page {currentPage} of {totalPages}
-                            </span>
-
-                            <button
-                                type="button"
-                                disabled={currentPage >= totalPages}
-                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--tng-slate-300)] bg-white text-xs font-medium text-[var(--tng-slate-700)] hover:bg-[var(--tng-slate-50)] disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
-                            >
-                                Next
-                                <ChevronRight className="h-3.5 w-3.5" />
-                            </button>
-                        </div>
-                    </div>
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredSlips.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="routing slips"
+                    />
                 </div>
             </div>
 

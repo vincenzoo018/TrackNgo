@@ -1,5 +1,11 @@
 import React from 'react';
-import { BaseModal } from '@/components/trackngo/BaseModal';
+import {
+    BaseModal,
+    ModalSection,
+    ModalField,
+    ModalPrimaryButton,
+    ModalSecondaryButton,
+} from '@/components/trackngo/BaseModal';
 import { Building2, Save } from 'lucide-react';
 import { useForm } from '@inertiajs/react';
 
@@ -7,15 +13,18 @@ type Props = {
     isOpen: boolean;
     onClose: () => void;
     users: any[];
+    department?: any;
 };
 
-export default function DepartmentFormModal({ isOpen, onClose, users }: Props) {
-    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
-        department_name: '',
-        code: '',
-        description: '',
-        head_id: '',
-        is_active: 1,
+export default function DepartmentFormModal({ isOpen, onClose, users, department }: Props) {
+    const isEditing = Boolean(department);
+
+    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
+        department_name: department?.department_name || '',
+        code: department?.code || '',
+        description: department?.description || '',
+        head_id: department?.head_id || '',
+        is_active: department?.is_active !== undefined ? Number(department.is_active) : 1,
     });
 
     const handleClose = () => {
@@ -27,105 +36,113 @@ export default function DepartmentFormModal({ isOpen, onClose, users }: Props) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        post(route('hr.departments.store'), {
-            onSuccess: () => {
-                handleClose();
-            }
-        });
+        if (isEditing) {
+            put(route('hr.departments.update', department.department_id), {
+                onSuccess: () => {
+                    handleClose();
+                }
+            });
+        } else {
+            post(route('hr.departments.store'), {
+                onSuccess: () => {
+                    handleClose();
+                }
+            });
+        }
     };
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={handleClose}
-            title="Add New Department"
-            description="Create a new department and assign a department head."
+            title={isEditing ? `Edit Department: ${department.department_name}` : "Add New Department"}
+            description={isEditing ? "Update department metadata, assigned leadership, and operational status." : "Register a new municipal department or office and assign leadership."}
             icon={<Building2 className="h-5 w-5" />}
             maxWidth="max-w-xl"
             formProps={{ onSubmit: handleSubmit }}
             footer={
                 <>
-                    <button
-                        type="button"
-                        onClick={handleClose}
-                        className="px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-100)] rounded-lg transition-colors"
-                    >
+                    <ModalSecondaryButton onClick={handleClose} disabled={processing}>
                         Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={processing}
-                        className="flex items-center gap-2 px-4 py-2 bg-[var(--tng-blue-600)] text-white text-sm font-medium rounded-lg shadow-md hover:bg-[var(--tng-blue-700)] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
+                    </ModalSecondaryButton>
+                    <ModalPrimaryButton isLoading={processing} loadingText={isEditing ? "Updating..." : "Saving..."}>
                         <Save className="h-4 w-4" />
-                        {processing ? 'Saving...' : 'Save Department'}
-                    </button>
+                        {isEditing ? "Save Department Changes" : "Save Department"}
+                    </ModalPrimaryButton>
                 </>
             }
         >
-            <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Name *</label>
-                        <input
-                            type="text"
-                            value={data.department_name}
-                            onChange={e => setData('department_name', e.target.value)}
-                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.department_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                            placeholder="City Engineer's Office"
-                        />
-                        {errors.department_name && <p className="text-xs text-red-500">{errors.department_name}</p>}
+            <div className="space-y-6">
+                {/* Section 1: Department Details */}
+                <ModalSection
+                    title="Department Details"
+                    description="Official naming and municipal identification code."
+                >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <ModalField label="Department Name" required error={errors.department_name}>
+                            <input
+                                type="text"
+                                required
+                                value={data.department_name}
+                                onChange={e => setData('department_name', e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                                placeholder="e.g. City Engineering Office"
+                            />
+                        </ModalField>
+
+                        <ModalField label="Department Code" error={errors.code}>
+                            <input
+                                type="text"
+                                value={data.code}
+                                onChange={e => setData('code', e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 uppercase font-mono"
+                                placeholder="e.g. CEO"
+                            />
+                        </ModalField>
                     </div>
-                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Code</label>
-                        <input
-                            type="text"
-                            value={data.code}
-                            onChange={e => setData('code', e.target.value)}
-                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.code ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                            placeholder="ENG-01"
+
+                    <ModalField label="Description / Function" error={errors.description}>
+                        <textarea
+                            rows={3}
+                            value={data.description}
+                            onChange={e => setData('description', e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                            placeholder="Brief description of department scope and responsibilities..."
                         />
-                        {errors.code && <p className="text-xs text-red-500">{errors.code}</p>}
+                    </ModalField>
+                </ModalSection>
+
+                {/* Section 2: Leadership & Administration */}
+                <ModalSection
+                    title="Leadership & Administration"
+                    description="Designate department head and operational status."
+                >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <ModalField label="Department Head" error={errors.head_id}>
+                            <select
+                                value={data.head_id}
+                                onChange={e => setData('head_id', e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                            >
+                                <option value="">No Department Head Assigned</option>
+                                {users.map(user => (
+                                    <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
+                                ))}
+                            </select>
+                        </ModalField>
+
+                        <ModalField label="Operational Status" required>
+                            <select
+                                value={data.is_active}
+                                onChange={e => setData('is_active', Number(e.target.value))}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                            >
+                                <option value={1}>Active</option>
+                                <option value={0}>Inactive</option>
+                            </select>
+                        </ModalField>
                     </div>
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Description</label>
-                    <textarea
-                        value={data.description}
-                        onChange={e => setData('description', e.target.value)}
-                        className="w-full rounded-lg border border-[var(--tng-slate-200)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 min-h-[80px]"
-                        placeholder="Brief description of the department's role..."
-                    />
-                    {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Head</label>
-                    <select
-                        value={data.head_id}
-                        onChange={e => setData('head_id', e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.head_id ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                    >
-                        <option value="">No Department Head Assigned</option>
-                        {users.map(user => (
-                            <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
-                        ))}
-                    </select>
-                    {errors.head_id && <p className="text-xs text-red-500">{errors.head_id}</p>}
-                </div>
-
-                <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Status</label>
-                    <select
-                        value={data.is_active}
-                        onChange={e => setData('is_active', Number(e.target.value))}
-                        className="w-full rounded-lg border border-[var(--tng-slate-200)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                    >
-                        <option value={1}>Active</option>
-                        <option value={0}>Inactive</option>
-                    </select>
-                </div>
+                </ModalSection>
             </div>
         </BaseModal>
     );
