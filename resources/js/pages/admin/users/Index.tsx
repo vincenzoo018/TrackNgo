@@ -79,9 +79,9 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
     const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('all');
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
 
-    // Pagination state (default: 10 per page, option to expand to 20, 50, 100)
+    // Pagination state (default: 20 per page, option to expand to 50, 100)
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [perPage, setPerPage] = useState<number>(10);
+    const [perPage, setPerPage] = useState<number>(20);
 
     // Modals state
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -189,7 +189,7 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
         <TrackngoLayout>
             <Head title={isHr ? "Personnel Records & Department Assignments — TrackNGo Mati" : "User Accounts & Role-Based Access — TrackNGo Mati"} />
 
-            <div className="flex h-[calc(100vh-140px)] flex-col space-y-6 overflow-y-auto tng-scrollbar pb-8">
+            <div className="flex flex-col space-y-6 pb-8">
                 
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
