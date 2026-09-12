@@ -88,7 +88,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/system', fn() => Inertia::render('admin/system/SystemConfiguration'));
         Route::get('/reports', fn() => Inertia::render('admin/reports/Index'));
         Route::get('/templates', fn() => Inertia::render('admin/templates/Index'));
-        Route::get('/routing-slips', fn() => Inertia::render('admin/routing-slips/RoutingSlips'));
+        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
     });
 
@@ -185,7 +185,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
-        Route::get('/routing-slips', fn() => Inertia::render('receiving/routing-slips/RoutingSlips'));
+        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('receiving/reports/Index'));
     });
@@ -263,7 +263,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/workflow', fn() => Inertia::render('department-head/workflow/Index'));
         Route::get('/signature', fn() => Inertia::render('department-head/signature/Index'));
-        Route::get('/routing-slips', fn() => Inertia::render('department-head/routing-slips/RoutingSlips'));
+        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('department-head/reports/Index'));
     });
@@ -332,7 +332,7 @@ Route::middleware(['auth'])->group(function () {
             ]);
         });
         Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
-        Route::get('/routing-slips', fn() => Inertia::render('mayor/routing-slips/RoutingSlips'));
+        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('mayor/reports/Index'));
         
@@ -397,7 +397,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('cart/reports/Index'));
-        Route::get('/routing-slips', fn() => Inertia::render('cart/routing-slips/RoutingSlips'));
+        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         
         // Document Actions
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
@@ -464,7 +464,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/departments/{department}', [\App\Http\Controllers\HR\DepartmentController::class, 'destroy'])->name('hr.departments.destroy');
 
         Route::get('/leave', fn() => Inertia::render('hr/leave/Index'));
-        Route::get('/routing-slips', fn() => Inertia::render('hr/routing-slips/RoutingSlips'));
+        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/reports', fn() => Inertia::render('hr/reports/Index'));
         

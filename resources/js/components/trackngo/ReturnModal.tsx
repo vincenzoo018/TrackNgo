@@ -7,9 +7,10 @@ type ReturnModalProps = {
     open: boolean;
     onClose: () => void;
     onConfirm: (reason: string) => void;
+    identifier?: string;
 };
 
-export function ReturnModal({ open, onClose, onConfirm }: ReturnModalProps) {
+export function ReturnModal({ open, onClose, onConfirm, identifier }: ReturnModalProps) {
     const [reason, setReason] = useState('');
 
     return (
@@ -17,6 +18,7 @@ export function ReturnModal({ open, onClose, onConfirm }: ReturnModalProps) {
             isOpen={open}
             onClose={onClose}
             title="Return Document"
+            identifier={identifier}
             description="Provide a reason for returning this document."
             icon={<AlertCircle className="h-5 w-5" />}
             maxWidth="max-w-lg"

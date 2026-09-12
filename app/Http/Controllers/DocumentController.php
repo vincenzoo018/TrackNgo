@@ -233,7 +233,7 @@ class DocumentController extends Controller
             'to_user_id' => $isDept ? null : $request->destination_id,
             'target_department_id' => $isDept ? $request->destination_id : \App\Models\User::find($request->destination_id)->department_id,
             'sender_name' => auth()->user()->name,
-            'action' => 'forward',
+            'action' => 'endorse',
             'instruction' => $request->remarks,
             'status' => 'pending',
         ]);
@@ -440,6 +440,19 @@ class DocumentController extends Controller
             'status' => 'Returned',
             'return_reason' => $request->reason,
             'current_holder_id' => $document->submitted_by ?? $document->current_holder_id,
+        ]);
+
+        \App\Models\RoutingSlip::create([
+            'document_id' => $document->document_id,
+            'tracking_number' => $document->tracking_number ?: ('RS-RET-' . $document->reference_number),
+            'from_user_id' => $user->id,
+            'from_department_id' => $user->department_id,
+            'to_user_id' => $document->submitted_by,
+            'target_department_id' => $document->department_id,
+            'sender_name' => $user->name,
+            'action' => 'return',
+            'instruction' => 'Returned: ' . $request->reason,
+            'status' => 'returned',
         ]);
 
         $audit = \App\Models\AuditTrail::create([

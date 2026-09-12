@@ -1,10 +1,12 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send, CheckCircle2, FileSearch, Paperclip, FileText } from 'lucide-react';
+import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send, CheckCircle2, FileSearch, Paperclip, FileText, Eye } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StepProgress } from '@/components/trackngo/StepProgress';
 import { CollapsiblePanel } from '@/components/trackngo/CollapsiblePanel';
+import { BaseModal } from '@/components/trackngo/BaseModal';
+import { RoutingSlipModal, RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
 
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { ReturnModal } from '@/components/trackngo/ReturnModal';
@@ -48,6 +50,26 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
     const [aiTemplateOpen, setAiTemplateOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [exportModalOpen, setExportModalOpen] = useState(false);
+    const initialSlip = doc.routing_slips && doc.routing_slips.length > 0 ? doc.routing_slips[0] : null;
+    const routingSlipModalData: RoutingSlipModalData = {
+        slip_id: initialSlip?.slip_id || doc.document_id,
+        formatted_slip_id: initialSlip?.tracking_number || doc.tracking_number || doc.reference_number,
+        tracking_number: doc.tracking_number || doc.reference_number,
+        document_id: doc.document_id,
+        document_ref: doc.reference_number,
+        document_title: doc.title,
+        from_name: initialSlip?.sender_name || initialSlip?.from_user?.name || doc.sender || doc.submitter?.name || 'Authorized Submitter',
+        from_department: initialSlip?.from_department?.department_name || doc.department?.department_name || 'Origin Department',
+        to_name: initialSlip?.to_user?.name || 'Department Pool',
+        to_department: initialSlip?.target_department?.department_name || initialSlip?.to_department?.department_name || 'Destination Department',
+        action: initialSlip?.action || 'Review & Forward',
+        instruction: initialSlip?.instruction || 'For review and appropriate action.',
+        status: initialSlip?.status || (doc.status === 'completed' ? 'Completed' : doc.status === 'returned' ? 'Returned' : 'Active'),
+        date: initialSlip?.created_at || doc.created_at,
+        formatted_date: initialSlip?.created_at ? new Date(initialSlip.created_at).toISOString().split('T')[0] : (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : '2026-07-27'),
+        stop_number: 'Stop #1',
+        qr_data: doc.tracking_number || doc.reference_number,
+    };
     const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
 
     // Anchored Comments State
@@ -382,7 +404,21 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                     <div className="flex flex-col gap-6 text-slate-900">
                                         <div className="flex justify-between items-start border-b border-slate-200 pb-6">
                                             <div>
-                                                <h2 className="text-lg font-bold uppercase tracking-tight">Routing Slip</h2>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h2 className="text-lg font-bold uppercase tracking-tight">Routing Slip</h2>
+                                                    <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                        {doc.tracking_number ?? doc.reference_number}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setQrModalOpen(true)}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 transition-colors shadow-2xs font-sans"
+                                                        title="View official routing slip modal"
+                                                    >
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                        View Official Slip
+                                                    </button>
+                                                </div>
                                                 <p className="text-sm font-semibold mt-2">{doc.department?.department_name ?? 'Origin Department'}</p>
                                                 <p className="text-xs text-slate-600">{doc.sender ?? doc.submitter?.name ?? 'Unknown Sender'}</p>
                                             </div>
@@ -602,6 +638,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 onClose={() => setForwardModalOpen(false)}
                 departments={departments}
                 users={users}
+                identifier={doc.reference_number}
                 onConfirm={(destType, destId, rem) => handleEndorse(destType, destId, rem)}
             />
 
@@ -609,192 +646,222 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 open={returnModalOpen}
                 onClose={() => setReturnModalOpen(false)}
                 onConfirm={(reason) => handleReturn(reason)}
+                identifier={doc.reference_number}
             />
 
-            {/* Modals for new features */}
-            {/* Modals for features */}
-            {qrModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setQrModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-2">Routing Slip QR</h3>
-                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-6">{doc.reference_number}</p>
-                        <div className="mx-auto flex h-48 w-48 items-center justify-center rounded-[6px] border-4 border-[var(--tng-slate-100)] bg-white p-4">
-                            <QrCode className="h-full w-full text-[var(--tng-slate-800)]" />
-                        </div>
-                        <p className="mt-4 text-[12px] text-[var(--tng-slate-400)]">Attach this QR to the physical document</p>
-                        <button onClick={() => setQrModalOpen(false)} className="mt-6 w-full rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Done</button>
-                    </div>
-                </div>
-            )}
+            {/* Official Routing Slip Modal */}
+            <RoutingSlipModal
+                isOpen={qrModalOpen}
+                onClose={() => setQrModalOpen(false)}
+                slip={routingSlipModalData}
+                currentRole="department-head"
+            />
 
-            {linkModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setLinkModalOpen(false)} />
-                    <div className="relative w-full max-w-md rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Link Related Document</h3>
-                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-6">Attach another Tracking Number as a reference.</p>
-                        <input type="text" placeholder="Search by Tracking No. (e.g. TNG-2026-...)" className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-3 text-[14px] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" />
-                        <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setLinkModalOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
-                            <button onClick={() => { showToast('Document linked successfully!'); setLinkModalOpen(false); }} className="rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Link Document</button>
-                        </div>
-                    </div>
+            {/* Link Related Document Modal */}
+            <BaseModal
+                isOpen={linkModalOpen}
+                onClose={() => setLinkModalOpen(false)}
+                title="Link Related Document"
+                identifier={doc.reference_number}
+                description="Attach another tracking number or routing slip as a cross-reference."
+                icon={<LinkIcon className="h-5 w-5" />}
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button type="button" onClick={() => setLinkModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                        <button type="button" onClick={() => { showToast('Document linked successfully!'); setLinkModalOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Link Document</button>
+                    </>
+                }
+            >
+                <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Document Tracking Number</label>
+                    <input type="text" placeholder="Search by Tracking No. (e.g. RS-2026-0048 or TNG-2026-...)" className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" />
                 </div>
-            )}
+            </BaseModal>
 
-            {escalateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setEscalateModalOpen(false)} />
-                    <div className="relative w-full max-w-md rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
-                                <ShieldAlert className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-[var(--tng-slate-900)]">Escalate to CART</h3>
-                                <p className="text-xs text-[var(--tng-slate-500)]">Flag for ARTA non-compliance investigation</p>
-                            </div>
-                        </div>
-                        <textarea rows={3} placeholder="Please provide justification for this escalation..." className="w-full rounded-[6px] border border-red-200 bg-red-50/50 p-3 text-[14px] text-[var(--tng-slate-900)] focus:border-red-500 focus:ring-1 focus:ring-red-500" />
-                        <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setEscalateModalOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
-                            <button onClick={() => { showToast('Document successfully escalated to CART!'); setEscalateModalOpen(false); }} className="rounded-[6px] bg-red-600 px-4 py-2 text-[16px] font-medium text-white hover:bg-red-700 transition-colors">Submit Escalation</button>
-                        </div>
-                    </div>
+            {/* Escalate to CART Modal */}
+            <BaseModal
+                isOpen={escalateModalOpen}
+                onClose={() => setEscalateModalOpen(false)}
+                title="Escalate to CART"
+                identifier={doc.reference_number}
+                description="Flag for ARTA non-compliance investigation and expedited review."
+                icon={<ShieldAlert className="h-5 w-5" />}
+                headerClassName="bg-rose-50/70"
+                iconContainerClassName="bg-rose-100 text-rose-600"
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button type="button" onClick={() => setEscalateModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                        <button type="button" onClick={() => { showToast('Document successfully escalated to CART!'); setEscalateModalOpen(false); }} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 transition-colors shadow-2xs">Submit Escalation</button>
+                    </>
+                }
+            >
+                <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Escalation Justification</label>
+                    <textarea rows={3} placeholder="Please provide justification for this escalation..." className="w-full rounded-lg border border-rose-200 bg-rose-50/30 p-2.5 text-sm text-slate-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-500" />
                 </div>
-            )}
+            </BaseModal>
 
-            {/* Advanced Modals */}
-            {parallelRoutingOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setParallelRoutingOpen(false)} />
-                    <div className="relative w-full max-w-lg rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Parallel Routing</h3>
-                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-6">Route this document to multiple departments simultaneously for concurrent review.</p>
-                        
-                        <div className="space-y-4">
-                            <label className="flex items-center gap-3 rounded-[6px] border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)] cursor-pointer">
-                                <input type="checkbox" className="h-4 w-4 rounded border-[var(--tng-slate-300)]" />
-                                <div><p className="text-[14px] font-semibold">City Legal Office</p><p className="text-xs text-[var(--tng-slate-500)]">Legal review and clearance</p></div>
-                            </label>
-                            <label className="flex items-center gap-3 rounded-[6px] border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)] cursor-pointer">
-                                <input type="checkbox" className="h-4 w-4 rounded border-[var(--tng-slate-300)]" />
-                                <div><p className="text-[14px] font-semibold">City Budget Office</p><p className="text-xs text-[var(--tng-slate-500)]">Financial obligation review</p></div>
-                            </label>
-                            <label className="flex items-center gap-3 rounded-[6px] border border-[var(--tng-slate-200)] p-3 hover:bg-[var(--tng-slate-50)] cursor-pointer">
-                                <input type="checkbox" className="h-4 w-4 rounded border-[var(--tng-slate-300)]" />
-                                <div><p className="text-[14px] font-semibold">Human Resources</p><p className="text-xs text-[var(--tng-slate-500)]">Personnel impact review</p></div>
-                            </label>
-                        </div>
-                        <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setParallelRoutingOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
-                            <button onClick={() => { showToast('Document routed in parallel!'); setParallelRoutingOpen(false); }} className="rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Initiate Parallel Route</button>
-                        </div>
-                    </div>
+            {/* Parallel Routing Modal */}
+            <BaseModal
+                isOpen={parallelRoutingOpen}
+                onClose={() => setParallelRoutingOpen(false)}
+                title="Parallel Routing"
+                identifier={doc.reference_number}
+                description="Route this document to multiple departments simultaneously for concurrent review."
+                icon={<GitMerge className="h-5 w-5" />}
+                maxWidth="max-w-lg"
+                footer={
+                    <>
+                        <button type="button" onClick={() => setParallelRoutingOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                        <button type="button" onClick={() => { showToast('Document routed in parallel!'); setParallelRoutingOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Initiate Parallel Route</button>
+                    </>
+                }
+            >
+                <div className="space-y-3">
+                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+                        <div><p className="text-sm font-semibold text-slate-900">City Legal Office</p><p className="text-xs text-slate-500">Legal review and clearance</p></div>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+                        <div><p className="text-sm font-semibold text-slate-900">City Budget Office</p><p className="text-xs text-slate-500">Financial obligation review</p></div>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+                        <div><p className="text-sm font-semibold text-slate-900">Human Resources</p><p className="text-xs text-slate-500">Personnel impact review</p></div>
+                    </label>
                 </div>
-            )}
+            </BaseModal>
 
-            {privacyModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setPrivacyModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-4">Access Control & Privacy</h3>
-                        <div className="space-y-3">
-                            <label className="flex items-center gap-3 p-2 border border-transparent hover:bg-slate-50 rounded-[6px] cursor-pointer">
-                                <input type="radio" name="privacy" defaultChecked className="text-[var(--tng-blue-600)]" />
-                                <div><p className="text-[14px] font-semibold">Public Routing</p><p className="text-xs text-[var(--tng-slate-500)]">Visible to all handling staff</p></div>
-                            </label>
-                            <label className="flex items-center gap-3 p-2 border border-red-200 bg-red-50 rounded-[6px] cursor-pointer">
-                                <input type="radio" name="privacy" className="text-red-600" />
-                                <div><p className="text-[14px] font-semibold text-red-700">Highly Confidential</p><p className="text-xs text-red-500">Metadata hidden, restricted access</p></div>
-                            </label>
-                        </div>
-                        <button onClick={() => { showToast('Privacy settings updated'); setPrivacyModalOpen(false); }} className="mt-6 w-full rounded-[6px] bg-[var(--tng-slate-900)] px-4 py-2 text-[16px] font-medium text-white hover:bg-slate-800 transition-colors">Save Changes</button>
-                    </div>
+            {/* Privacy Modal */}
+            <BaseModal
+                isOpen={privacyModalOpen}
+                onClose={() => setPrivacyModalOpen(false)}
+                title="Access Control & Privacy"
+                identifier={doc.reference_number}
+                description="Configure document routing visibility and security classification."
+                icon={<Lock className="h-5 w-5" />}
+                maxWidth="max-w-md"
+                footer={
+                    <button type="button" onClick={() => { showToast('Privacy settings updated'); setPrivacyModalOpen(false); }} className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors shadow-2xs">Save Changes</button>
+                }
+            >
+                <div className="space-y-3">
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="radio" name="privacy" defaultChecked className="text-blue-600" />
+                        <div><p className="text-sm font-semibold text-slate-900">Public Routing</p><p className="text-xs text-slate-500">Visible to all handling staff</p></div>
+                    </label>
+                    <label className="flex items-center gap-3 p-3 border border-rose-200 bg-rose-50/50 rounded-lg cursor-pointer transition-colors">
+                        <input type="radio" name="privacy" className="text-rose-600" />
+                        <div><p className="text-sm font-semibold text-rose-700">Highly Confidential</p><p className="text-xs text-rose-500">Metadata hidden, restricted access</p></div>
+                    </label>
                 </div>
-            )}
+            </BaseModal>
 
-            {anchorModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setAnchorModalOpen(false)} />
-                    <div className="relative w-full max-w-lg rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Add Anchored Comment</h3>
-                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-4">Attach your feedback to the specific selected text.</p>
-                        
-                        <div className="mb-4 border-l-4 border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] p-3 text-[14px] text-[var(--tng-slate-700)] italic rounded-r-[6px] max-h-32 overflow-y-auto">
-                            "{selectedOcrText}"
-                        </div>
-                        
-                        <form onSubmit={(e) => handleAddComment(e, true)}>
-                            <textarea 
-                                value={anchorCommentText}
-                                onChange={(e) => setAnchorCommentText(e.target.value)}
-                                rows={3} 
-                                placeholder="Type your comment here..." 
-                                className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-3 text-[14px] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
-                                autoFocus
-                            />
-                            <div className="mt-6 flex justify-end gap-3">
-                                <button type="button" onClick={() => setAnchorModalOpen(false)} className="rounded-[6px] px-4 py-2 text-[16px] font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)] transition-colors">Cancel</button>
-                                <button type="submit" className="rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Save Comment</button>
-                            </div>
-                        </form>
+            {/* Anchored Comment Modal */}
+            <BaseModal
+                isOpen={anchorModalOpen}
+                onClose={() => setAnchorModalOpen(false)}
+                title="Add Anchored Comment"
+                identifier={doc.reference_number}
+                description="Attach feedback to the highlighted text in the document."
+                icon={<MessageSquare className="h-5 w-5" />}
+                maxWidth="max-w-lg"
+                formProps={{ onSubmit: (e) => handleAddComment(e, true) }}
+                footer={
+                    <>
+                        <button type="button" onClick={() => setAnchorModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                        <button type="submit" className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Save Comment</button>
+                    </>
+                }
+            >
+                <div className="space-y-3">
+                    <div className="border-l-4 border-blue-400 bg-blue-50 p-3 text-sm text-slate-700 italic rounded-r-lg max-h-32 overflow-y-auto">
+                        "{selectedOcrText}"
                     </div>
+                    <textarea 
+                        value={anchorCommentText}
+                        onChange={(e) => setAnchorCommentText(e.target.value)}
+                        rows={3} 
+                        placeholder="Type your comment here..." 
+                        className="w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
+                        autoFocus
+                    />
                 </div>
-            )}
+            </BaseModal>
 
-            {aiTemplateOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setAiTemplateOpen(false)} />
-                    <div className="relative w-full max-w-md rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center gap-2 mb-4 text-[var(--tng-blue-600)]">
-                            <Bot className="h-6 w-6" />
-                            <h3 className="text-lg font-bold text-[var(--tng-slate-900)]">AI Auto-Responder</h3>
-                        </div>
-                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-4">Draft a response letter automatically based on the document metadata and extracted OCR text.</p>
-                        <select className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-2 mb-4 text-[14px]">
-                            <option>Notice of Approval</option>
-                            <option>Request for Additional Docs</option>
-                            <option>Notice of Denial</option>
-                        </select>
-                        <button onClick={() => { showToast('Draft generated and saved to attachments!'); setAiTemplateOpen(false); }} className="w-full flex items-center justify-center gap-2 rounded-[6px] bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 text-[16px] font-medium text-white shadow-lg">
-                            <Bot className="h-4 w-4" /> Generate Draft
-                        </button>
-                    </div>
+            {/* AI Template Auto-Responder Modal */}
+            <BaseModal
+                isOpen={aiTemplateOpen}
+                onClose={() => setAiTemplateOpen(false)}
+                title="AI Auto-Responder"
+                identifier={doc.reference_number}
+                description="Draft a response letter automatically based on document metadata and extracted OCR text."
+                icon={<Bot className="h-5 w-5 text-purple-600" />}
+                maxWidth="max-w-md"
+                footer={
+                    <button type="button" onClick={() => { showToast('Draft generated and saved to attachments!'); setAiTemplateOpen(false); }} className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:from-blue-700 hover:to-purple-700 transition-all">
+                        <Bot className="h-4 w-4" /> Generate Draft
+                    </button>
+                }
+            >
+                <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Response Letter Template</label>
+                    <select className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <option>Notice of Approval</option>
+                        <option>Request for Additional Docs</option>
+                        <option>Notice of Denial</option>
+                    </select>
                 </div>
-            )}
+            </BaseModal>
 
-            {delegateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setDelegateModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-1">Delegate Document</h3>
-                        <p className="text-[14px] text-[var(--tng-slate-500)] mb-4">Assign this to a staff member in your department.</p>
-                        <select className="w-full rounded-[6px] border border-[var(--tng-slate-200)] p-2 mb-4 text-[14px]">
-                            <option>Select staff member...</option>
-                            <option>Staff A - Technical Reviewer</option>
-                            <option>Staff B - Finance Checker</option>
-                        </select>
-                        <button onClick={() => { showToast('Document delegated'); setDelegateModalOpen(false); }} className="w-full rounded-[6px] bg-[var(--tng-blue-600)] px-4 py-2 text-[16px] font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors">Delegate Now</button>
-                    </div>
+            {/* Delegate Modal */}
+            <BaseModal
+                isOpen={delegateModalOpen}
+                onClose={() => setDelegateModalOpen(false)}
+                title="Delegate Document"
+                identifier={doc.reference_number}
+                description="Assign this document to a staff member in your department."
+                icon={<Users className="h-5 w-5" />}
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button type="button" onClick={() => setDelegateModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                        <button type="button" onClick={() => { showToast('Document delegated'); setDelegateModalOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Delegate Now</button>
+                    </>
+                }
+            >
+                <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Assignee</label>
+                    <select className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <option>Select staff member...</option>
+                        <option>Staff A - Technical Reviewer</option>
+                        <option>Staff B - Finance Checker</option>
+                    </select>
                 </div>
-            )}
+            </BaseModal>
 
-            {reminderModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm" onClick={() => setReminderModalOpen(false)} />
-                    <div className="relative w-full max-w-sm rounded-[8px] bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-[var(--tng-slate-900)] mb-4">Automated Reminders</h3>
-                        <div className="space-y-3 mb-6 text-[14px]">
-                            <label className="flex items-center gap-2"><input type="checkbox" className="rounded" defaultChecked /> Send Daily SMS at 8:00 AM</label>
-                            <label className="flex items-center gap-2"><input type="checkbox" className="rounded" defaultChecked /> Send Daily Email at 8:00 AM</label>
-                            <label className="flex items-center gap-2"><input type="checkbox" className="rounded" /> CC Department Head if delayed 2 days</label>
-                        </div>
-                        <button onClick={() => { showToast('Schedules saved'); setReminderModalOpen(false); }} className="w-full rounded-[6px] bg-[var(--tng-slate-900)] px-4 py-2 text-[16px] font-medium text-white hover:bg-slate-800 transition-colors">Save Schedule</button>
-                    </div>
+            {/* Reminder Modal */}
+            <BaseModal
+                isOpen={reminderModalOpen}
+                onClose={() => setReminderModalOpen(false)}
+                title="Automated Reminders"
+                identifier={doc.reference_number}
+                description="Configure notification intervals and SLA escalations."
+                icon={<BellRing className="h-5 w-5" />}
+                maxWidth="max-w-md"
+                footer={
+                    <button type="button" onClick={() => { showToast('Schedules saved'); setReminderModalOpen(false); }} className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors shadow-2xs">Save Schedule</button>
+                }
+            >
+                <div className="space-y-3 text-sm text-slate-700">
+                    <label className="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" className="rounded border-slate-300 text-blue-600" defaultChecked /> Send Daily SMS at 8:00 AM</label>
+                    <label className="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" className="rounded border-slate-300 text-blue-600" defaultChecked /> Send Daily Email at 8:00 AM</label>
+                    <label className="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" className="rounded border-slate-300 text-blue-600" /> CC Department Head if delayed 2 days</label>
                 </div>
-            )}
+            </BaseModal>
 
             <ConfirmActionModal
                 isOpen={confirmState.isOpen}
@@ -803,6 +870,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 title={confirmState.title}
                 message={confirmState.message}
                 confirmText={confirmState.btnText}
+                identifier={doc.reference_number}
                 isLoading={isActionLoading}
             />
 
@@ -810,6 +878,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 isOpen={successState.isOpen}
                 onClose={() => setSuccessState(prev => ({ ...prev, isOpen: false }))}
                 title={successState.title}
+                identifier={doc.reference_number}
                 message={successState.message}
             />
 
@@ -817,6 +886,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 isOpen={exportModalOpen}
                 onClose={() => setExportModalOpen(false)}
                 documentId={doc.document_id}
+                identifier={doc.reference_number}
                 onSuccess={(msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(null), 3500); }}
             />
 

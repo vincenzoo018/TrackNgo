@@ -7,9 +7,10 @@ type Props = {
     onClose: () => void;
     documentId: number | string;
     onSuccess: (message: string) => void;
+    identifier?: string;
 };
 
-export function ExportPasswordModal({ isOpen, onClose, documentId, onSuccess }: Props) {
+export function ExportPasswordModal({ isOpen, onClose, documentId, onSuccess, identifier }: Props) {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -70,6 +71,7 @@ export function ExportPasswordModal({ isOpen, onClose, documentId, onSuccess }: 
             isOpen={isOpen}
             onClose={isLoading ? () => {} : onClose}
             title="Secure Export"
+            identifier={identifier}
             description="Please enter your account password to authorize exporting this document. This action will be logged in the Audit Trail."
             icon={<Lock className="h-5 w-5" />}
             maxWidth="max-w-md"

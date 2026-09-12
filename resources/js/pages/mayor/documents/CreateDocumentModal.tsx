@@ -149,9 +149,10 @@ export default function CreateDocumentModal({ isOpen, onClose, departments, docu
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title={step === 'form' ? "Submit New Document" : undefined}
-            description={step === 'form' ? "Upload document and generate routing slip" : undefined}
-            icon={step === 'form' ? <Plus className="h-5 w-5" /> : undefined}
+            title={step === 'form' ? "Submit New Document" : "Document Registered"}
+            identifier={step === 'success' ? trackingNumber : undefined}
+            description={step === 'form' ? "Upload document and generate routing slip" : "Official routing slip and tracking QR generated successfully."}
+            icon={step === 'form' ? <Plus className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
             maxWidth="max-w-3xl"
             childrenContainerClassName={step === 'form' ? "p-0" : ""}
             formProps={step === 'form' ? { onSubmit: handleSubmit } : undefined}

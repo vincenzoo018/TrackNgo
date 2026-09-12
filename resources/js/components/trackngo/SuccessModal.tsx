@@ -5,6 +5,7 @@ interface SuccessModalProps {
     isOpen: boolean;
     onClose: () => void;
     title?: string;
+    identifier?: string;
     message?: string;
     buttonText?: string;
 }
@@ -13,6 +14,7 @@ export function SuccessModal({
     isOpen,
     onClose,
     title = 'Successfully',
+    identifier,
     message = 'Action completed successfully.',
     buttonText = 'Continue'
 }: SuccessModalProps) {
@@ -37,9 +39,16 @@ export function SuccessModal({
                     </div>
                 </div>
 
-                <h3 className="text-2xl font-light text-slate-700 tracking-tight">
-                    {title}
-                </h3>
+                <div className="flex flex-col items-center gap-1.5">
+                    <h3 className="text-2xl font-light text-slate-700 tracking-tight">
+                        {title}
+                    </h3>
+                    {identifier && (
+                        <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200 shadow-2xs">
+                            {identifier}
+                        </span>
+                    )}
+                </div>
                 
                 <div className="mt-3">
                     <p className="text-sm text-slate-500 font-light">

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import React from 'react';
+import { BaseModal } from '@/components/trackngo/BaseModal';
 import { Building2, Save } from 'lucide-react';
 import { useForm } from '@inertiajs/react';
 
@@ -35,101 +35,98 @@ export default function DepartmentFormModal({ isOpen, onClose, users }: Props) {
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-[600px] bg-white border border-[var(--tng-slate-200)] shadow-lg rounded-2xl p-0 overflow-hidden">
-                <DialogHeader className="px-6 py-4 bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-100)]">
-                    <DialogTitle className="flex items-center gap-2 text-xl font-bold text-[var(--tng-slate-800)]">
-                        <Building2 className="h-5 w-5 text-[var(--tng-blue-600)]" />
-                        Add New Department
-                    </DialogTitle>
-                    <DialogDescription className="text-sm text-[var(--tng-slate-500)]">
-                        Create a new department and assign a department head.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2 col-span-2 sm:col-span-1">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Name *</label>
-                            <input
-                                type="text"
-                                value={data.department_name}
-                                onChange={e => setData('department_name', e.target.value)}
-                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.department_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                placeholder="City Engineer's Office"
-                            />
-                            {errors.department_name && <p className="text-xs text-red-500">{errors.department_name}</p>}
-                        </div>
-                        <div className="space-y-2 col-span-2 sm:col-span-1">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Code</label>
-                            <input
-                                type="text"
-                                value={data.code}
-                                onChange={e => setData('code', e.target.value)}
-                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.code ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                placeholder="ENG-01"
-                            />
-                            {errors.code && <p className="text-xs text-red-500">{errors.code}</p>}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Description</label>
-                        <textarea
-                            value={data.description}
-                            onChange={e => setData('description', e.target.value)}
-                            className="w-full rounded-lg border border-[var(--tng-slate-200)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 min-h-[80px]"
-                            placeholder="Brief description of the department's role..."
+        <BaseModal
+            isOpen={isOpen}
+            onClose={handleClose}
+            title="Add New Department"
+            description="Create a new department and assign a department head."
+            icon={<Building2 className="h-5 w-5" />}
+            maxWidth="max-w-xl"
+            formProps={{ onSubmit: handleSubmit }}
+            footer={
+                <>
+                    <button
+                        type="button"
+                        onClick={handleClose}
+                        className="px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-100)] rounded-lg transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={processing}
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--tng-blue-600)] text-white text-sm font-medium rounded-lg shadow-md hover:bg-[var(--tng-blue-700)] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        <Save className="h-4 w-4" />
+                        {processing ? 'Saving...' : 'Save Department'}
+                    </button>
+                </>
+            }
+        >
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Name *</label>
+                        <input
+                            type="text"
+                            value={data.department_name}
+                            onChange={e => setData('department_name', e.target.value)}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.department_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                            placeholder="City Engineer's Office"
                         />
-                        {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
+                        {errors.department_name && <p className="text-xs text-red-500">{errors.department_name}</p>}
                     </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Head</label>
-                        <select
-                            value={data.head_id}
-                            onChange={e => setData('head_id', e.target.value)}
-                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.head_id ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                        >
-                            <option value="">No Department Head Assigned</option>
-                            {users.map(user => (
-                                <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
-                            ))}
-                        </select>
-                        {errors.head_id && <p className="text-xs text-red-500">{errors.head_id}</p>}
+                    <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Code</label>
+                        <input
+                            type="text"
+                            value={data.code}
+                            onChange={e => setData('code', e.target.value)}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.code ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                            placeholder="ENG-01"
+                        />
+                        {errors.code && <p className="text-xs text-red-500">{errors.code}</p>}
                     </div>
+                </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[var(--tng-slate-700)]">Status</label>
-                        <select
-                            value={data.is_active}
-                            onChange={e => setData('is_active', Number(e.target.value))}
-                            className="w-full rounded-lg border border-[var(--tng-slate-200)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                        >
-                            <option value={1}>Active</option>
-                            <option value={0}>Inactive</option>
-                        </select>
-                    </div>
+                <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Description</label>
+                    <textarea
+                        value={data.description}
+                        onChange={e => setData('description', e.target.value)}
+                        className="w-full rounded-lg border border-[var(--tng-slate-200)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 min-h-[80px]"
+                        placeholder="Brief description of the department's role..."
+                    />
+                    {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
+                </div>
 
-                    <DialogFooter className="pt-4 border-t border-[var(--tng-slate-100)]">
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            className="px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-100)] rounded-lg transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="flex items-center gap-2 px-4 py-2 bg-[var(--tng-blue-600)] text-white text-sm font-medium rounded-lg shadow-md hover:bg-[var(--tng-blue-700)] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            <Save className="h-4 w-4" />
-                            {processing ? 'Saving...' : 'Save Department'}
-                        </button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+                <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department Head</label>
+                    <select
+                        value={data.head_id}
+                        onChange={e => setData('head_id', e.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.head_id ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                    >
+                        <option value="">No Department Head Assigned</option>
+                        {users.map(user => (
+                            <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
+                        ))}
+                    </select>
+                    {errors.head_id && <p className="text-xs text-red-500">{errors.head_id}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Status</label>
+                    <select
+                        value={data.is_active}
+                        onChange={e => setData('is_active', Number(e.target.value))}
+                        className="w-full rounded-lg border border-[var(--tng-slate-200)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                    >
+                        <option value={1}>Active</option>
+                        <option value={0}>Inactive</option>
+                    </select>
+                </div>
+            </div>
+        </BaseModal>
     );
 }

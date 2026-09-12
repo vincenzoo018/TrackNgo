@@ -8,6 +8,7 @@ interface ConfirmActionModalProps {
     onConfirm: () => void;
     title: string;
     message: string;
+    identifier?: string;
     confirmText?: string;
     cancelText?: string;
     isDestructive?: boolean;
@@ -20,6 +21,7 @@ export function ConfirmActionModal({
     onConfirm,
     title,
     message,
+    identifier,
     confirmText = 'Confirm',
     cancelText = 'Cancel',
     isDestructive = false,
@@ -30,6 +32,7 @@ export function ConfirmActionModal({
             isOpen={isOpen}
             onClose={isLoading ? () => {} : onClose}
             title={title}
+            identifier={identifier}
             icon={<AlertTriangle className="h-5 w-5" />}
             headerClassName={isDestructive ? "bg-red-50 rounded-t-2xl" : "bg-blue-50 rounded-t-2xl"}
             iconContainerClassName={isDestructive ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}

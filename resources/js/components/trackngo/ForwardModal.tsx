@@ -9,9 +9,10 @@ type ForwardModalProps = {
     onConfirm: (destinationType: string, destinationId: string, remarks: string) => void;
     departments: any[];
     users: any[];
+    identifier?: string;
 };
 
-export function ForwardModal({ open, onClose, onConfirm, departments, users }: ForwardModalProps) {
+export function ForwardModal({ open, onClose, onConfirm, departments, users, identifier }: ForwardModalProps) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'all' | 'department' | 'user'>('all');
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function ForwardModal({ open, onClose, onConfirm, departments, users }: F
             isOpen={open}
             onClose={onClose}
             title="Forward Document"
+            identifier={identifier}
             description="Select the next recipient or department for endorsement."
             icon={<Send className="h-5 w-5" />}
             maxWidth="max-w-lg"

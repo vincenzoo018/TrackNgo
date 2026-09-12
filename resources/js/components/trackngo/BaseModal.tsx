@@ -7,6 +7,7 @@ export type BaseModalProps = {
     isOpen: boolean;
     onClose: () => void;
     title?: React.ReactNode;
+    identifier?: string;
     description?: React.ReactNode;
     icon?: React.ReactNode;
     children: React.ReactNode;
@@ -22,6 +23,7 @@ export function BaseModal({
     isOpen,
     onClose,
     title,
+    identifier,
     description,
     icon,
     children,
@@ -90,11 +92,18 @@ export function BaseModal({
                                 </div>
                             )}
                             <div>
-                                {title && (
-                                    <h2 className="text-lg font-bold text-slate-900 leading-tight">
-                                        {title}
-                                    </h2>
-                                )}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {title && (
+                                        <h2 className="text-lg font-bold text-slate-900 leading-tight">
+                                            {title}
+                                        </h2>
+                                    )}
+                                    {identifier && (
+                                        <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                                            {identifier}
+                                        </span>
+                                    )}
+                                </div>
                                 {description && (
                                     <p className="text-[14px] text-slate-500 mt-0.5">
                                         {description}

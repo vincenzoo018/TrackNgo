@@ -126,6 +126,7 @@ export function DocumentCorrectionModal({
             isOpen={open}
             onClose={onClose}
             title="Document Correction & Remediation"
+            identifier={docRef}
             description={`Submit corrected file and remediation notes for ${docRef}.`}
             icon={<AlertCircle className="h-5 w-5 text-rose-600" />}
             maxWidth="max-w-xl"
