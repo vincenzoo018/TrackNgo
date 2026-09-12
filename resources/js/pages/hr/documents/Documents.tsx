@@ -4,14 +4,19 @@ import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
-import { getStandardizedStatus, StandardizedStatus } from '@/lib/status-helper';
+import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import { cn } from '@/lib/utils';
 
 export default function HrDocuments() {
     const { props } = usePage();
-    const documents = (props.dbDocuments || []) as any[];
+    const rawDocuments = (props.dbDocuments || []) as any[];
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
+
+    // Only active, ongoing, received, sent, or returned documents
+    const documents = useMemo(() => {
+        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
+    }, [rawDocuments]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<'all' | 'received' | 'ongoing' | 'sent' | 'returned'>('all');

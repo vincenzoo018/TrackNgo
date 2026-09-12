@@ -15,15 +15,24 @@ Route::get('/track', function () {
 // Authenticated Role Routes
 Route::middleware(['auth'])->group(function () {
 
+    Route::post('/documents/{id}/attachments', [\App\Http\Controllers\DocumentController::class, 'addAttachment'])->name('documents.attachments');
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
     Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
     Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
     Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
     Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review'])->name('documents.review');
     Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse'])->name('documents.endorse');
+    Route::post('/documents/{id}/archive', [\App\Http\Controllers\DocumentController::class, 'archiveDocument'])->name('documents.archive');
     Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
     Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
     Route::get('/documents/{id}/timeline-sync', [\App\Http\Controllers\DocumentController::class, 'getTimelineSync'])->name('documents.timelineSync');
+    Route::get('/documents/{id}/ocr-workspace', function($id) {
+        $document = \App\Models\Document::find($id);
+        return Inertia::render('receiving/documents/OcrWorkspace', [
+            'dbDocument' => $document,
+            'documentId' => $id,
+        ]);
+    })->name('documents.ocrWorkspace');
 
     // Profile Routes
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
@@ -35,12 +44,26 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn() => Inertia::render('admin/Dashboard'));
         Route::get('/documents', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('admin/documents/Documents', [
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::get('/archived', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->orderBy('completed_at', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            return Inertia::render('archived/Index', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'role'            => 'admin',
             ]);
         });
         Route::get('/documents/{id}', function ($id) {
@@ -56,7 +79,8 @@ Route::middleware(['auth'])->group(function () {
                     ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                     ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
                     ->orderBy('created_at', 'desc')
-                    ->get()
+                    ->get(),
+                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
         Route::get('/users/create', fn() => Inertia::render('admin/users/Create'));
@@ -73,6 +97,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents', function () {
             $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->where(function ($query) use ($user) {
                     if ($user->department_id) {
                         $query->where('current_holder_department_id', $user->department_id)
@@ -96,6 +121,19 @@ Route::middleware(['auth'])->group(function () {
                     ->select('users.*', 'roles.role_name', 'departments.department_name')
                     ->where('users.is_active', true)
                     ->get(),
+            ]);
+        });
+        Route::get('/archived', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->orderBy('completed_at', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            return Inertia::render('archived/Index', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'role'            => 'receiving',
             ]);
         });
         // GET /documents/create removed - handled via modal in Index.tsx
@@ -123,12 +161,19 @@ Route::middleware(['auth'])->group(function () {
                     ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                     ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
                     ->orderBy('created_at', 'desc')
-                    ->get()
+                    ->get(),
+                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
         Route::get('/documents/{id}/versions', fn() => Inertia::render('receiving/documents/VersionHistory'));
         Route::get('/documents/{id}/arta-timeline', fn() => Inertia::render('receiving/documents/ArtaTimeline'));
-        Route::get('/documents/{id}/ocr-workspace', fn() => Inertia::render('receiving/documents/OcrWorkspace'));
+        Route::get('/documents/{id}/ocr-workspace', function($id) {
+            $document = \App\Models\Document::find($id);
+            return Inertia::render('receiving/documents/OcrWorkspace', [
+                'dbDocument' => $document,
+                'documentId' => $id,
+            ]);
+        });
         Route::get('/documents/{id}/location-map', fn() => Inertia::render('receiving/documents/LocationMap'));
         
         // Document Actions
@@ -151,6 +196,7 @@ Route::middleware(['auth'])->group(function () {
             $user = auth()->user();
             
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->where(function ($query) use ($user) {
                     if ($user->department_id) {
                         $query->where('current_holder_department_id', $user->department_id)
@@ -176,6 +222,19 @@ Route::middleware(['auth'])->group(function () {
                     ->get(),
             ]);
         });
+        Route::get('/archived', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->orderBy('completed_at', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            return Inertia::render('archived/Index', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'role'            => 'department_head',
+            ]);
+        });
         // GET /documents/create removed - handled via modal in Endorsements.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
@@ -191,7 +250,8 @@ Route::middleware(['auth'])->group(function () {
                     ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                     ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
                     ->orderBy('created_at', 'desc')
-                    ->get()
+                    ->get(),
+                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
         // Document Actions
@@ -212,6 +272,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents', function () {
             $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->where(function ($query) use ($user) {
                     if ($user->department_id) {
                         $query->where('current_holder_department_id', $user->department_id)
@@ -236,6 +297,19 @@ Route::middleware(['auth'])->group(function () {
                     ->get(),
             ]);
         });
+        Route::get('/archived', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->orderBy('completed_at', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            return Inertia::render('archived/Index', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'role'            => 'mayor',
+            ]);
+        });
         // GET /documents/create removed - handled via modal in FinalApproval.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
@@ -251,7 +325,8 @@ Route::middleware(['auth'])->group(function () {
                     ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                     ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
                     ->orderBy('created_at', 'desc')
-                    ->get()
+                    ->get(),
+                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
         Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
@@ -273,12 +348,26 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn() => Inertia::render('cart/Dashboard'));
         Route::get('/documents', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('cart/documents/Documents', [
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::get('/archived', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->orderBy('completed_at', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            return Inertia::render('archived/Index', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'role'            => 'cart',
             ]);
         });
         Route::get('/documents/create', fn() => Inertia::render('cart/documents/Create'));
@@ -295,7 +384,8 @@ Route::middleware(['auth'])->group(function () {
                     ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                     ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
                     ->orderBy('created_at', 'desc')
-                    ->get()
+                    ->get(),
+                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
         Route::get('/escalations', fn() => Inertia::render('cart/escalations/ArtaEscalations'));
@@ -318,12 +408,26 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn() => Inertia::render('hr/Dashboard'));
         Route::get('/documents', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('hr/documents/Documents', [
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+            ]);
+        });
+        Route::get('/archived', function () {
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->orderBy('completed_at', 'desc')
+                ->orderBy('updated_at', 'desc')
+                ->get();
+            return Inertia::render('archived/Index', [
+                'dbDocuments'     => $documents,
+                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
+                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'role'            => 'hr',
             ]);
         });
         Route::get('/documents/{id}', function ($id) {
@@ -339,7 +443,8 @@ Route::middleware(['auth'])->group(function () {
                     ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                     ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
                     ->orderBy('created_at', 'desc')
-                    ->get()
+                    ->get(),
+                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
         

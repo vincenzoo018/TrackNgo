@@ -41,6 +41,7 @@ class Document extends Model
         'current_holder_department_id',
         'is_internal',
         'destination_department_id',
+        'return_reason',
     ];
 
     protected $casts = [
@@ -110,5 +111,10 @@ class Document extends Model
     public function comments()
     {
         return $this->hasMany(DocumentComment::class, 'document_id', 'document_id');
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(DocumentAttachment::class, 'document_id', 'document_id');
     }
 }

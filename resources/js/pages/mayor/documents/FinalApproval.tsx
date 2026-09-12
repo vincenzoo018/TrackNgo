@@ -9,14 +9,19 @@ import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { cn } from '@/lib/utils';
 import CreateDocumentModal from './CreateDocumentModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
-import { getStandardizedStatus, StandardizedStatus } from '@/lib/status-helper';
+import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
-    const documents = (props.dbDocuments || []) as any[];
+    const rawDocuments = (props.dbDocuments || []) as any[];
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
     const users = (props.dbUsers || []) as any[];
+
+    // Only active, ongoing, received, sent, or returned documents
+    const documents = useMemo(() => {
+        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
+    }, [rawDocuments]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDocs, setSelectedDocs] = useState<number[]>([]);

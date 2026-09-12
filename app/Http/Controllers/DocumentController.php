@@ -340,7 +340,7 @@ class DocumentController extends Controller
         ]);
 
         $document->update([
-            'status' => 'Sent',
+            'status' => 'approved',
             'current_holder_department_id' => $destDeptId,
             'current_holder_id' => null,
             'current_step_index' => 5,
@@ -370,7 +370,8 @@ class DocumentController extends Controller
         $document = Document::findOrFail($id);
         
         $document->update([
-            'status' => 'Sent',
+            'status' => 'completed',
+            'completed_at' => now(),
             'current_holder_id' => null,
             'current_holder_department_id' => null,
             'current_step_index' => 6,
@@ -383,7 +384,7 @@ class DocumentController extends Controller
             'user_role' => auth()->user()->role->role_name ?? 'User',
             'department' => auth()->user()->department->department_name ?? null,
             'action' => 'Release',
-            'description' => 'Document officially released to applicant and marked as sent/completed.',
+            'description' => 'Document officially released to applicant and marked as completed.',
             'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
@@ -393,6 +394,36 @@ class DocumentController extends Controller
         }
 
         return redirect()->back()->with('success', 'Document successfully released to the applicant.');
+    }
+
+    public function archiveDocument(Request $request, $id)
+    {
+        $document = Document::findOrFail($id);
+        $user = auth()->user();
+        $userRole = $user->role->role_name ?? 'User';
+
+        $document->update([
+            'status' => 'archived',
+            'completed_at' => $document->completed_at ?? now(),
+        ]);
+
+        \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
+            'department' => $user->department->department_name ?? null,
+            'action' => 'Archive',
+            'description' => 'Document moved to Central Archive Repository by ' . $user->name,
+            'ip_address' => $request->ip(),
+            'timestamp' => now(),
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document archived successfully.', 'document' => $document]);
+        }
+
+        return redirect()->back()->with('success', 'Document moved to Archived module.');
     }
 
     public function returnDocument(Request $request, $id)
@@ -407,22 +438,32 @@ class DocumentController extends Controller
 
         $document->update([
             'status' => 'Returned',
+            'return_reason' => $request->reason,
+            'current_holder_id' => $document->submitted_by ?? $document->current_holder_id,
         ]);
 
-        \App\Models\AuditTrail::create([
+        $audit = \App\Models\AuditTrail::create([
             'document_id' => $document->document_id,
             'document_ref' => $document->reference_number,
             'user_id' => $user->id,
             'user_role' => $userRole,
             'department' => $user->department->department_name ?? null,
             'action' => 'Return',
-            'description' => 'Document returned. Reason: ' . $request->reason,
+            'description' => 'Document marked as Returned. Reason for return: ' . $request->reason,
             'ip_address' => $request->ip(),
             'timestamp' => now(),
         ]);
 
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->with('success', 'Document returned successfully.');
+        }
+
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Document returned successfully.', 'document' => $document]);
+            return response()->json([
+                'message' => 'Document returned successfully.', 
+                'document' => $document,
+                'audit' => $audit->load(['user.role', 'user.department'])
+            ]);
         }
 
         return redirect()->back()->with('success', 'Document returned successfully.');
@@ -627,6 +668,76 @@ class DocumentController extends Controller
         ]);
     }
 
+    public function addAttachment(Request $request, $id)
+    {
+        $request->validate([
+            'file' => 'required|file|max:20480',
+            'reason' => 'nullable|string',
+        ]);
+
+        $document = Document::findOrFail($id);
+        $user = auth()->user();
+        $userRole = $user->role->role_name ?? 'User';
+
+        $file = $request->file('file');
+        $fileName = $file->getClientOriginalName();
+        $fileSize = $file->getSize();
+        $fileType = $file->getClientMimeType();
+        $path = $file->store('attachments', 'public');
+
+        $attachment = \App\Models\DocumentAttachment::create([
+            'document_id' => $document->document_id,
+            'user_id' => $user->id,
+            'file_name' => $fileName,
+            'file_path' => $path,
+            'file_size' => $fileSize,
+            'file_type' => $fileType,
+            'reason' => $request->reason,
+        ]);
+
+        $document->attachment_path = $path;
+        $document->save();
+
+        $audit = \App\Models\AuditTrail::create([
+            'document_id' => $document->document_id,
+            'document_ref' => $document->reference_number,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
+            'department' => $user->department->department_name ?? null,
+            'action' => 'Add Attachment',
+            'description' => 'Uploaded corrected attachment: ' . $fileName . ($request->reason ? ' — Note: ' . $request->reason : ''),
+            'ip_address' => $request->ip(),
+            'timestamp' => now(),
+        ]);
+
+        $attachmentPayload = [
+            'attachment_id' => $attachment->attachment_id,
+            'file_name' => $attachment->file_name,
+            'file_path' => $attachment->file_path,
+            'file_size' => $attachment->file_size,
+            'file_type' => $attachment->file_type,
+            'reason' => $attachment->reason,
+            'url' => asset('storage/' . $attachment->file_path),
+            'created_at' => $attachment->created_at,
+            'user_name' => $user->name,
+            'user_role' => $userRole,
+        ];
+
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->with('success', 'Attachment uploaded successfully.');
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'message' => 'Attachment uploaded successfully.',
+                'attachment' => $attachmentPayload,
+                'audit' => $audit->load(['user.role', 'user.department']),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Attachment uploaded successfully.');
+    }
+
     public function getTimelineSync($id)
     {
         $document = Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])->findOrFail($id);
@@ -641,12 +752,32 @@ class DocumentController extends Controller
             ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
             ->orderBy('created_at', 'asc')
             ->get();
+        $attachments = \App\Models\DocumentAttachment::with('user.role')
+            ->where('document_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($att) {
+                return [
+                    'attachment_id' => $att->attachment_id,
+                    'file_name' => $att->file_name,
+                    'file_path' => $att->file_path,
+                    'file_size' => $att->file_size,
+                    'file_type' => $att->file_type,
+                    'reason' => $att->reason,
+                    'url' => asset('storage/' . $att->file_path),
+                    'created_at' => $att->created_at,
+                    'user_name' => $att->user ? $att->user->name : 'User',
+                    'user_role' => $att->user && $att->user->role ? $att->user->role->role_name : 'User',
+                ];
+            });
 
         return response()->json([
             'status' => $document->status,
+            'return_reason' => $document->return_reason,
             'document' => $document,
             'auditTrail' => $auditTrail,
             'comments' => $comments,
+            'attachments' => $attachments,
         ]);
     }
 

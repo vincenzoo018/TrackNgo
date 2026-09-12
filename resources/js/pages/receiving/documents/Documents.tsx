@@ -9,14 +9,19 @@ import { cn } from '@/lib/utils';
 import { FileText } from 'lucide-react';
 import CreateDocumentModal from './CreateDocumentModal';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
-import { getStandardizedStatus, StandardizedStatus } from '@/lib/status-helper';
+import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 
 export default function ReceivingDocumentsIndex() {
     const { props } = usePage();
-    const documents = (props.dbDocuments || []) as any[];
+    const rawDocuments = (props.dbDocuments || []) as any[];
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
     const users = (props.dbUsers || []) as any[];
+
+    // Only active, ongoing, received, sent, or returned documents in My Documents
+    const documents = useMemo(() => {
+        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
+    }, [rawDocuments]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -117,14 +122,14 @@ export default function ReceivingDocumentsIndex() {
 
     return (
         <TrackngoLayout>
-            <Head title="All Documents — TrackNGo Mati" />
+            <Head title="My Documents — TrackNGo Mati" />
 
             <div className="space-y-5">
                 {/* Header */}
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-[var(--tng-slate-900)]">
-                            All Documents
+                            My Documents
                         </h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
                             {filteredDocs.length} of {documents.length} records

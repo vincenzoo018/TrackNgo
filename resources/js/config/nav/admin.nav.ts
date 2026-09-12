@@ -6,6 +6,7 @@ import {
     Users,
     BarChart3,
     FileCode2,
+    Archive,
 } from 'lucide-react';
 import type { NavItem } from '@/types';
 
@@ -17,4 +18,6 @@ export const adminNav: NavItem[] = [
     { title: 'Document Templates', href: '/admin/templates', icon: FileCode2 },
     { title: 'Reports', href: '/admin/reports', icon: BarChart3 },
     { title: 'Audit Trail', href: '/admin/audit-trail', icon: Activity },
+    { title: 'Archived', href: '/admin/archived', icon: Archive },
 ];
+

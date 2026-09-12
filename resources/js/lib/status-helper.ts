@@ -1,10 +1,27 @@
-export type StandardizedStatus = 'Received' | 'Ongoing' | 'Sent' | 'Returned';
+export type StandardizedStatus = 'Received' | 'Ongoing' | 'Sent' | 'Returned' | 'Approved' | 'Completed' | 'Archived';
 
-export const STANDARDIZED_STATUSES: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned'];
+export const STANDARDIZED_STATUSES: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned', 'Approved', 'Completed', 'Archived'];
+
+export function isFinalizedOrArchived(rawStatus?: string): boolean {
+    if (!rawStatus) return false;
+    const s = String(rawStatus).toLowerCase().trim().replace(/[-_]/g, ' ');
+    return s === 'approved' || s === 'completed' || s === 'archived' || s === 'complete' || s === 'archive';
+}
 
 export function getStandardizedStatus(rawStatus?: string): StandardizedStatus {
     if (!rawStatus) return 'Ongoing';
     const s = String(rawStatus).toLowerCase().trim().replace(/[-_]/g, ' ');
+
+    // Finalized & Archived mappings
+    if (s === 'approved') {
+        return 'Approved';
+    }
+    if (s === 'completed' || s === 'complete') {
+        return 'Completed';
+    }
+    if (s === 'archived' || s === 'archive') {
+        return 'Archived';
+    }
 
     // Received mappings: received, accepted, registered, etc.
     if (
@@ -27,15 +44,13 @@ export function getStandardizedStatus(rawStatus?: string): StandardizedStatus {
         return 'Returned';
     }
 
-    // Sent mappings: sent, submitted, endorsed, forwarded, approved, for release, released, completed
+    // Sent mappings: sent, submitted, endorsed, forwarded, for release, released, routed
     if (
         s === 'sent' || 
         s === 'submitted' || 
         s === 'endorsed' || 
-        s === 'approved' || 
         s === 'for release' || 
         s === 'released' || 
-        s === 'completed' ||
         s === 'routed' ||
         s.includes('endorse')
     ) {
@@ -68,11 +83,11 @@ export const STATUS_STYLE_CONFIG: Record<
     },
     Sent: {
         label: 'Sent',
-        bg: 'bg-emerald-50',
-        text: 'text-emerald-700',
-        border: 'border-emerald-200',
-        dot: 'bg-emerald-500',
-        lightBg: 'bg-emerald-50/50',
+        bg: 'bg-blue-50',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        dot: 'bg-blue-500',
+        lightBg: 'bg-blue-50/50',
     },
     Returned: {
         label: 'Returned',
@@ -81,5 +96,29 @@ export const STATUS_STYLE_CONFIG: Record<
         border: 'border-rose-200',
         dot: 'bg-rose-500',
         lightBg: 'bg-rose-50/50',
+    },
+    Approved: {
+        label: 'Approved',
+        bg: 'bg-emerald-50',
+        text: 'text-emerald-700',
+        border: 'border-emerald-200',
+        dot: 'bg-emerald-500',
+        lightBg: 'bg-emerald-50/50',
+    },
+    Completed: {
+        label: 'Completed',
+        bg: 'bg-teal-50',
+        text: 'text-teal-700',
+        border: 'border-teal-200',
+        dot: 'bg-teal-500',
+        lightBg: 'bg-teal-50/50',
+    },
+    Archived: {
+        label: 'Archived',
+        bg: 'bg-slate-100',
+        text: 'text-slate-700',
+        border: 'border-slate-300',
+        dot: 'bg-slate-500',
+        lightBg: 'bg-slate-100/50',
     },
 };

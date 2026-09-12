@@ -6,14 +6,19 @@ import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { StepDots } from '@/components/trackngo/StepProgress';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
-import { getStandardizedStatus, StandardizedStatus } from '@/lib/status-helper';
+import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import { cn } from '@/lib/utils';
 
 export default function AdminDocumentsIndex() {
     const { props } = usePage();
-    const documents = (props.dbDocuments || []) as any[];
+    const rawDocuments = (props.dbDocuments || []) as any[];
     const departments = (props.dbDepartments || []) as any[];
     const documentTypes = (props.dbDocumentTypes || []) as any[];
+
+    // Only active, ongoing, received, sent, or returned documents
+    const documents = useMemo(() => {
+        return rawDocuments.filter((doc: any) => !isFinalizedOrArchived(doc.status));
+    }, [rawDocuments]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
