@@ -383,7 +383,6 @@ Route::middleware(['auth'])->group(function () {
                 'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
             ]);
         });
-        Route::get('/signature', fn() => Inertia::render('mayor/signature/Index'));
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
