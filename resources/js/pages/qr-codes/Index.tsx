@@ -230,7 +230,7 @@ export default function QrCodesIndex({
                             <QrCode className="h-6 w-6" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-[var(--tng-slate-900)]">
+                            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tng-slate-900)]">
                                 QR Codes Module
                             </h1>
                             <p className="text-sm text-[var(--tng-slate-500)] mt-0.5">
@@ -532,177 +532,169 @@ export default function QrCodesIndex({
 
                 {/* ── View Presentation: Table vs Grid ────────────────────────── */}
                 {viewMode === 'table' ? (
-                    <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
-                        <table className="w-full table-fixed text-left text-xs text-[var(--tng-slate-600)]">
-                            <colgroup>
-                                <col className="w-[13%]" />
-                                <col className="w-[16%]" />
-                                <col className="w-[13%]" />
-                                <col className="w-[14%]" />
-                                <col className="w-[11%]" />
-                                <col className="w-[9%]" />
-                                <col className="w-[11%]" />
-                                <col className="w-[13%]" />
-                            </colgroup>
-                            <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)] uppercase tracking-wider font-semibold text-[11px]">
-                                <tr>
-                                    <th className="px-3.5 py-3">QR Code ID</th>
-                                    <th className="px-3.5 py-3">Document Reference</th>
-                                    <th className="px-3.5 py-3">Routing Slip ID</th>
-                                    <th className="px-3.5 py-3">Department</th>
-                                    <th className="px-3.5 py-3">Type</th>
-                                    <th className="px-3.5 py-3 text-center">Status</th>
-                                    <th className="px-3.5 py-3">Date Generated</th>
-                                    <th className="px-3.5 py-3 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--tng-slate-200)]">
-                                {paginatedQrCodes.length > 0 ? (
-                                    paginatedQrCodes.map((qr) => (
-                                        <tr
-                                            key={qr.qr_id}
-                                            className="hover:bg-[var(--tng-slate-50)]/80 transition-colors"
-                                        >
-                                            {/* 1. QR Code ID with visual thumbnail */}
-                                            <td className="px-3.5 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <img
-                                                        src={qr.qr_image_url}
-                                                        alt={qr.qr_id}
-                                                        onClick={() => setSelectedQr(qr)}
-                                                        className="w-8 h-8 rounded border border-slate-200 bg-white p-0.5 cursor-pointer hover:scale-110 transition-transform shrink-0"
-                                                        title="Click to inspect QR code"
-                                                    />
-                                                    <div className="min-w-0">
-                                                        <div className="font-mono text-xs font-bold text-slate-900 truncate">
-                                                            {qr.qr_id}
-                                                        </div>
-                                                        <span className="text-[10px] text-slate-400 font-sans block">
-                                                            {qr.stop_number}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* 2. Document Reference & Title */}
-                                            <td className="px-3.5 py-3">
-                                                <Link
-                                                    href={`/${currentRole}/documents/${qr.document_id}`}
-                                                    className="group block"
-                                                    title={`${qr.document_ref} - ${qr.document_title}`}
-                                                >
-                                                    <span className="font-mono font-bold text-xs text-[var(--tng-blue-600)] group-hover:text-[var(--tng-blue-800)] group-hover:underline flex items-center gap-1">
-                                                        {qr.document_ref}
-                                                        <ExternalLink className="h-3 w-3 opacity-60 shrink-0" />
-                                                    </span>
-                                                    <span className="text-[11px] text-[var(--tng-slate-500)] group-hover:text-[var(--tng-slate-700)] truncate block mt-0.5">
-                                                        {qr.document_title}
-                                                    </span>
-                                                </Link>
-                                            </td>
-
-                                            {/* 3. Routing Slip ID */}
-                                            <td className="px-3.5 py-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSelectedSlip({
-                                                        slip_id: qr.numeric_slip_id,
-                                                        tracking_number: qr.routing_slip_id,
-                                                        document_id: qr.document_id,
-                                                        document_ref: qr.document_ref,
-                                                        document_title: qr.document_title,
-                                                        from_name: qr.from_name,
-                                                        from_department: qr.department,
-                                                        to_name: qr.to_name,
-                                                        to_department: qr.to_department,
-                                                        action: qr.action,
-                                                        instruction: qr.instruction,
-                                                        status: qr.status,
-                                                        formatted_date: qr.formatted_date,
-                                                        stop_number: qr.stop_number,
-                                                        qr_data: qr.qr_data,
-                                                    })}
-                                                    className="font-mono text-xs font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2 py-0.5 rounded border border-[var(--tng-blue-200)] hover:bg-[var(--tng-blue-100)] transition-colors inline-flex items-center gap-1 truncate max-w-full"
-                                                    title="View linked official routing slip"
-                                                >
-                                                    <Route className="h-3 w-3 shrink-0" />
-                                                    <span>{qr.routing_slip_id}</span>
-                                                </button>
-                                            </td>
-
-                                            {/* 4. Department */}
-                                            <td className="px-3.5 py-3">
-                                                <div className="font-medium text-xs text-[var(--tng-slate-900)] truncate" title={qr.department}>
-                                                    {qr.department}
-                                                </div>
-                                                <div className="text-[10px] text-[var(--tng-slate-400)] truncate mt-0.5">
-                                                    Office Code: {qr.department_code}
-                                                </div>
-                                            </td>
-
-                                            {/* 5. Document Type */}
-                                            <td className="px-3.5 py-3">
-                                                <span className="text-[11px] text-[var(--tng-slate-700)] bg-[var(--tng-slate-50)] px-2 py-0.5 rounded border border-[var(--tng-slate-200)] truncate block" title={qr.document_type}>
-                                                    {qr.document_type}
-                                                </span>
-                                            </td>
-
-                                            {/* 6. Status */}
-                                            <td className="px-3.5 py-3 text-center">
-                                                <span
-                                                    className={cn(
-                                                        'inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
-                                                        getStatusBadge(qr.status)
-                                                    )}
-                                                >
-                                                    {qr.status}
-                                                </span>
-                                            </td>
-
-                                            {/* 7. Date Generated */}
-                                            <td className="px-3.5 py-3">
-                                                <div className="text-[11px] text-[var(--tng-slate-800)] font-medium">
-                                                    {qr.formatted_date}
-                                                </div>
-                                                <div className="text-[10px] text-[var(--tng-slate-400)]">
-                                                    {qr.date_generated.slice(-8)}
-                                                </div>
-                                            </td>
-
-                                            {/* 8. Actions: View Modal & Download */}
-                                            <td className="px-3.5 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSelectedQr(qr)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] rounded-lg transition-all shadow-2xs whitespace-nowrap"
-                                                        title="Inspect full QR code details and traceability"
-                                                    >
-                                                        <Eye className="h-3.5 w-3.5 shrink-0" />
-                                                        <span>Inspect</span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDownloadSingleQr(qr)}
-                                                        className="p-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs"
-                                                        title="Download high-resolution QR PNG"
-                                                    >
-                                                        <Download className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
+                    <div className="w-full bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center justify-center space-y-2">
-                                                <div className="p-3 rounded-full bg-[var(--tng-slate-100)] text-[var(--tng-slate-400)]">
-                                                    <QrCode className="h-6 w-6" />
-                                                </div>
-                                                <div className="text-sm font-semibold text-[var(--tng-slate-700)]">
-                                                    No QR codes found
-                                                </div>
+                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">QR Code ID</th>
+                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Document Reference</th>
+                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Routing Slip ID</th>
+                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Department</th>
+                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Type</th>
+                                        <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
+                                        <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Date Generated</th>
+                                        <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--tng-slate-100)]">
+                                    {paginatedQrCodes.length > 0 ? (
+                                        paginatedQrCodes.map((qr) => (
+                                            <tr
+                                                key={qr.qr_id}
+                                                className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group"
+                                            >
+                                                {/* 1. QR Code ID with visual thumbnail */}
+                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <img
+                                                            src={qr.qr_image_url}
+                                                            alt={qr.qr_id}
+                                                            onClick={() => setSelectedQr(qr)}
+                                                            className="w-9 h-9 rounded border border-slate-200 bg-white p-0.5 cursor-pointer hover:scale-110 transition-transform shrink-0"
+                                                            title="Click to inspect QR code"
+                                                        />
+                                                        <div className="min-w-0">
+                                                            <div className="font-mono text-[14px] font-bold text-slate-900 truncate">
+                                                                {qr.qr_id}
+                                                            </div>
+                                                            <span className="text-[12px] text-slate-400 font-sans block">
+                                                                {qr.stop_number}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* 2. Document Reference & Title */}
+                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <Link
+                                                        href={`/${currentRole}/documents/${qr.document_id}`}
+                                                        className="group block"
+                                                        title={`${qr.document_ref} - ${qr.document_title}`}
+                                                    >
+                                                        <span className="font-mono font-bold text-[14px] text-[var(--tng-blue-600)] group-hover:text-[var(--tng-blue-800)] group-hover:underline flex items-center gap-1">
+                                                            {qr.document_ref}
+                                                            <ExternalLink className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                                                        </span>
+                                                        <span className="text-[12px] text-[var(--tng-slate-500)] group-hover:text-[var(--tng-slate-700)] truncate block mt-0.5">
+                                                            {qr.document_title}
+                                                        </span>
+                                                    </Link>
+                                                </td>
+
+                                                {/* 3. Routing Slip ID */}
+                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedSlip({
+                                                            slip_id: qr.numeric_slip_id,
+                                                            tracking_number: qr.routing_slip_id,
+                                                            document_id: qr.document_id,
+                                                            document_ref: qr.document_ref,
+                                                            document_title: qr.document_title,
+                                                            from_name: qr.from_name,
+                                                            from_department: qr.department,
+                                                            to_name: qr.to_name,
+                                                            to_department: qr.to_department,
+                                                            action: qr.action,
+                                                            instruction: qr.instruction,
+                                                            status: qr.status,
+                                                            formatted_date: qr.formatted_date,
+                                                            stop_number: qr.stop_number,
+                                                            qr_data: qr.qr_data,
+                                                        })}
+                                                        className="font-mono text-[13px] font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2.5 py-1 rounded border border-[var(--tng-blue-200)] hover:bg-[var(--tng-blue-100)] transition-colors inline-flex items-center gap-1 truncate max-w-full"
+                                                        title="View linked official routing slip"
+                                                    >
+                                                        <Route className="h-3.5 w-3.5 shrink-0" />
+                                                        <span>{qr.routing_slip_id}</span>
+                                                    </button>
+                                                </td>
+
+                                                {/* 4. Department */}
+                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <div className="font-semibold text-[14px] text-[var(--tng-slate-900)] truncate" title={qr.department}>
+                                                        {qr.department}
+                                                    </div>
+                                                    <div className="text-[12px] text-[var(--tng-slate-400)] truncate mt-0.5">
+                                                        Office Code: {qr.department_code}
+                                                    </div>
+                                                </td>
+
+                                                {/* 5. Document Type */}
+                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <span className="text-[13px] text-[var(--tng-slate-700)] bg-[var(--tng-slate-50)] px-2.5 py-0.5 rounded border border-[var(--tng-slate-200)] truncate block" title={qr.document_type}>
+                                                        {qr.document_type}
+                                                    </span>
+                                                </td>
+
+                                                {/* 6. Status */}
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <span
+                                                        className={cn(
+                                                            'inline-block px-2.5 py-0.5 rounded-full text-[13px] font-bold border',
+                                                            getStatusBadge(qr.status)
+                                                        )}
+                                                    >
+                                                        {qr.status}
+                                                    </span>
+                                                </td>
+
+                                                {/* 7. Date Generated */}
+                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <div className="text-[14px] text-[var(--tng-slate-800)] font-medium">
+                                                        {qr.formatted_date}
+                                                    </div>
+                                                    <div className="text-[12px] text-[var(--tng-slate-400)]">
+                                                        {qr.date_generated.slice(-8)}
+                                                    </div>
+                                                </td>
+
+                                                {/* 8. Actions: View Modal & Download (Icons only) */}
+                                                <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedQr(qr)}
+                                                            className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                                                            title="Inspect full QR code details and traceability"
+                                                            aria-label="Inspect full QR code"
+                                                        >
+                                                            <Eye className="h-[18px] w-[18px]" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDownloadSingleQr(qr)}
+                                                            className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400/50"
+                                                            title="Download high-resolution QR PNG"
+                                                            aria-label="Download QR"
+                                                        >
+                                                            <Download className="h-[18px] w-[18px]" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={8} className="px-6 py-12 text-center text-[14px]">
+                                                <div className="flex flex-col items-center justify-center space-y-2">
+                                                    <div className="p-3 rounded-full bg-[var(--tng-slate-100)] text-[var(--tng-slate-400)]">
+                                                        <QrCode className="h-6 w-6" />
+                                                    </div>
+                                                    <div className="text-[14px] font-semibold text-[var(--tng-slate-700)]">
+                                                        No QR codes found
+                                                    </div>
                                                 <p className="text-xs text-[var(--tng-slate-400)] max-w-sm">
                                                     {searchQuery || statusFilter !== 'all' || typeFilter !== 'all' || deptFilter !== 'all'
                                                         ? 'Try clearing your filters or search query to view all available QR codes.'
@@ -715,8 +707,9 @@ export default function QrCodesIndex({
                             </tbody>
                         </table>
                     </div>
-                ) : (
-                    /* ── Grid View ─────────────────────────────────────────── */
+                </div>
+            ) : (
+                /* ── Grid View ─────────────────────────────────────────── */
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {paginatedQrCodes.length > 0 ? (
                             paginatedQrCodes.map((qr) => (

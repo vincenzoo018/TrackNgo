@@ -102,14 +102,14 @@ export function RoutingSlipModal({
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-sm font-bold text-slate-900 leading-tight">
+                                <h2 className="text-[18px] sm:text-[20px] font-bold text-slate-900 leading-tight">
                                     Official Routing Slip
                                 </h2>
                                 <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                                     {trackingNumber}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
+                            <p className="text-xs text-slate-500 mt-0.5">
                                 Verified document tracking record & dispatch voucher
                             </p>
                         </div>
@@ -121,7 +121,7 @@ export function RoutingSlipModal({
                         className="rounded-lg p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                         aria-label="Close modal"
                     >
-                        <X className="h-5 w-5" />
+                        <X className="h-[18px] w-[18px]" />
                     </button>
                 </div>
 

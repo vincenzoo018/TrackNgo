@@ -128,7 +128,7 @@ export function BaseModal({
                             <div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     {title && (
-                                        <h2 id="trackngo-modal-title" className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                                        <h2 id="trackngo-modal-title" className="text-[18px] sm:text-[20px] font-bold text-slate-900 leading-snug">
                                             {title}
                                         </h2>
                                     )}
@@ -151,7 +151,7 @@ export function BaseModal({
                             className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 shrink-0 cursor-pointer ml-2"
                             aria-label="Close modal"
                         >
-                            <X className="h-5 w-5" />
+                            <X className="h-[18px] w-[18px]" />
                         </button>
                     </div>
                 )}

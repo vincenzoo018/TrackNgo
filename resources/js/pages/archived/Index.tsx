@@ -42,7 +42,7 @@ export default function ArchivedDocumentsIndex() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [activeTab, setActiveTab] = useState<'all' | 'approved' | 'completed' | 'archived'>('all');
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
@@ -238,7 +238,7 @@ export default function ArchivedDocumentsIndex() {
                                 <Archive className="h-5 w-5" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-900">
+                                <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">
                                     Archived Documents
                                 </h1>
                                 <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
@@ -455,8 +455,8 @@ export default function ArchivedDocumentsIndex() {
                 {/* ── Main Data Table ────────────────────────────────────── */}
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs text-slate-600">
-                            <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        <table className="w-full text-left text-[14px] text-slate-600">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)]">
                                 <tr>
                                     <th className="w-10 px-4 py-3 text-center">
                                         <input
@@ -494,7 +494,7 @@ export default function ArchivedDocumentsIndex() {
                                     <th className="px-4 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 font-normal">
                                 {paginatedDocs.map((doc: any) => {
                                     const showUrl = `/${currentRole}/documents/${doc.document_id}`;
                                     const dateFiled = doc.date_filed || doc.created_at;
@@ -512,7 +512,7 @@ export default function ArchivedDocumentsIndex() {
                                     return (
                                         <tr
                                             key={doc.document_id}
-                                            className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
+                                            className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
                                         >
                                             {/* Checkbox */}
                                             <td className="px-4 py-3.5 text-center">
@@ -533,18 +533,18 @@ export default function ArchivedDocumentsIndex() {
                                                     <div className="min-w-0">
                                                         <Link
                                                             href={showUrl}
-                                                            className="font-bold text-slate-900 hover:text-blue-600 hover:underline"
+                                                            className="font-bold text-[14px] text-slate-900 hover:text-blue-600 hover:underline"
                                                         >
                                                             {doc.reference_number}
                                                         </Link>
-                                                        <p className="truncate text-xs text-slate-700 font-medium max-w-sm">
+                                                        <p className="truncate text-[13px] text-slate-700 font-normal max-w-sm">
                                                             {doc.title || 'Untitled Document'}
                                                         </p>
                                                         <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[10px] text-slate-400 font-mono">
+                                                            <span className="text-[11px] text-slate-400 font-mono">
                                                                 {doc.tracking_number || 'No Tracking #'}
                                                             </span>
-                                                            <span className="text-[10px] rounded bg-slate-100 px-1.5 py-0.2 text-slate-600">
+                                                            <span className="text-[11px] rounded bg-slate-100 px-1.5 py-0.2 text-slate-600">
                                                                 {doc.type?.type_name || 'General'}
                                                             </span>
                                                         </div>
@@ -556,23 +556,23 @@ export default function ArchivedDocumentsIndex() {
                                             <td className="px-4 py-3.5">
                                                 <div className="flex items-center gap-1.5">
                                                     <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                    <span className="font-medium text-slate-700">
+                                                    <span className="font-normal text-[14px] text-slate-700">
                                                         {doc.department?.department_name || 'General Administration'}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] text-slate-400 pl-5">
+                                                <span className="text-[11px] text-slate-400 pl-5">
                                                     Code: {doc.department?.code || 'GEN'}
                                                 </span>
                                             </td>
 
                                             {/* Date Filed */}
                                             <td className="px-4 py-3.5">
-                                                <div className="flex items-center gap-1 text-slate-700 font-medium">
+                                                <div className="flex items-center gap-1 text-slate-700 font-normal text-[14px]">
                                                     <Calendar className="h-3.5 w-3.5 text-slate-400" />
                                                     <span>{formattedDateFiled}</span>
                                                 </div>
                                                 {doc.completed_at && (
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">
+                                                    <div className="text-[11px] text-slate-400 mt-0.5">
                                                         Finalized: {new Date(doc.completed_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
                                                     </div>
                                                 )}
@@ -581,17 +581,17 @@ export default function ArchivedDocumentsIndex() {
                                             {/* Status */}
                                             <td className="px-4 py-3.5">
                                                 {isApproved ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[13px] font-bold text-emerald-700 border border-emerald-200">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                                         Approved
                                                     </span>
                                                 ) : isCompleted ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 border border-teal-200">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-[13px] font-bold text-teal-700 border border-teal-200">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
                                                         Completed
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 border border-slate-300">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[13px] font-bold text-slate-700 border border-slate-300">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
                                                         Archived
                                                     </span>
@@ -615,7 +615,7 @@ export default function ArchivedDocumentsIndex() {
                                                         aria-label="Quick Overview"
                                                         className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                     >
-                                                        <Eye className="h-4 w-4" />
+                                                        <Eye className="h-[18px] w-[18px]" />
                                                     </button>
                                                     <Link
                                                         href={showUrl}
@@ -623,7 +623,7 @@ export default function ArchivedDocumentsIndex() {
                                                         aria-label="View Full Details"
                                                         className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400/50"
                                                     >
-                                                        <ExternalLink className="h-4 w-4" />
+                                                        <ExternalLink className="h-[18px] w-[18px]" />
                                                     </Link>
                                                 </div>
                                             </td>

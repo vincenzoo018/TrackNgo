@@ -115,7 +115,7 @@ export function QrDetailModal({
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-base font-bold text-slate-900 leading-tight">
+                                <h2 className="text-[18px] sm:text-[20px] font-bold text-slate-900 leading-tight">
                                     QR Code Verification & Traceability
                                 </h2>
                                 <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
@@ -134,7 +134,7 @@ export function QrDetailModal({
                         className="rounded-lg p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                         aria-label="Close modal"
                     >
-                        <X className="h-5 w-5" />
+                        <X className="h-[18px] w-[18px]" />
                     </button>
                 </div>
 

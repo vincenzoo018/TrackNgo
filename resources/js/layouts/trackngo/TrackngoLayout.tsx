@@ -163,9 +163,9 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                                 key={item.title}
                                 href={item.href}
                                 className={cn(
-                                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-all duration-200',
                                     active
-                                        ? 'bg-[var(--tng-blue-600)] text-white shadow-md shadow-blue-600/25'
+                                        ? 'bg-[var(--tng-blue-600)] text-white shadow-md shadow-blue-600/25 font-semibold'
                                         : 'text-[var(--tng-slate-600)] hover:bg-[var(--tng-blue-50)] hover:text-[var(--tng-blue-700)]',
                                     !sidebarOpen && 'justify-center px-0',
                                 )}
@@ -193,7 +193,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                         method="post"
                         as="button"
                         className={cn(
-                            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50',
+                            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium text-red-500 transition-colors hover:bg-red-50',
                             !sidebarOpen && 'justify-center px-0',
                         )}
                     >
@@ -331,8 +331,8 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                 )}
 
                 {/* Page Content */}
-                <main className="tng-scrollbar flex-1 overflow-y-auto p-4 lg:p-6">
-                    <div className="tng-fade-in">
+                <main className="tng-scrollbar flex-1 overflow-y-auto p-4 lg:p-6 w-full">
+                    <div className="tng-fade-in w-full">
                         {children}
                     </div>
                 </main>

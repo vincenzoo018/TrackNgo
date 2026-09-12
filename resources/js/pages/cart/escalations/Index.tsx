@@ -27,6 +27,7 @@ import {
     ArrowUpRight,
     UserCheck,
     User,
+    Eye,
 } from 'lucide-react';
 
 export interface EscalationItem {
@@ -107,9 +108,9 @@ export default function CartEscalatedDocsIndex({
     const [selectedRange, setSelectedRange] = useState(filters.range || 'all');
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
 
-    // Pagination state (default: 10 per page, expandable to 20, 50, 100)
+    // Pagination state (default: 20 per page, expandable to 50, 100)
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
 
     // Resolve Modal State
     const [resolvingItem, setResolvingItem] = useState<EscalationItem | null>(null);
@@ -196,7 +197,7 @@ export default function CartEscalatedDocsIndex({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                            <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
                                 <ShieldAlert className="h-6 w-6 text-red-600" />
                                 Escalated Docs (Unified ARTA Monitoring)
                             </h1>
@@ -456,10 +457,10 @@ export default function CartEscalatedDocsIndex({
                 </div>
 
                 {/* ── STRUCTURED & CLEAN ESCALATED DOCUMENTS TABLE ──────────── */}
-                <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                <div className="w-full rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="px-6 py-4 border-b border-[var(--tng-slate-100)] flex items-center justify-between">
                         <div>
-                            <h2 className="text-base font-bold text-[var(--tng-slate-900)]">
+                            <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)]">
                                 ARTA Escalation Records ({escalations.length})
                             </h2>
                             <p className="text-xs text-[var(--tng-slate-500)] mt-0.5">
@@ -468,19 +469,19 @@ export default function CartEscalatedDocsIndex({
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] uppercase tracking-wider font-bold border-b border-[var(--tng-slate-200)] text-[10px]">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-4 py-3.5">Tracking #</th>
-                                    <th className="px-4 py-3.5">Document Title</th>
-                                    <th className="px-4 py-3.5">Severity</th>
-                                    <th className="px-4 py-3.5">Days Elapsed vs SLA</th>
-                                    <th className="px-4 py-3.5">Originating Dept</th>
-                                    <th className="px-4 py-3.5">Current Holder / Office</th>
-                                    <th className="px-4 py-3.5">Notified User</th>
-                                    <th className="px-4 py-3.5">Escalated At</th>
-                                    <th className="px-4 py-3.5 text-right">Action</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Tracking #</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Document Title</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Severity</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Days Elapsed vs SLA</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Originating Dept</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Current Holder / Office</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Notified User</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Escalated At</th>
+                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -489,57 +490,57 @@ export default function CartEscalatedDocsIndex({
                                         return (
                                             <tr
                                                 key={item.id}
-                                                className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40 group"
+                                                className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group"
                                             >
                                                 {/* 1. Tracking # */}
-                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                     <Link
                                                         href={`/cart/documents/${item.id}`}
-                                                        className="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5"
+                                                        className="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 text-[14px]"
                                                     >
                                                         {item.tracking_number}
-                                                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                                                        <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
                                                     </Link>
-                                                    <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                                                    <span className="text-[12px] text-slate-400 font-mono block mt-0.5">
                                                         Ref: {item.reference_number}
                                                     </span>
                                                 </td>
 
                                                 {/* 2. Document Title */}
-                                                <td className="px-4 py-4 max-w-xs">
+                                                <td className="px-4 py-3.5 max-w-xs text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                     <Link
                                                         href={`/cart/documents/${item.id}`}
-                                                        className="font-semibold text-slate-900 hover:text-blue-600 transition-colors line-clamp-1 block"
+                                                        className="font-semibold text-slate-900 hover:text-blue-600 transition-colors line-clamp-1 block text-[14px]"
                                                     >
                                                         {item.title}
                                                     </Link>
-                                                    <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium inline-block mt-1">
+                                                    <span className="text-[12px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-medium inline-block mt-1">
                                                         {item.type_name}
                                                     </span>
                                                 </td>
 
                                                 {/* 3. Severity (Warning, Critical, Overdue) */}
-                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3.5 whitespace-nowrap">
                                                     {item.severity === 'Resolved' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[13px] font-bold text-emerald-700 border border-emerald-200">
                                                             <CheckCircle2 className="h-3.5 w-3.5" />
                                                             Resolved
                                                         </span>
                                                     )}
                                                     {item.severity === 'Critical' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 border border-rose-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-[13px] font-bold text-rose-700 border border-rose-200">
                                                             <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
                                                             Critical
                                                         </span>
                                                     )}
                                                     {item.severity === 'Overdue' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[13px] font-bold text-red-700 border border-red-200">
                                                             <AlertTriangle className="h-3.5 w-3.5" />
                                                             Overdue
                                                         </span>
                                                     )}
                                                     {item.severity === 'Warning' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[13px] font-bold text-amber-700 border border-amber-200">
                                                             <Clock className="h-3.5 w-3.5" />
                                                             Warning
                                                         </span>
@@ -547,10 +548,10 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 4. Days Elapsed vs SLA Threshold */}
-                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                     <div className="flex items-center gap-1.5">
                                                         <span
-                                                            className={`font-bold tabular-nums text-sm ${
+                                                            className={`font-bold tabular-nums text-[14px] ${
                                                                 item.days_elapsed > item.sla_threshold
                                                                     ? 'text-red-600'
                                                                     : 'text-slate-800'
@@ -559,17 +560,17 @@ export default function CartEscalatedDocsIndex({
                                                             {item.days_elapsed}
                                                         </span>
                                                         <span className="text-slate-400 font-medium">/</span>
-                                                        <span className="text-slate-600 font-semibold tabular-nums text-xs">
+                                                        <span className="text-slate-600 font-semibold tabular-nums text-[13px]">
                                                             {item.sla_threshold}d SLA
                                                         </span>
                                                     </div>
                                                     <div className="mt-0.5">
                                                         {item.variance > 0 ? (
-                                                            <span className="text-[10px] font-semibold text-red-600">
+                                                            <span className="text-[12px] font-semibold text-red-600">
                                                                 +{item.variance}d breach
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[10px] font-semibold text-emerald-600">
+                                                            <span className="text-[12px] font-semibold text-emerald-600">
                                                                 On-Time ({Math.abs(item.variance)}d left)
                                                             </span>
                                                         )}
@@ -577,14 +578,14 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 5. Originating Department */}
-                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                     <div className="flex items-center gap-1.5">
-                                                        <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                        <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
                                                         <div>
-                                                            <p className="font-semibold text-slate-800">
+                                                            <p className="font-semibold text-slate-800 text-[14px]">
                                                                 {item.originating_department}
                                                             </p>
-                                                            <span className="text-[10px] text-slate-400 font-mono">
+                                                            <span className="text-[12px] text-slate-400 font-mono">
                                                                 Code: {item.originating_department_code}
                                                             </span>
                                                         </div>
@@ -592,38 +593,38 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 6. Current Holder / Office */}
-                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                     <div className="space-y-0.5">
-                                                        <p className="font-semibold text-slate-800 flex items-center gap-1">
-                                                            <User className="h-3 w-3 text-slate-400" />
+                                                        <p className="font-semibold text-slate-800 flex items-center gap-1 text-[14px]">
+                                                            <User className="h-3.5 w-3.5 text-slate-400" />
                                                             {item.current_holder_user}
                                                         </p>
-                                                        <p className="text-[10px] text-slate-500 font-medium">
+                                                        <p className="text-[12px] text-slate-500 font-medium">
                                                             {item.current_holder_office}
                                                         </p>
                                                     </div>
                                                 </td>
 
                                                 {/* 7. Notified User */}
-                                                <td className="px-4 py-4 whitespace-nowrap">
-                                                    <p className="font-semibold text-slate-800">{item.notified_user}</p>
-                                                    <p className="text-[10px] text-slate-400 font-medium">
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <p className="font-semibold text-slate-800 text-[14px]">{item.notified_user}</p>
+                                                    <p className="text-[12px] text-slate-400 font-medium">
                                                         {item.notified_role}
                                                     </p>
                                                 </td>
 
                                                 {/* 8. Escalated At (Date/Time) */}
-                                                <td className="px-4 py-4 whitespace-nowrap text-slate-500 font-medium">
-                                                    <p className="text-xs text-slate-700">{item.escalated_at}</p>
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-slate-500 font-normal text-[14px]">
+                                                    <p className="text-[14px] text-slate-700">{item.escalated_at}</p>
                                                     {item.resolved_at && (
-                                                        <span className="text-[10px] text-emerald-600 block mt-0.5 font-medium">
+                                                        <span className="text-[12px] text-emerald-600 block mt-0.5 font-medium">
                                                             Resolved: {item.resolved_at}
                                                         </span>
                                                     )}
                                                 </td>
 
                                                 {/* 9. Action (Resolve button) */}
-                                                <td className="px-4 py-4 whitespace-nowrap text-right">
+                                                <td className="px-4 py-3.5 whitespace-nowrap text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Link
                                                             href={`/cart/documents/${item.id}`}
@@ -631,12 +632,12 @@ export default function CartEscalatedDocsIndex({
                                                             aria-label="Inspect Document"
                                                             className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                         >
-                                                            <Eye className="h-4 w-4" />
+                                                            <Eye className="h-[18px] w-[18px]" />
                                                         </Link>
 
                                                         {item.resolved ? (
-                                                            <span className="rounded-lg p-2 text-emerald-500" title="Resolved">
-                                                                <CheckCircle2 className="h-4 w-4" />
+                                                            <span className="rounded-lg p-2 text-emerald-500" title="Resolved" aria-label="Resolved">
+                                                                <CheckCircle2 className="h-[18px] w-[18px]" />
                                                             </span>
                                                         ) : (
                                                             <button
@@ -645,7 +646,7 @@ export default function CartEscalatedDocsIndex({
                                                                 aria-label="Resolve Escalation"
                                                                 className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-emerald-50 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 cursor-pointer"
                                                             >
-                                                                <CheckCircle2 className="h-4 w-4" />
+                                                                <CheckCircle2 className="h-[18px] w-[18px]" />
                                                             </button>
                                                         )}
                                                     </div>

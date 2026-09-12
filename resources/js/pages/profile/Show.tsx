@@ -48,7 +48,7 @@ export default function ProfileShow() {
 
     const updateProfile = (e: React.FormEvent) => {
         e.preventDefault();
-        profileForm.put(route('profile.update'), {
+        profileForm.put('/profile', {
             preserveScroll: true,
         });
     };
@@ -62,7 +62,7 @@ export default function ProfileShow() {
 
     const updatePassword = (e: React.FormEvent) => {
         e.preventDefault();
-        passwordForm.put(route('profile.password'), {
+        passwordForm.put('/profile/password', {
             preserveScroll: true,
             onSuccess: () => passwordForm.reset(),
         });

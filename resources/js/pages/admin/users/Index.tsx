@@ -28,6 +28,7 @@ import {
     Lock,
     Eye,
     EyeOff,
+    RotateCcw,
     ChevronLeft,
     ChevronRight,
 } from 'lucide-react';
@@ -194,8 +195,8 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                            <Users className="h-6 w-6 text-[var(--tng-blue-600)]" />
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                            <Users className="h-5 w-5 text-[var(--tng-blue-600)]" />
                             User Accounts Management
                         </h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
@@ -338,20 +339,21 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                 </div>
 
                 {/* Table with Clean Styling, Alternating Row Colors, and Pagination */}
-                <div className="overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
+                {/* Table with Clean Styling, Alternating Row Colors, and Pagination */}
+                <div className="w-full overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs">
+                    <div className="w-full overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-6 py-4">User Name</th>
-                                    <th className="px-6 py-4">Email Address</th>
-                                    <th className="px-6 py-4">Role Access</th>
-                                    <th className="px-6 py-4">Department</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                    <th className="px-6 py-3.5">User Name</th>
+                                    <th className="px-6 py-3.5">Email Address</th>
+                                    <th className="px-6 py-3.5">Role Access</th>
+                                    <th className="px-6 py-3.5">Department</th>
+                                    <th className="px-6 py-3.5">Status</th>
+                                    <th className="px-6 py-3.5 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[var(--tng-slate-100)]">
+                            <tbody className="divide-y divide-[var(--tng-slate-200)]">
                                 {paginatedUsers.map((user) => {
                                     const roleName = user.role?.role_name || 'Unassigned';
                                     const deptName = user.department?.department_name || 'None Assigned';
@@ -361,18 +363,18 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                                     return (
                                         <tr
                                             key={user.id}
-                                            className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
+                                            className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
                                         >
                                             {/* 1. User Name */}
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold text-xs shadow-sm ${
+                                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-xs shadow-2xs ${
                                                         isActive ? 'bg-[var(--tng-blue-600)] text-white' : 'bg-slate-300 text-slate-600'
                                                     }`}>
                                                         {initials}
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                                                        <div className="font-semibold text-[14px] text-slate-900 flex items-center gap-2">
                                                             {user.first_name} {user.middle_name ? `${user.middle_name} ` : ''}{user.last_name}
                                                             {user.id === currentUserId && (
                                                                 <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
@@ -393,79 +395,79 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                                             </td>
 
                                             {/* 2. Email Address */}
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2 text-sm font-normal text-slate-700 font-mono">
-                                                    <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                            <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="flex items-center gap-2 font-mono text-[14px] text-slate-700">
+                                                    <Mail className="h-4 w-4 text-slate-400 shrink-0" />
                                                     <span>{user.email}</span>
                                                 </div>
                                             </td>
 
                                             {/* 3. Role Access */}
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ${getRoleBadge(roleName)}`}>
-                                                    <Shield className="h-3 w-3" />
+                                            <td className="px-6 py-3.5 whitespace-nowrap">
+                                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-bold border ${getRoleBadge(roleName)}`}>
+                                                    <Shield className="h-3.5 w-3.5" />
                                                     {roleName}
                                                 </span>
                                             </td>
 
                                             {/* 4. Department */}
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
+                                            <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="flex items-center gap-1.5 text-[14px] text-slate-700">
                                                     <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
                                                     <span className="truncate max-w-[220px]">{deptName}</span>
                                                 </div>
                                             </td>
 
                                             {/* 5. Status */}
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-6 py-3.5 whitespace-nowrap">
                                                 {isActive ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[13px] font-bold text-emerald-700 border border-emerald-200 shadow-2xs">
                                                         <ShieldCheck className="h-3.5 w-3.5" /> Active
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700 border border-rose-200">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-[13px] font-bold text-rose-700 border border-rose-200 shadow-2xs">
                                                         <XCircle className="h-3.5 w-3.5" /> Inactive
                                                     </span>
                                                 )}
                                             </td>
 
                                             {/* 6. Actions (Edit, Override, Delete) */}
-                                            <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    {/* Edit */}
+                                            <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {/* Edit (Pencil) */}
                                                     <button
                                                         onClick={() => setEditingUser(user)}
                                                         title={isHr ? "Override Employee Information" : "Edit User Information"}
-                                                        aria-label="Edit"
+                                                        aria-label="Edit User"
                                                         className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-amber-50 hover:text-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 active:scale-95 cursor-pointer"
                                                     >
-                                                        <Edit2 className="h-4 w-4" />
+                                                        <Edit2 className="h-[18px] w-[18px]" />
                                                     </button>
 
-                                                    {/* Override */}
+                                                    {/* Override (Circular Arrow / Key) */}
                                                     <button
                                                         onClick={() => setOverridingUser(user)}
                                                         title={isHr ? "Override Department Assignment" : "Override Role & Access"}
                                                         aria-label="Override"
                                                         className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-purple-50 hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400/50 active:scale-95 cursor-pointer"
                                                     >
-                                                        <KeyRound className="h-4 w-4" />
+                                                        <RotateCcw className="h-[18px] w-[18px]" />
                                                     </button>
 
-                                                    {/* Delete (Admin Only) */}
+                                                    {/* Delete (Trash bin - Admin Only) */}
                                                     {isAdmin && (
                                                         <button
                                                             onClick={() => setDeletingUser(user)}
                                                             disabled={user.id === currentUserId}
                                                             title={user.id === currentUserId ? "Cannot delete yourself" : "Delete User Account"}
-                                                            aria-label="Delete"
+                                                            aria-label="Delete User"
                                                             className={`rounded-lg p-2 transition-all focus:outline-none focus:ring-2 focus:ring-rose-400/50 active:scale-95 ${
                                                                 user.id === currentUserId
                                                                     ? 'text-slate-300 cursor-not-allowed'
                                                                     : 'text-[var(--tng-slate-400)] hover:bg-rose-50 hover:text-rose-600 cursor-pointer'
                                                             }`}
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
+                                                            <Trash2 className="h-[18px] w-[18px]" />
                                                         </button>
                                                     )}
                                                 </div>
@@ -578,7 +580,7 @@ function CreateUserModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(route('admin.users.store'), {
+        post('/admin/users', {
             onSuccess: () => {
                 reset();
                 onClose();
@@ -789,7 +791,7 @@ function EditUserModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const targetUrl = isHr ? `/hr/users/${user.id}` : route('admin.users.update', user.id);
+        const targetUrl = isHr ? `/hr/users/${user.id}` : `/admin/users/${user.id}`;
         put(targetUrl, {
             onSuccess: () => {
                 onClose();
@@ -1004,7 +1006,7 @@ function OverrideAccessModal({
 
     const handleOverride = (e: React.FormEvent) => {
         e.preventDefault();
-        const targetUrl = isHr ? `/hr/users/${user.id}/override-role` : route('admin.users.overrideRole', user.id);
+        const targetUrl = isHr ? `/hr/users/${user.id}/override-role` : `/admin/users/${user.id}/override-role`;
         post(targetUrl, {
             onSuccess: () => {
                 onClose();
@@ -1151,7 +1153,7 @@ function DeleteUserModal({
 
     const handleDelete = () => {
         if (isSelf) return;
-        router.delete(route('admin.users.destroy', user.id), {
+        router.delete(`/admin/users/${user.id}`, {
             onSuccess: () => {
                 onClose();
             },

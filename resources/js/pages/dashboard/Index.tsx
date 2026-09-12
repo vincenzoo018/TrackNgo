@@ -458,8 +458,8 @@ export default function UnifiedDashboard({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <Activity className="h-6 w-6 text-[var(--tng-blue-600)]" />
+                            <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                <Activity className="h-5 w-5 text-[var(--tng-blue-600)]" />
                                 {isFullAccess ? 'System Overview & Live Tracking' : `${userRoleName} Dashboard`}
                             </h1>
 
@@ -615,7 +615,7 @@ export default function UnifiedDashboard({
                     <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-blue-300 transition-colors">
                         <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h2 className="text-base font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
                                     <BarChart3 className="h-5 w-5 text-[var(--tng-blue-600)]" />
                                     Department Bottlenecks
                                 </h2>
@@ -637,7 +637,7 @@ export default function UnifiedDashboard({
                     <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-emerald-300 transition-colors">
                         <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h2 className="text-base font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
                                     <PieChartIcon className="h-5 w-5 text-emerald-600" />
                                     Workflow Status Distribution
                                 </h2>
@@ -669,7 +669,7 @@ export default function UnifiedDashboard({
                 <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-purple-300 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div>
-                            <h2 className="text-base font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                            <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
                                 <TrendingUp className="h-5 w-5 text-purple-600" />
                                 Weekly Volume Trends
                             </h2>

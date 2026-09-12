@@ -1,3 +1,6 @@
+/* ── Google Fonts: Roboto & Open Sans ───────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700;900&display=swap');
+
 @import 'tailwindcss';
 
 @import 'tw-animate-css';
@@ -7,14 +10,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── Google Font: Inter ──────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 @theme {
     --font-sans:
-        'Inter', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
+        'Segoe UI', 'Roboto', 'Open Sans', system-ui, -apple-system,
+        BlinkMacSystemFont, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -256,3 +256,110 @@
 .tng-scrollbar::-webkit-scrollbar-thumb:hover {
     background: var(--tng-slate-400);
 }
+
+/* ── Unified Design System Typography (All Roles & Modules) ─────── */
+/* Page headers → 20px, bold */
+.tng-page-header {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    color: var(--tng-slate-900);
+    letter-spacing: -0.015em;
+}
+
+/* Section headers → 18px, semi-bold */
+.tng-section-header {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    color: var(--tng-slate-800);
+}
+
+/* Table headers → 16px, bold */
+.tng-table-header {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    color: var(--tng-slate-800);
+    letter-spacing: 0.01em;
+}
+
+/* Table values → 14px, regular weight */
+.tng-table-value {
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    line-height: 1.45 !important;
+    color: var(--tng-slate-700);
+}
+
+/* Sidebar items → 14–16px, medium weight (standardized to 15px) */
+.tng-sidebar-item {
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
+}
+
+/* Status badges → 12–14px, bold, color-coded (standardized to 13px) */
+.tng-status-badge {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+}
+
+/* Action icons → 16–20px, consistent size with tooltips (standardized to 18px) */
+.tng-action-icon {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+}
+
+/* Action button container standard styling */
+.tng-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    color: var(--tng-slate-400);
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+}
+.tng-action-btn:hover {
+    background-color: var(--tng-slate-100);
+    color: var(--tng-slate-800);
+}
+.tng-action-btn:focus-visible {
+    outline: 2px solid var(--tng-blue-500);
+    outline-offset: 1px;
+}
+
+/* Table 100% full width and alternating rows */
+.tng-table-container {
+    width: 100% !important;
+    overflow-x: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--tng-slate-200);
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.tng-table-full {
+    width: 100% !important;
+    text-align: left;
+    border-collapse: collapse;
+}
+
+.tng-table-row {
+    transition: background-color 0.15s ease-in-out;
+}
+.tng-table-row:nth-child(odd) {
+    background-color: #ffffff;
+}
+.tng-table-row:nth-child(even) {
+    background-color: rgba(248, 250, 252, 0.75);
+}
+.tng-table-row:hover {
+    background-color: rgba(239, 246, 255, 0.55);
+}
+

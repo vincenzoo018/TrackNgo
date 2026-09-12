@@ -34,7 +34,7 @@ export function TablePagination({
     onPageChange,
     onPageSizeChange,
     itemLabel = 'records',
-    pageSizeOptions = [10, 20, 50, 100],
+    pageSizeOptions = [20, 50, 100],
     className = '',
 }: TablePaginationProps) {
     if (totalItems <= 0) {
@@ -48,18 +48,18 @@ export function TablePagination({
 
     return (
         <div
-            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-[var(--tng-slate-200)] bg-slate-50/50 px-6 py-3.5 ${className}`}
+            className={`w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-[var(--tng-slate-200)] bg-slate-50/70 px-6 py-3.5 ${className}`}
         >
             {/* Left: Record Range Summary & Items Per Page Selector */}
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            <div className="flex flex-wrap items-center gap-4 text-[14px] text-slate-600 font-normal">
                 <div>
                     Showing <span className="font-bold text-slate-900">{startIndex + 1}</span> to{' '}
                     <span className="font-bold text-slate-900">{endIndex}</span> of{' '}
                     <span className="font-bold text-slate-900">{totalItems}</span> {itemLabel}
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                    <label htmlFor={`perPageSelect-${itemLabel}`} className="font-medium text-slate-500">
+                <div className="flex items-center gap-2">
+                    <label htmlFor={`perPageSelect-${itemLabel}`} className="text-[14px] font-medium text-slate-500">
                         Rows per page:
                     </label>
                     <select
@@ -69,7 +69,7 @@ export function TablePagination({
                             onPageSizeChange(Number(e.target.value));
                             onPageChange(1);
                         }}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
                     >
                         {pageSizeOptions.map((opt) => (
                             <option key={opt} value={opt}>
@@ -86,9 +86,9 @@ export function TablePagination({
                     type="button"
                     onClick={() => onPageChange(Math.max(1, safeCurrentPage - 1))}
                     disabled={safeCurrentPage <= 1}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[14px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-colors cursor-pointer"
                 >
-                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <ChevronLeft className="h-4 w-4" />
                     Previous
                 </button>
 
@@ -98,7 +98,7 @@ export function TablePagination({
                             return (
                                 <span
                                     key={`ellipsis-${idx}`}
-                                    className="px-1 text-xs text-slate-400 font-bold select-none"
+                                    className="px-1 text-[14px] text-slate-400 font-bold select-none"
                                 >
                                     …
                                 </span>
@@ -110,10 +110,10 @@ export function TablePagination({
                                 key={page}
                                 type="button"
                                 onClick={() => onPageChange(page)}
-                                className={`min-w-[32px] h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                className={`min-w-[34px] h-[34px] rounded-lg text-[14px] font-bold transition-all cursor-pointer ${
                                     isCurrent
                                         ? 'bg-[var(--tng-blue-600)] text-white shadow-xs'
-                                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'
+                                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-2xs'
                                 }`}
                             >
                                 {page}
@@ -126,10 +126,10 @@ export function TablePagination({
                     type="button"
                     onClick={() => onPageChange(Math.min(totalPages, safeCurrentPage + 1))}
                     disabled={safeCurrentPage >= totalPages}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[14px] font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-colors cursor-pointer"
                 >
                     Next
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    <ChevronRight className="h-4 w-4" />
                 </button>
             </div>
         </div>

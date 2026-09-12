@@ -28,9 +28,9 @@ export default function HrDocuments() {
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-    // Pagination state (default: 10 per page, expandable to 20, 50, 100)
+    // Pagination state (default: 20 per page, expandable to 50, 100)
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
 
     const tabCounts = useMemo(() => {
         const counts = { all: documents.length, received: 0, ongoing: 0, sent: 0, returned: 0 };
@@ -101,7 +101,7 @@ export default function HrDocuments() {
             <div className="space-y-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--tng-slate-900)]">HR Documents</h1>
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">HR Documents</h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
                             {filteredDocs.length} of {documents.length} records • Manage human resources policies, memos, and tracking
                             {activeFilterCount > 0 && <span className="ml-1 text-[var(--tng-blue-600)]">({activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active)</span>}
@@ -150,23 +150,22 @@ export default function HrDocuments() {
                     ))}
                 </div>
 
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--tng-slate-400)]" />
-                    <input
-                        type="text"
-                        placeholder="Search by reference number, tracking number, type, or title..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-12 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-12 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                    />
-                </div>
-
-                {/* Filters */}
+                {/* Search & Filters */}
                 <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative flex-1 min-w-[240px]">
+                        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
+                        <input
+                            type="text"
+                            placeholder="Search by reference no, title..."
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            className="h-10 w-full rounded-xl border border-[var(--tng-slate-200)] bg-white pl-10 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)]"
+                        />
+                    </div>
+
                     <select
                         value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
+                        onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
                         className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     >
                         <option value="">All Document Types</option>
@@ -177,7 +176,7 @@ export default function HrDocuments() {
 
                     <select
                         value={filterDept}
-                        onChange={(e) => setFilterDept(e.target.value)}
+                        onChange={(e) => { setFilterDept(e.target.value); setCurrentPage(1); }}
                         className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     >
                         <option value="">All Departments</option>
@@ -188,7 +187,7 @@ export default function HrDocuments() {
 
                     <select
                         value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
+                        onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                         className="rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2 text-sm text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-300)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                     >
                         <option value="">All Statuses</option>
@@ -218,25 +217,25 @@ export default function HrDocuments() {
                 </div>
 
                 {/* Documents Table */}
-                <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-[var(--tng-slate-50)]">
-                                <tr className="border-b border-[var(--tng-slate-200)]">
+                <div className="w-full rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
+                                <tr>
                                     <th
-                                        className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
                                             Reference No.
-                                            {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                                            {sortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
                                         </span>
                                     </th>
-                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Title</th>
-                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Type</th>
-                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Status</th>
-                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">Date</th>
-                                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] text-right">Action</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Title</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Type</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Date</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)] text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -244,27 +243,27 @@ export default function HrDocuments() {
                                     <tr 
                                         key={doc.document_id} 
                                         onClick={() => router.visit(`/hr/documents/${doc.document_id}`)}
-                                        className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40 cursor-pointer group"
+                                        className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 cursor-pointer group"
                                     >
-                                        <td className="px-6 py-4 text-sm font-semibold text-[var(--tng-blue-600)] group-hover:underline">
+                                        <td className="px-6 py-3.5 text-[14px] font-semibold text-[var(--tng-blue-600)] group-hover:underline">
                                             {doc.reference_number}
                                             {doc.tracking_number && (
-                                                <div className="text-[10px] text-[var(--tng-slate-400)]">{doc.tracking_number}</div>
+                                                <div className="text-[12px] text-[var(--tng-slate-400)]">{doc.tracking_number}</div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
-                                        <td className="px-6 py-4 text-sm text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-3.5 text-[14px] font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
+                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-6 py-3.5">
                                             <SeverityPill status={doc.status} />
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-[var(--tng-slate-500)]">
+                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-500)]">
                                             {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
-                                        <td className="px-6 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-6 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link
                                                     href={`/hr/documents/${doc.document_id}`}
@@ -272,7 +271,7 @@ export default function HrDocuments() {
                                                     aria-label="View Document"
                                                     className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Eye className="h-4 w-4" />
+                                                    <Eye className="h-[18px] w-[18px]" />
                                                 </Link>
                                             </div>
                                         </td>

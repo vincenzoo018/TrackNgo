@@ -37,13 +37,13 @@ export default function DepartmentFormModal({ isOpen, onClose, users, department
         e.preventDefault();
         
         if (isEditing) {
-            put(route('hr.departments.update', department.department_id), {
+            put(`/hr/departments/${department.department_id}`, {
                 onSuccess: () => {
                     handleClose();
                 }
             });
         } else {
-            post(route('hr.departments.store'), {
+            post('/hr/departments', {
                 onSuccess: () => {
                     handleClose();
                 }

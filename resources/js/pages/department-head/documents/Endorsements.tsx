@@ -27,7 +27,7 @@ export default function DepartmentHeadEndorsements() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
@@ -137,7 +137,7 @@ export default function DepartmentHeadEndorsements() {
                 {/* Header */}
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--tng-slate-900)]">
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">
                             All Documents
                         </h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
@@ -256,12 +256,12 @@ export default function DepartmentHeadEndorsements() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white">
+                <div className="w-full overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full">
+                        <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
-                                    <th className="px-4 py-3 text-left">
+                                    <th className="px-4 py-3.5 text-left">
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.length === paginatedDocs.length && paginatedDocs.length > 0}
@@ -270,36 +270,36 @@ export default function DepartmentHeadEndorsements() {
                                         />
                                     </th>
                                     <th
-                                        className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
                                             Ref No.
-                                            {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                                            {sortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
                                         </span>
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         Document Type
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         Department
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         Date Filed
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         Step Progress
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         Status
                                     </th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-left text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         ARTA
                                     </th>
-                                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         QR
                                     </th>
-                                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">
                                         Actions
                                     </th>
                                 </tr>
@@ -308,9 +308,9 @@ export default function DepartmentHeadEndorsements() {
                                 {paginatedDocs.map((doc: any) => (
                                     <tr
                                         key={doc.document_id}
-                                        className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
+                                        className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
                                     >
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3.5">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.includes(doc.document_id)}
@@ -318,43 +318,43 @@ export default function DepartmentHeadEndorsements() {
                                                 className="h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
                                             />
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
                                             <Link
                                                 href={`/department-head/documents/${doc.document_id}`}
-                                                className="text-sm font-semibold text-[var(--tng-blue-600)] hover:underline"
+                                                className="text-[14px] font-semibold text-[var(--tng-blue-600)] hover:underline"
                                             >
                                                 {doc.reference_number}
                                             </Link>
-                                            <p className="text-[10px] text-[var(--tng-slate-400)] mt-0.5">{doc.tracking_number}</p>
+                                            <p className="text-[12px] text-[var(--tng-slate-400)] mt-0.5">{doc.tracking_number}</p>
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-700)]">
+                                        <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
                                             {doc.type?.type_name || 'N/A'}
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
+                                        <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-600)]">
                                             {doc.department?.department_name || 'N/A'}
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-[var(--tng-slate-600)]">
+                                        <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-600)]">
                                             {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3.5">
                                             <StepDots current={doc.current_step_index} total={7} />
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3.5">
                                             <SeverityPill status={doc.status} />
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3.5">
                                             <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <button className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-slate-50 hover:text-[var(--tng-blue-600)] focus:outline-none focus:ring-2 focus:ring-blue-400/50" title="View QR Code" aria-label="View QR">
-                                                <QrCode className="h-4 w-4" />
+                                        <td className="px-4 py-3.5 text-center">
+                                            <button className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-slate-100 hover:text-[var(--tng-blue-600)] focus:outline-none focus:ring-2 focus:ring-blue-400/50" title="View QR Code" aria-label="View QR">
+                                                <QrCode className="h-[18px] w-[18px]" />
                                             </button>
                                         </td>
-                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                        <td className="px-4 py-3.5 text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link
                                                     href={`/department-head/documents/${doc.document_id}`}
@@ -362,7 +362,7 @@ export default function DepartmentHeadEndorsements() {
                                                     aria-label="Review Document"
                                                     className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Eye className="h-4 w-4" />
+                                                    <Eye className="h-[18px] w-[18px]" />
                                                 </Link>
                                             </div>
                                         </td>

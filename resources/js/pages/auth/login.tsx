@@ -42,7 +42,7 @@ export default function Login() {
 
                 {/* Bottom Footer & System Tagline */}
                 <div className="relative z-10 w-full text-center pb-2">
-                    <h1 className="text-xl font-bold tracking-wide">TrackNGo</h1>
+                    <h1 className="text-[20px] font-bold tracking-wide">TrackNGo</h1>
                     <p className="text-sm font-normal text-blue-200/90 mt-1">
                         Document Management System
                     </p>
@@ -56,7 +56,7 @@ export default function Login() {
             <div className="flex w-full items-center justify-center p-6 lg:w-1/2 lg:p-12">
                 <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
                     <div className="mb-8 text-center">
-                        <h2 className="text-2xl font-bold tracking-tight text-[var(--tng-slate-900)]">Welcome back</h2>
+                        <h2 className="text-[20px] font-bold tracking-tight text-[var(--tng-slate-900)]">Welcome back</h2>
                         <p className="mt-2 text-sm text-[var(--tng-slate-500)]">
                             Please enter your credentials to securely log in.
                         </p>

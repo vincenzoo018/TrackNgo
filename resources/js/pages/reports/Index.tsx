@@ -160,7 +160,7 @@ export default function ReportsIndex({
     const [activitySearch, setActivitySearch] = useState('');
     const [activityActionFilter, setActivityActionFilter] = useState('ALL');
     const [logPage, setLogPage] = useState(1);
-    const [logPageSize, setLogPageSize] = useState(10);
+    const [logPageSize, setLogPageSize] = useState(20);
     const [deptSearch, setDeptSearch] = useState('');
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [isExportingCsv, setIsExportingCsv] = useState(false);
@@ -328,8 +328,8 @@ export default function ReportsIndex({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <BarChart3 className="h-6 w-6 text-[var(--tng-blue-600)]" />
+                            <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                <BarChart3 className="h-5 w-5 text-[var(--tng-blue-600)]" />
                                 Reports & Analytics
                             </h1>
 
@@ -617,8 +617,8 @@ export default function ReportsIndex({
                     <div className="flex flex-col rounded-xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-xs">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h2 className="text-sm font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <BarChart3 className="h-4 w-4 text-[var(--tng-blue-600)]" />
+                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                    <BarChart3 className="h-5 w-5 text-[var(--tng-blue-600)]" />
                                     Department Processing Days vs SLA Limit
                                 </h2>
                                 <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
@@ -698,8 +698,8 @@ export default function ReportsIndex({
                     <div className="flex flex-col rounded-xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-xs">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h2 className="text-sm font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5 text-emerald-600" />
                                     Weekly Document Filing Volume Trends
                                 </h2>
                                 <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
@@ -763,8 +763,8 @@ export default function ReportsIndex({
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
                         <div>
-                            <h2 className="text-sm font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-[var(--tng-blue-600)]" />
+                            <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                <Building2 className="h-5 w-5 text-[var(--tng-blue-600)]" />
                                 Department Bottlenecks and Processing Delays
                             </h2>
                             <p className="text-xs text-[var(--tng-slate-500)] mt-0.5">
@@ -786,8 +786,8 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 text-[var(--tng-slate-600)] font-semibold border-b border-slate-200">
+                        <table className="w-full text-left text-[14px]">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)]">
                                 <tr>
                                     <th className="py-3 px-4">Department Name</th>
                                     <th className="py-3 px-3">Code</th>
@@ -800,40 +800,40 @@ export default function ReportsIndex({
                                     <th className="py-3 px-4 text-right">Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 font-normal">
                                 {filteredBottlenecks.length > 0 ? (
                                     filteredBottlenecks.map((dept) => (
-                                        <tr key={dept.id} className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40">
-                                            <td className="py-2.5 px-4 font-semibold text-slate-800">
+                                        <tr key={dept.id} className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40">
+                                            <td className="py-2.5 px-4 font-semibold text-[var(--tng-slate-800)]">
                                                 {dept.name}
                                             </td>
-                                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">
+                                            <td className="py-2.5 px-3 font-mono text-[13px] text-slate-500">
                                                 {dept.code}
                                             </td>
-                                            <td className="py-2.5 px-3 text-center font-medium text-slate-700">
+                                            <td className="py-2.5 px-3 text-center font-normal text-[var(--tng-slate-700)]">
                                                 {dept.totalDocs}
                                             </td>
                                             <td className="py-2.5 px-3 text-center">
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                                     {dept.pendingDocs}
                                                 </span>
                                             </td>
                                             <td className="py-2.5 px-3 text-center">
                                                 {dept.delayedDocs > 0 ? (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-red-50 text-red-700 border border-red-200">
                                                         {dept.delayedDocs}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-slate-400 font-mono">0</span>
+                                                    <span className="text-slate-400 font-mono text-[13px]">0</span>
                                                 )}
                                             </td>
-                                            <td className="py-2.5 px-3 text-center font-bold text-slate-800">
+                                            <td className="py-2.5 px-3 text-center font-bold text-[var(--tng-slate-800)]">
                                                 {dept.avgDays}d
                                             </td>
-                                            <td className="py-2.5 px-3 text-center text-slate-500 font-medium">
+                                            <td className="py-2.5 px-3 text-center text-slate-500 font-normal">
                                                 {dept.sla}d
                                             </td>
-                                            <td className="py-2.5 px-3 text-center font-medium">
+                                            <td className="py-2.5 px-3 text-center font-normal">
                                                 <span
                                                     className={
                                                         dept.diff > 0
@@ -846,18 +846,18 @@ export default function ReportsIndex({
                                             </td>
                                             <td className="py-2.5 px-4 text-right">
                                                 {dept.status === 'Bottleneck' ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-[10px] font-bold text-red-700">
-                                                        <AlertTriangle className="h-3 w-3" />
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-[13px] font-bold text-red-700">
+                                                        <AlertTriangle className="h-3.5 w-3.5" />
                                                         Bottleneck
                                                     </span>
                                                 ) : dept.status === 'Warning' ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
-                                                        <Clock className="h-3 w-3" />
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[13px] font-bold text-amber-700">
+                                                        <Clock className="h-3.5 w-3.5" />
                                                         Warning
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                                                        <CheckCircle2 className="h-3 w-3" />
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[13px] font-bold text-emerald-700">
+                                                        <CheckCircle2 className="h-3.5 w-3.5" />
                                                         Normal
                                                     </span>
                                                 )}
@@ -881,11 +881,11 @@ export default function ReportsIndex({
                     <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-sm font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <Activity className="h-4 w-4 text-[var(--tng-blue-600)]" />
+                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
+                                    <Activity className="h-5 w-5 text-[var(--tng-blue-600)]" />
                                     User-Specific Activity & Workflow Logs
                                 </h2>
-                                <span className="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
+                                <span className="text-[12px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
                                     {filteredLogs.length} Records
                                 </span>
                             </div>
@@ -945,17 +945,17 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 text-[var(--tng-slate-600)] font-semibold border-b border-slate-200">
+                        <table className="w-full text-left text-[14px]">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-[16px] font-bold text-[var(--tng-slate-800)]">
                                 <tr>
-                                    <th className="py-2.5 px-4">Timestamp</th>
-                                    <th className="py-2.5 px-3">Action</th>
-                                    <th className="py-2.5 px-3">User</th>
-                                    <th className="py-2.5 px-3">Role</th>
-                                    <th className="py-2.5 px-3">Department</th>
-                                    <th className="py-2.5 px-3">Document Ref</th>
-                                    <th className="py-2.5 px-3 font-mono text-[11px]">IP Address</th>
-                                    <th className="py-2.5 px-4">Description</th>
+                                    <th className="py-3 px-4">Timestamp</th>
+                                    <th className="py-3 px-3">Action</th>
+                                    <th className="py-3 px-3">User</th>
+                                    <th className="py-3 px-3">Role</th>
+                                    <th className="py-3 px-3">Department</th>
+                                    <th className="py-3 px-3">Document Ref</th>
+                                    <th className="py-3 px-3 font-mono text-[13px]">IP Address</th>
+                                    <th className="py-3 px-4">Description</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">
@@ -963,21 +963,21 @@ export default function ReportsIndex({
                                     paginatedLogs.map((log) => {
                                         const actionLower = log.action.toLowerCase();
                                         const isApproval = ['approve', 'completed', 'endorse', 'release'].some((a) =>
-                                            actionLower.includes(a)
+                                             actionLower.includes(a)
                                         );
                                         const isWarning = ['return', 'reject', 'escalat'].some((a) =>
-                                            actionLower.includes(a)
+                                             actionLower.includes(a)
                                         );
                                         const isAuth = ['login', 'logout'].some((a) => actionLower.includes(a));
 
                                         return (
-                                            <tr key={log.id} className="group transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40">
-                                                <td className="py-2 px-4 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                                            <tr key={log.id} className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40">
+                                                <td className="py-2.5 px-4 text-slate-500 font-mono text-[13px] whitespace-nowrap">
                                                     {log.timestamp}
                                                 </td>
-                                                <td className="py-2 px-3 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
                                                     <span
-                                                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[13px] font-bold ${
                                                             isApproval
                                                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                                                 : isWarning
@@ -990,22 +990,22 @@ export default function ReportsIndex({
                                                         {log.action}
                                                     </span>
                                                 </td>
-                                                <td className="py-2 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 font-semibold text-[var(--tng-slate-800)] whitespace-nowrap">
                                                     {log.userName}
                                                 </td>
-                                                <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 text-[var(--tng-slate-600)] whitespace-nowrap">
                                                     {log.userRole}
                                                 </td>
-                                                <td className="py-2 px-3 text-slate-600 truncate max-w-[150px]" title={log.department}>
+                                                <td className="py-2.5 px-3 text-[var(--tng-slate-600)] truncate max-w-[150px]" title={log.department}>
                                                     {log.department}
                                                 </td>
-                                                <td className="py-2 px-3 font-mono text-[11px] font-medium text-blue-700 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 font-mono text-[13px] font-medium text-blue-700 whitespace-nowrap">
                                                     {log.documentRef}
                                                 </td>
-                                                <td className="py-2 px-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 font-mono text-[13px] text-slate-400 whitespace-nowrap">
                                                     {log.ipAddress}
                                                 </td>
-                                                <td className="py-2 px-4 text-slate-500 truncate max-w-[200px]" title={log.description || ''}>
+                                                <td className="py-2.5 px-4 text-[var(--tng-slate-600)] truncate max-w-[200px]" title={log.description || ''}>
                                                     {log.description || '—'}
                                                 </td>
                                             </tr>

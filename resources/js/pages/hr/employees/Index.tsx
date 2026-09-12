@@ -33,7 +33,7 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments, dbRoles }: P
 
     const handleDelete = (id: number) => {
         if (confirm('Are you sure you want to delete this employee?')) {
-            router.delete(route('hr.employees.destroy', id));
+            router.delete(`/hr/employees/${id}`);
         }
     };
 
@@ -44,7 +44,7 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments, dbRoles }: P
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-[var(--tng-slate-900)]">Employee Records</h1>
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">Employee Records</h1>
                         <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">
                             Manage employee information, departments, and personnel records
                         </p>
@@ -73,78 +73,84 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments, dbRoles }: P
                 </div>
 
                 {/* Employee Data Table */}
-                <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-xs font-semibold uppercase text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
+                <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-6 py-4">Employee Name</th>
-                                    <th className="px-6 py-4">Role & Department</th>
-                                    <th className="px-6 py-4">Contact Info</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Employee Name</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Role & Department</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Contact Info</th>
+                                    <th className="px-6 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
+                                    <th className="px-6 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                 {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => (
-                                    <tr key={emp.id} className="hover:bg-[var(--tng-slate-50)] transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                    <tr key={emp.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
+                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-bold text-teal-700">
                                                     {emp.first_name[0]}{emp.last_name[0]}
                                                 </div>
                                                 <div>
-                                                    <div className="font-semibold text-[var(--tng-slate-900)]">
+                                                    <div className="font-semibold text-[var(--tng-slate-900)] text-[14px]">
                                                         {emp.last_name}, {emp.first_name} {emp.middle_name ? emp.middle_name[0] + '.' : ''}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-[var(--tng-slate-900)] font-medium">{emp.role?.role_name || 'No Role'}</div>
-                                            <div className="text-[var(--tng-slate-500)] text-xs">{emp.department?.department_name || 'No Department'}</div>
+                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                            <div className="text-[var(--tng-slate-900)] font-medium text-[14px]">{emp.role?.role_name || 'No Role'}</div>
+                                            <div className="text-[var(--tng-slate-500)] text-[12px]">{emp.department?.department_name || 'No Department'}</div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap space-y-1">
-                                            <div className="flex items-center gap-2 text-[var(--tng-slate-600)]">
-                                                <Mail className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
+                                        <td className="px-6 py-3.5 whitespace-nowrap space-y-1 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                            <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-[14px]">
+                                                <Mail className="h-4 w-4 text-[var(--tng-slate-400)]" />
                                                 {emp.email}
                                             </div>
                                             {emp.mobile_number && (
-                                                <div className="flex items-center gap-2 text-[var(--tng-slate-600)]">
-                                                    <Phone className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
+                                                <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-[14px]">
+                                                    <Phone className="h-4 w-4 text-[var(--tng-slate-400)]" />
                                                     {emp.mobile_number}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-3.5 whitespace-nowrap">
                                             {emp.is_active ? (
-                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[13px] font-bold text-emerald-700">
                                                     Active
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[13px] font-bold text-red-700">
                                                     Inactive
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <Link 
-                                                href={`/hr/employees/${emp.id}/edit`}
-                                                className="inline-block text-[var(--tng-blue-600)] hover:text-[var(--tng-blue-800)] p-1.5 rounded-md hover:bg-blue-50 transition-colors mr-2"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Link>
-                                            <button 
-                                                onClick={() => handleDelete(emp.id)}
-                                                className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-colors"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                        <td className="px-6 py-3.5 whitespace-nowrap text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Link 
+                                                    href={`/hr/employees/${emp.id}/edit`}
+                                                    title="Edit Employee"
+                                                    aria-label="Edit Employee"
+                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                                                >
+                                                    <Edit className="h-[18px] w-[18px]" />
+                                                </Link>
+                                                <button 
+                                                    onClick={() => handleDelete(emp.id)}
+                                                    title="Delete Employee"
+                                                    aria-label="Delete Employee"
+                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50"
+                                                >
+                                                    <Trash2 className="h-[18px] w-[18px]" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-[var(--tng-slate-500)]">
+                                        <td colSpan={5} className="px-6 py-8 text-center text-[var(--tng-slate-500)] text-[14px]">
                                             No employees found. Try adjusting your search query.
                                         </td>
                                     </tr>

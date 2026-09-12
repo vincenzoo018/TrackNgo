@@ -285,7 +285,7 @@ export default function RoutingSlipsIndex({
                             <RouteIcon className="h-6 w-6" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-[var(--tng-slate-900)]">
+                            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tng-slate-900)]">
                                 Routing Slips
                             </h1>
                             <p className="text-sm text-[var(--tng-slate-500)] mt-0.5">
@@ -555,22 +555,22 @@ export default function RoutingSlipsIndex({
                 </div>
 
                 {/* ── Table Section ─────────────────────────────────────────── */}
-                <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
+                <div className="w-full bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)] uppercase tracking-wider font-semibold text-[11px]">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-3.5 py-3">Slip ID</th>
-                                    <th className="px-3.5 py-3">Document Reference</th>
-                                    <th className="px-3.5 py-3">From</th>
-                                    <th className="px-3.5 py-3">To</th>
-                                    <th className="px-3.5 py-3 text-center">Action</th>
-                                    <th className="px-3.5 py-3">Instruction</th>
-                                    <th className="px-3.5 py-3 text-center">Status</th>
-                                    <th className="px-3.5 py-3 text-right">Actions</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Slip ID</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Document Reference</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">From</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">To</th>
+                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Action</th>
+                                    <th className="px-4 py-3.5 text-[16px] font-bold text-[var(--tng-slate-800)]">Instruction</th>
+                                    <th className="px-4 py-3.5 text-center text-[16px] font-bold text-[var(--tng-slate-800)]">Status</th>
+                                    <th className="px-4 py-3.5 text-right text-[16px] font-bold text-[var(--tng-slate-800)]">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[var(--tng-slate-200)]">
+                            <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                 {paginatedSlips.length > 0 ? (
                                     paginatedSlips.map((slip) => {
                                         const actionBadge = getActionBadge(slip.action);
@@ -580,72 +580,72 @@ export default function RoutingSlipsIndex({
                                         return (
                                             <tr
                                                 key={slip.slip_id}
-                                                className="transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
+                                                className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group"
                                             >
                                             {/* 1. Slip ID */}
-                                            <td className="px-3.5 py-3">
-                                                <div className="font-mono text-xs font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2 py-0.5 rounded border border-[var(--tng-blue-200)] inline-block truncate max-w-full">
+                                            <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="font-mono text-[14px] font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2 py-0.5 rounded border border-[var(--tng-blue-200)] inline-block truncate max-w-full">
                                                     {slip.tracking_number}
                                                 </div>
-                                                <div className="text-[10px] text-[var(--tng-slate-400)] mt-0.5 font-sans">
+                                                <div className="text-[12px] text-[var(--tng-slate-400)] mt-0.5 font-sans">
                                                     {slip.formatted_date}
                                                 </div>
                                             </td>
 
                                             {/* 2. Document Reference */}
-                                            <td className="px-3.5 py-3">
+                                            <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                 <Link
                                                     href={docUrl}
                                                     className="group block"
                                                     title={`${slip.document_ref} - ${slip.document_title}`}
                                                 >
-                                                    <span className="font-mono font-bold text-xs text-[var(--tng-blue-600)] group-hover:text-[var(--tng-blue-800)] group-hover:underline flex items-center gap-1">
+                                                    <span className="font-mono font-bold text-[14px] text-[var(--tng-blue-600)] group-hover:text-[var(--tng-blue-800)] group-hover:underline flex items-center gap-1">
                                                         {slip.document_ref}
-                                                        <ExternalLink className="h-3 w-3 opacity-60 shrink-0" />
+                                                        <ExternalLink className="h-3.5 w-3.5 opacity-60 shrink-0" />
                                                     </span>
-                                                    <span className="text-[11px] text-[var(--tng-slate-500)] group-hover:text-[var(--tng-slate-700)] truncate block mt-0.5">
+                                                    <span className="text-[12px] text-[var(--tng-slate-500)] group-hover:text-[var(--tng-slate-700)] truncate block mt-0.5">
                                                         {slip.document_title}
                                                     </span>
                                                 </Link>
                                             </td>
 
                                             {/* 3. From */}
-                                            <td className="px-3.5 py-3">
-                                                <div className="font-semibold text-xs text-[var(--tng-slate-900)] truncate" title={slip.from_name}>
+                                            <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="font-semibold text-[14px] text-[var(--tng-slate-900)] truncate" title={slip.from_name}>
                                                     {slip.from_name}
                                                 </div>
-                                                <div className="text-[11px] text-[var(--tng-slate-500)] truncate mt-0.5" title={slip.from_department}>
+                                                <div className="text-[12px] text-[var(--tng-slate-500)] truncate mt-0.5" title={slip.from_department}>
                                                     {slip.from_department}
                                                 </div>
                                             </td>
 
                                             {/* 4. To */}
-                                            <td className="px-3.5 py-3">
-                                                <div className="font-semibold text-xs text-[var(--tng-slate-900)] truncate" title={slip.to_department}>
+                                            <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="font-semibold text-[14px] text-[var(--tng-slate-900)] truncate" title={slip.to_department}>
                                                     {slip.to_department}
                                                 </div>
-                                                <div className="text-[11px] text-[var(--tng-slate-500)] truncate mt-0.5" title={slip.to_name}>
+                                                <div className="text-[12px] text-[var(--tng-slate-500)] truncate mt-0.5" title={slip.to_name}>
                                                     {slip.to_name}
                                                 </div>
                                             </td>
 
                                             {/* 5. Action */}
-                                            <td className="px-3.5 py-3 text-center">
+                                            <td className="px-4 py-3.5 text-center">
                                                 <span
                                                     className={cn(
-                                                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border',
+                                                        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[13px] font-bold border',
                                                         actionBadge.bg
                                                     )}
                                                 >
-                                                    <ActionIcon className="h-3 w-3 shrink-0" />
+                                                    <ActionIcon className="h-3.5 w-3.5 shrink-0" />
                                                     {slip.action}
                                                 </span>
                                             </td>
 
                                             {/* 6. Instruction */}
-                                            <td className="px-3.5 py-3">
+                                            <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
                                                 <p
-                                                    className="line-clamp-2 text-[11px] text-[var(--tng-slate-700)] bg-[var(--tng-slate-50)] p-1.5 rounded border border-[var(--tng-slate-100)] leading-snug"
+                                                    className="line-clamp-2 text-[13px] text-[var(--tng-slate-700)] bg-[var(--tng-slate-50)] p-1.5 rounded border border-[var(--tng-slate-100)] leading-snug"
                                                     title={slip.instruction}
                                                 >
                                                     {slip.instruction || 'No specific instruction provided.'}
@@ -653,10 +653,10 @@ export default function RoutingSlipsIndex({
                                             </td>
 
                                             {/* 7. Status */}
-                                            <td className="px-3.5 py-3 text-center">
+                                            <td className="px-4 py-3.5 text-center">
                                                 <span
                                                     className={cn(
-                                                        'inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border',
+                                                        'inline-block px-2.5 py-1 rounded-full text-[13px] font-bold border',
                                                         getStatusBadge(slip.status)
                                                     )}
                                                 >
@@ -665,28 +665,30 @@ export default function RoutingSlipsIndex({
                                             </td>
 
                                             {/* 8. Actions: View Routing Slip */}
-                                            <td className="px-3 py-3 text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSelectedSlip(slip)}
-                                                    title="View Routing Slip"
-                                                    aria-label="View Routing Slip"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50 active:scale-95"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </button>
+                                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedSlip(slip)}
+                                                        title="View Routing Slip"
+                                                        aria-label="View Routing Slip"
+                                                        className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                                                    >
+                                                        <Eye className="h-[18px] w-[18px]" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-12 text-center">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-[14px]">
                                         <div className="flex flex-col items-center justify-center space-y-2">
                                             <div className="p-3 rounded-full bg-[var(--tng-slate-100)] text-[var(--tng-slate-400)]">
                                                 <RouteIcon className="h-6 w-6" />
                                             </div>
-                                            <div className="text-sm font-semibold text-[var(--tng-slate-700)]">
+                                            <div className="text-[14px] font-semibold text-[var(--tng-slate-700)]">
                                                 No routing slips found
                                             </div>
                                             <p className="text-xs text-[var(--tng-slate-400)] max-w-sm">
