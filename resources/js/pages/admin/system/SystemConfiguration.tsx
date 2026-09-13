@@ -58,8 +58,8 @@ export default function SystemConfiguration() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--tng-slate-400)]" />
                             <input
                                 type="text"
-                                placeholder="Search users..."
-                                className="pl-9 pr-4 py-2 w-64 rounded-md border border-[var(--tng-slate-200)] focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none text-sm"
+                                placeholder="Search by reference number, tracking number, type, or name..."
+                                className="pl-9 pr-4 py-2 w-80 rounded-md border border-[var(--tng-slate-200)] focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none text-sm"
                             />
                         </div>
                         <button className="flex items-center gap-2 bg-[var(--tng-blue-600)] text-white px-4 py-2 rounded-md hover:bg-[var(--tng-blue-700)] transition-colors text-sm font-medium shadow-sm">
@@ -67,51 +67,51 @@ export default function SystemConfiguration() {
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm text-[var(--tng-slate-600)]">
-                                <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
+                    <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                                <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-6 py-4 font-semibold">Name</th>
-                                        <th className="px-6 py-4 font-semibold">Email</th>
-                                        <th className="px-6 py-4 font-semibold">Role</th>
-                                        <th className="px-6 py-4 font-semibold">Department</th>
-                                        <th className="px-6 py-4 font-semibold">Status</th>
-                                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Name</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Email</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Role</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Department</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Status</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[var(--tng-slate-200)]">
+                                <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                     {mockUsers.map((user) => (
-                                        <tr key={user.id} className="hover:bg-[var(--tng-slate-50)] transition-colors">
-                                            <td className="px-6 py-4 font-medium text-[var(--tng-slate-900)]">{user.name}</td>
-                                            <td className="px-6 py-4 font-mono text-xs">{user.email}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 capitalize">
+                                        <tr key={user.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
+                                            <td className="px-6 py-3.5 font-semibold text-slate-900 text-[14px]">{user.name}</td>
+                                            <td className="px-6 py-3.5 font-mono text-[14px] text-slate-600">{user.email}</td>
+                                            <td className="px-6 py-3.5 text-[14px]">
+                                                <span className="inline-flex items-center rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[13px] font-bold text-blue-700 capitalize">
                                                     {user.role.replace('_', ' ')}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">{user.department?.name || '—'}</td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-3.5 text-[14px] text-slate-700">{user.department?.name || '—'}</td>
+                                            <td className="px-6 py-3.5 whitespace-nowrap">
                                                 {user.is_active ? (
-                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[13px] font-bold text-emerald-700">
                                                         Active
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">
+                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[13px] font-bold text-rose-700">
                                                         Inactive
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button className="p-2 text-[var(--tng-slate-400)] hover:text-[var(--tng-blue-600)] hover:bg-blue-50 rounded-md transition-colors" title="Edit">
-                                                        <Pencil className="w-4 h-4" />
+                                            <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                                        <Pencil className="h-[18px] w-[18px]" />
                                                     </button>
-                                                    <button className={`p-2 rounded-md transition-colors ${user.is_active ? 'text-[var(--tng-slate-400)] hover:text-red-600 hover:bg-red-50' : 'text-[var(--tng-slate-400)] hover:text-emerald-600 hover:bg-emerald-50'}`} title={user.is_active ? "Deactivate" : "Activate"}>
-                                                        {user.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                                                    <button className={`p-1.5 rounded-lg transition-colors ${user.is_active ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`} title={user.is_active ? "Deactivate" : "Activate"}>
+                                                        {user.is_active ? <UserX className="h-[18px] w-[18px]" /> : <UserCheck className="h-[18px] w-[18px]" />}
                                                     </button>
-                                                    <button className="p-2 text-[var(--tng-slate-400)] hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors" title="Reset Password">
-                                                        <Key className="w-4 h-4" />
+                                                    <button className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Reset Password">
+                                                        <Key className="h-[18px] w-[18px]" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -133,33 +133,35 @@ export default function SystemConfiguration() {
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
-                        <table className="w-full text-left text-sm text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
-                                <tr>
-                                    <th className="px-6 py-4 font-semibold">Code</th>
-                                    <th className="px-6 py-4 font-semibold">Department Name</th>
-                                    <th className="px-6 py-4 font-semibold">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--tng-slate-200)]">
-                                {mockDepartments.map((dept) => (
-                                    <tr key={dept.id} className="hover:bg-[var(--tng-slate-50)] transition-colors">
-                                        <td className="px-6 py-4">
-                                            <span className="font-medium text-[var(--tng-slate-700)] bg-[var(--tng-slate-100)] px-2 py-1 rounded">
-                                                {dept.code}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-[var(--tng-slate-900)]">{dept.name}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-                                                Active
-                                            </span>
-                                        </td>
+                    <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                                <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
+                                    <tr>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Code</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Department Name</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Status</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--tng-slate-100)]">
+                                    {mockDepartments.map((dept) => (
+                                        <tr key={dept.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
+                                            <td className="px-6 py-3.5">
+                                                <span className="font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[13px]">
+                                                    {dept.code}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3.5 font-semibold text-slate-900 text-[14px]">{dept.name}</td>
+                                            <td className="px-6 py-3.5 whitespace-nowrap">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[13px] font-bold text-emerald-700">
+                                                    Active
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}
@@ -173,33 +175,35 @@ export default function SystemConfiguration() {
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
-                        <table className="w-full text-left text-sm text-[var(--tng-slate-600)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-[var(--tng-slate-500)] border-b border-[var(--tng-slate-200)]">
-                                <tr>
-                                    <th className="px-6 py-4 font-semibold">Type Name</th>
-                                    <th className="px-6 py-4 font-semibold">ARTA Limit</th>
-                                    <th className="px-6 py-4 font-semibold">ARTA Tier</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--tng-slate-200)]">
-                                {mockDocumentTypes.map((type) => (
-                                    <tr key={type.id} className="hover:bg-[var(--tng-slate-50)] transition-colors">
-                                        <td className="px-6 py-4 font-medium text-[var(--tng-slate-900)]">{type.name}</td>
-                                        <td className="px-6 py-4">{type.arta_processing_days} days</td>
-                                        <td className="px-6 py-4">
-                                            {type.arta_processing_days <= 3 ? (
-                                                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Simple</span>
-                                            ) : type.arta_processing_days <= 7 ? (
-                                                <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Complex</span>
-                                            ) : (
-                                                <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Highly Technical</span>
-                                            )}
-                                        </td>
+                    <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                        <div className="overflow-x-auto w-full">
+                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                                <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
+                                    <tr>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Type Name</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">ARTA Limit</th>
+                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">ARTA Tier</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-[var(--tng-slate-100)]">
+                                    {mockDocumentTypes.map((type) => (
+                                        <tr key={type.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
+                                            <td className="px-6 py-3.5 font-semibold text-slate-900 text-[14px]">{type.name}</td>
+                                            <td className="px-6 py-3.5 text-[14px] text-slate-700">{type.arta_processing_days} days</td>
+                                            <td className="px-6 py-3.5 whitespace-nowrap">
+                                                {type.arta_processing_days <= 3 ? (
+                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[13px] font-bold text-emerald-700">Simple</span>
+                                                ) : type.arta_processing_days <= 7 ? (
+                                                    <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[13px] font-bold text-amber-700">Complex</span>
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[13px] font-bold text-rose-700">Highly Technical</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}

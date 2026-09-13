@@ -250,17 +250,18 @@
 
 /* ── Scrollbar styling ───────────────────────────────────────────── */
 .tng-scrollbar::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
+    height: 8px;
 }
 .tng-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
 .tng-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--tng-slate-200);
-    border-radius: 3px;
+    background: #cbd5e1;
+    border-radius: 4px;
 }
 .tng-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--tng-slate-400);
+    background: #94a3b8;
 }
 
 /* ── Unified Design System Typography (All Roles & Modules) ─────── */
@@ -281,12 +282,12 @@
     color: var(--tng-slate-800);
 }
 
-/* Table headers → 16px, bold */
+/* Table headers → small 12px, medium weight (not bold) */
 .tng-table-header {
-    font-size: 16px !important;
-    font-weight: 700 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
     line-height: 1.4 !important;
-    color: var(--tng-slate-800);
+    color: var(--tng-slate-600);
     letter-spacing: 0.01em;
 }
 

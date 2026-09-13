@@ -4,6 +4,7 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { useState, useMemo } from 'react';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import AddEmployeeModal from '@/components/AddEmployeeModal';
+import TablePagination from '@/components/trackngo/TablePagination';
 
 type Employee = {
     id: number;
@@ -29,6 +30,10 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
     const [activeTab, setActiveTab] = useState<'all' | 'active' | 'inactive'>('all');
     const [deptFilter, setDeptFilter] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
+
+    // Pagination state (default: 20 per page, with options for 50 or 100)
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
 
     const tabCounts = useMemo(() => ({
         all: dbEmployees.length,
@@ -59,6 +64,11 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
             );
         });
     }, [dbEmployees, activeTab, deptFilter, roleFilter, searchQuery]);
+
+    const paginatedEmployees = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredEmployees.slice(start, start + pageSize);
+    }, [filteredEmployees, currentPage, pageSize]);
 
     const handleDelete = (id: number) => {
         if (confirm('Are you sure you want to delete this employee?')) {
@@ -136,59 +146,59 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                 {/* Employee Data Table */}
                 <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                        <table className="w-full text-left border-collapse text-[14px] text-[var(--tng-slate-700)]">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-medium text-slate-600">
                                 <tr>
-                                    <th className="px-6 py-2.5">Employee Name</th>
-                                    <th className="px-6 py-2.5">Role & Department</th>
-                                    <th className="px-6 py-2.5">Contact Info</th>
-                                    <th className="px-6 py-2.5">Status</th>
+                                    <th className="px-6 py-2.5 text-left">Employee Name</th>
+                                    <th className="px-6 py-2.5 text-left">Role & Department</th>
+                                    <th className="px-6 py-2.5 text-left">Contact Info</th>
+                                    <th className="px-6 py-2.5 text-left">Status</th>
                                     <th className="px-6 py-2.5 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
-                                {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => (
+                                {paginatedEmployees.length > 0 ? paginatedEmployees.map((emp) => (
                                     <tr key={emp.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-xs sm:text-[13px] font-normal text-[var(--tng-slate-700)]">
+                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-bold text-teal-700">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-[13px] font-bold text-teal-700">
                                                     {emp.first_name[0]}{emp.last_name[0]}
                                                 </div>
                                                 <div>
-                                                    <div className="font-semibold text-[var(--tng-slate-900)] text-xs sm:text-[13px]">
+                                                    <div className="font-semibold text-[var(--tng-slate-900)] text-[14px]">
                                                         {emp.last_name}, {emp.first_name} {emp.middle_name ? emp.middle_name[0] + '.' : ''}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-xs sm:text-[13px] font-normal text-[var(--tng-slate-700)]">
-                                            <div className="text-[var(--tng-slate-900)] font-medium text-xs sm:text-[13px]">{emp.role?.role_name || 'No Role'}</div>
-                                            <div className="text-[var(--tng-slate-500)] text-[11px]">{emp.department?.department_name || 'No Department'}</div>
+                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                            <div className="text-[var(--tng-slate-900)] font-medium text-[14px]">{emp.role?.role_name || 'No Role'}</div>
+                                            <div className="text-[var(--tng-slate-500)] text-[12px]">{emp.department?.department_name || 'No Department'}</div>
                                         </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap space-y-0.5 text-xs sm:text-[13px] font-normal text-[var(--tng-slate-700)]">
-                                            <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-xs sm:text-[13px]">
+                                        <td className="px-6 py-3.5 whitespace-nowrap space-y-0.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                            <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-[14px]">
                                                 <Mail className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
                                                 {emp.email}
                                             </div>
                                             {emp.mobile_number && (
-                                                <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-xs sm:text-[13px]">
+                                                <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-[14px]">
                                                     <Phone className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
                                                     {emp.mobile_number}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap">
+                                        <td className="px-6 py-3.5 whitespace-nowrap">
                                             {emp.is_active ? (
-                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[13px] font-bold text-emerald-700">
                                                     Active
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-[13px] font-bold text-red-700">
                                                     Inactive
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-right">
+                                        <td className="px-6 py-3.5 whitespace-nowrap text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link 
                                                     href={`/hr/employees/${emp.id}/edit`}
@@ -196,7 +206,7 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                                                     aria-label="Edit Employee"
                                                     className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Edit className="h-4 w-4" />
+                                                    <Edit className="h-[18px] w-[18px]" />
                                                 </Link>
                                                 <button 
                                                     onClick={() => handleDelete(emp.id)}
@@ -204,14 +214,14 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                                                     aria-label="Delete Employee"
                                                     className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="h-[18px] w-[18px]" />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-6 text-center text-[var(--tng-slate-500)] text-xs sm:text-[13px]">
+                                        <td colSpan={5} className="px-6 py-6 text-center text-[var(--tng-slate-500)] text-[14px]">
                                             No employees found. Try adjusting your search query.
                                         </td>
                                     </tr>
@@ -219,6 +229,15 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                             </tbody>
                         </table>
                     </div>
+
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredEmployees.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="employees"
+                    />
                 </div>
             </div>
 

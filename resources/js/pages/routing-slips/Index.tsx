@@ -573,17 +573,17 @@ export default function RoutingSlipsIndex({
                 {/* ── Table Section ─────────────────────────────────────────── */}
                 <div className="w-full bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
                             <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Slip ID</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Document Reference</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">From</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">To</th>
-                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Action</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Instruction</th>
-                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Status</th>
-                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Actions</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Slip ID</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Document Reference</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">From</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">To</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-600">Action</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Instruction</th>
+                                    <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-600">Status</th>
+                                    <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-600">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">

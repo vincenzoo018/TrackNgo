@@ -208,13 +208,13 @@ export default function HrDocuments() {
                 </div>
 
                 {/* Documents Table */}
-                <div className="w-full rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-medium text-slate-600">
                                 <tr>
                                     <th
-                                        className="px-6 py-2.5 cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-6 py-2.5 cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors text-left"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
@@ -222,10 +222,10 @@ export default function HrDocuments() {
                                             {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                                         </span>
                                     </th>
-                                    <th className="px-6 py-2.5">Title</th>
-                                    <th className="px-6 py-2.5">Type</th>
-                                    <th className="px-6 py-2.5">Status</th>
-                                    <th className="px-6 py-2.5">Date</th>
+                                    <th className="px-6 py-2.5 text-left">Title</th>
+                                    <th className="px-6 py-2.5 text-left">Type</th>
+                                    <th className="px-6 py-2.5 text-left">Status</th>
+                                    <th className="px-6 py-2.5 text-left">Date</th>
                                     <th className="px-6 py-2.5 text-right">Action</th>
                                 </tr>
                             </thead>
@@ -236,25 +236,25 @@ export default function HrDocuments() {
                                         onClick={() => router.visit(`/hr/documents/${doc.document_id}`)}
                                         className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 cursor-pointer group"
                                     >
-                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-semibold text-[var(--tng-blue-600)] group-hover:underline">
+                                        <td className="px-6 py-3.5 text-[14px] font-semibold text-[var(--tng-blue-600)] group-hover:underline">
                                             {doc.reference_number}
                                             {doc.tracking_number && (
-                                                <div className="text-[11px] text-[var(--tng-slate-400)]">{doc.tracking_number}</div>
+                                                <div className="text-[12px] text-[var(--tng-slate-400)] font-normal">{doc.tracking_number}</div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
-                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-normal text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
-                                        <td className="px-6 py-2.5">
+                                        <td className="px-6 py-3.5 text-[14px] font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
+                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-6 py-3.5">
                                             <SeverityPill status={doc.status} />
                                         </td>
-                                        <td className="px-6 py-2.5 text-xs sm:text-[13px] font-normal text-[var(--tng-slate-500)]">
+                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-500)]">
                                             {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
-                                        <td className="px-6 py-2.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-6 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link
                                                     href={`/hr/documents/${doc.document_id}`}
@@ -262,7 +262,7 @@ export default function HrDocuments() {
                                                     aria-label="View Document"
                                                     className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
                                                 >
-                                                    <Eye className="h-4 w-4" />
+                                                    <Eye className="h-[18px] w-[18px]" />
                                                 </Link>
                                             </div>
                                         </td>

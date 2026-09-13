@@ -434,8 +434,8 @@ export default function ArchivedDocumentsIndex() {
                 {/* ── Main Data Table ────────────────────────────────────── */}
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs sm:text-[13px] text-slate-600">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600">
                                 <tr>
                                     <th className="w-10 px-4 py-2.5 text-center">
                                         <input
@@ -447,7 +447,7 @@ export default function ArchivedDocumentsIndex() {
                                     </th>
                                     <th
                                         onClick={() => handleSort('ref')}
-                                        className="cursor-pointer select-none px-4 py-3 transition-colors hover:text-slate-900"
+                                        className="cursor-pointer select-none px-4 py-2.5 transition-colors hover:text-slate-900"
                                     >
                                         <div className="flex items-center gap-1">
                                             <span>Reference Number</span>
@@ -456,10 +456,10 @@ export default function ArchivedDocumentsIndex() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-4 py-3">Department</th>
+                                    <th className="px-4 py-2.5">Department</th>
                                     <th
                                         onClick={() => handleSort('date_filed')}
-                                        className="cursor-pointer select-none px-4 py-3 transition-colors hover:text-slate-900"
+                                        className="cursor-pointer select-none px-4 py-2.5 transition-colors hover:text-slate-900"
                                     >
                                         <div className="flex items-center gap-1">
                                             <span>Date Filed</span>
@@ -468,9 +468,9 @@ export default function ArchivedDocumentsIndex() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-4 py-3">Final Status</th>
-                                    <th className="px-4 py-3">ARTA Compliance</th>
-                                    <th className="px-4 py-3 text-right">Actions</th>
+                                    <th className="px-4 py-2.5">Final Status</th>
+                                    <th className="px-4 py-2.5">ARTA Compliance</th>
+                                    <th className="px-4 py-2.5 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">

@@ -453,7 +453,7 @@ export default function UnifiedDashboard({
         <TrackngoLayout>
             <Head title="Live System Dashboard — TrackNGo Mati" />
 
-            <div className="flex h-[calc(100vh-140px)] flex-col space-y-6 overflow-y-auto tng-scrollbar pb-12 pr-1">
+            <div className="space-y-5 pb-12">
                 {/* ── HEADER BANNER ─────────────────────────────────────────── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>

@@ -24,7 +24,7 @@ export default function DocumentTemplates() {
         <TrackngoLayout>
             <Head title="Document Templates — TrackNGo Mati" />
 
-            <div className="flex h-[calc(100vh-140px)] flex-col space-y-6 overflow-y-auto tng-scrollbar pb-8">
+            <div className="space-y-6 pb-8">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-[var(--tng-slate-900)] flex items-center gap-2">

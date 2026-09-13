@@ -339,7 +339,7 @@ export default function ReportsIndex({
         <TrackngoLayout>
             <Head title="System Reports & Analytics — TrackNGo Mati" />
 
-            <div className="flex h-[calc(100vh-140px)] flex-col space-y-6 overflow-y-auto tng-scrollbar pb-12 pr-1">
+            <div className="space-y-5 pb-12">
                 {/* ── HEADER BANNER ─────────────────────────────────────────── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
@@ -802,8 +802,8 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs sm:text-[13px]">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600">
                                 <tr>
                                     <th className="py-2.5 px-4">Department Name</th>
                                     <th className="py-2.5 px-3">Code</th>
@@ -820,13 +820,13 @@ export default function ReportsIndex({
                                 {filteredBottlenecks.length > 0 ? (
                                     filteredBottlenecks.map((dept) => (
                                         <tr key={dept.id} className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40">
-                                            <td className="py-2.5 px-4 font-semibold text-[var(--tng-slate-800)]">
+                                            <td className="py-3 px-4 font-semibold text-[var(--tng-slate-800)] text-[14px]">
                                                 {dept.name}
                                             </td>
-                                            <td className="py-2.5 px-3 font-mono text-[13px] text-slate-500">
+                                            <td className="py-3 px-3 font-mono text-[14px] text-slate-600">
                                                 {dept.code}
                                             </td>
-                                            <td className="py-2.5 px-3 text-center font-normal text-[var(--tng-slate-700)]">
+                                            <td className="py-3 px-3 text-center font-normal text-[14px] text-[var(--tng-slate-700)]">
                                                 {dept.totalDocs}
                                             </td>
                                             <td className="py-2.5 px-3 text-center">
@@ -940,8 +940,8 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left text-xs sm:text-[13px]">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600">
                                 <tr>
                                     <th className="py-2.5 px-4">Timestamp</th>
                                     <th className="py-2.5 px-3">Action</th>
@@ -949,7 +949,7 @@ export default function ReportsIndex({
                                     <th className="py-2.5 px-3">Role</th>
                                     <th className="py-2.5 px-3">Department</th>
                                     <th className="py-2.5 px-3">Document Ref</th>
-                                    <th className="py-2.5 px-3 font-mono text-[11px]">IP Address</th>
+                                    <th className="py-2.5 px-3 font-mono text-[13px]">IP Address</th>
                                     <th className="py-2.5 px-4">Description</th>
                                 </tr>
                             </thead>
@@ -1111,7 +1111,7 @@ export default function ReportsIndex({
                                 3. Department Bottlenecks & Processing Turnaround
                             </h4>
                             <table className="w-full text-left text-[10px] border border-slate-200">
-                                <thead className="bg-slate-100 font-bold text-slate-700 border-b">
+                                <thead className="bg-slate-100 font-medium text-slate-700 border-b">
                                     <tr>
                                         <th className="p-1.5">Department</th>
                                         <th className="p-1.5 text-center">Code</th>
@@ -1148,7 +1148,7 @@ export default function ReportsIndex({
                                 4. Recent Activity & Audit Trail (Sample)
                             </h4>
                             <table className="w-full text-left text-[9px] border border-slate-200">
-                                <thead className="bg-slate-100 font-bold text-slate-700 border-b">
+                                <thead className="bg-slate-100 font-medium text-slate-700 border-b">
                                     <tr>
                                         <th className="p-1">Timestamp</th>
                                         <th className="p-1">Action</th>

@@ -217,9 +217,9 @@ export default function CartEscalatedDocsIndex({
         <TrackngoLayout>
             <Head title="Escalated Docs & ARTA Monitoring — TrackNGo Mati" />
 
-            <div className="flex h-[calc(100vh-140px)] flex-col space-y-6 overflow-y-auto tng-scrollbar pb-12 pr-1">
+            <div className="space-y-4 pb-12">
                 {/* ── HEADER BANNER ─────────────────────────────────────────── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-3">
                     <div>
                         <div className="flex items-center gap-3">
                             <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
@@ -240,12 +240,12 @@ export default function CartEscalatedDocsIndex({
                                 </span>
                             )}
                         </div>
-                        <p className="mt-1 text-sm text-[var(--tng-slate-500)]">
+                        <p className="mt-0.5 text-xs sm:text-sm text-[var(--tng-slate-500)]">
                             Mandated under ARTA Memorandum Circular No. 2020-07 and Republic Act 11032. Centralized monitoring of active SLA thresholds, overdue delays, and corrective escalations.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 border border-rose-200">
                             ARTA MC No. 2020-07
                         </span>
@@ -256,28 +256,25 @@ export default function CartEscalatedDocsIndex({
                     </div>
                 </div>
 
-                {/* ── CLICKABLE KPI CARDS (4-COLUMN GRID) ──────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+                {/* ── CLICKABLE KPI CARDS (4-COLUMN GRID, COMPACT) ──────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 shrink-0">
                     {/* 1. Total Escalations */}
                     <div
                         onClick={() => handleKpiClick('all')}
-                        className={`group cursor-pointer rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
                             selectedSeverity === 'all'
                                 ? 'border-blue-500 bg-blue-50/90 ring-2 ring-blue-500/20 shadow-xs'
                                 : 'border-blue-200 bg-blue-50/50 hover:border-blue-400'
                         }`}
                     >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-3xl font-bold tabular-nums tracking-tight text-blue-600">
+                                <p className="text-2xl font-bold tabular-nums tracking-tight text-blue-600">
                                     {kpis.total}
                                 </p>
-                                <p className="mt-0.5 text-sm font-semibold text-blue-700 flex items-center gap-1">
+                                <p className="mt-0.5 text-xs font-semibold text-blue-700 flex items-center gap-1">
                                     Total Escalations
                                     <ArrowUpRight className="h-3.5 w-3.5 text-blue-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Click to view all records
                                 </p>
                             </div>
                             <div className="rounded-lg bg-blue-100 p-2 text-blue-600 group-hover:scale-110 transition-transform">
@@ -289,23 +286,20 @@ export default function CartEscalatedDocsIndex({
                     {/* 2. Overdue */}
                     <div
                         onClick={() => handleKpiClick('overdue')}
-                        className={`group cursor-pointer rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
                             selectedSeverity === 'overdue'
                                 ? 'border-red-500 bg-red-50/90 ring-2 ring-red-500/20 shadow-xs'
                                 : 'border-red-200 bg-red-50/50 hover:border-red-400'
                         }`}
                     >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-3xl font-bold tabular-nums tracking-tight text-red-600">
+                                <p className="text-2xl font-bold tabular-nums tracking-tight text-red-600">
                                     {kpis.overdue}
                                 </p>
-                                <p className="mt-0.5 text-sm font-semibold text-red-700 flex items-center gap-1">
+                                <p className="mt-0.5 text-xs font-semibold text-red-700 flex items-center gap-1">
                                     Overdue
                                     <ArrowUpRight className="h-3.5 w-3.5 text-red-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Exceeded statutory SLA target
                                 </p>
                             </div>
                             <div className="rounded-lg bg-red-100 p-2 text-red-600 group-hover:scale-110 transition-transform">
@@ -317,23 +311,20 @@ export default function CartEscalatedDocsIndex({
                     {/* 3. Warnings */}
                     <div
                         onClick={() => handleKpiClick('warning')}
-                        className={`group cursor-pointer rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
                             selectedSeverity === 'warning'
                                 ? 'border-amber-500 bg-amber-50/90 ring-2 ring-amber-500/20 shadow-xs'
                                 : 'border-amber-200 bg-amber-50/50 hover:border-amber-400'
                         }`}
                     >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-3xl font-bold tabular-nums tracking-tight text-amber-600">
+                                <p className="text-2xl font-bold tabular-nums tracking-tight text-amber-600">
                                     {kpis.warnings}
                                 </p>
-                                <p className="mt-0.5 text-sm font-semibold text-amber-700 flex items-center gap-1">
+                                <p className="mt-0.5 text-xs font-semibold text-amber-700 flex items-center gap-1">
                                     Warnings
                                     <ArrowUpRight className="h-3.5 w-3.5 text-amber-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Approaching statutory deadline
                                 </p>
                             </div>
                             <div className="rounded-lg bg-amber-100 p-2 text-amber-600 group-hover:scale-110 transition-transform">
@@ -345,23 +336,20 @@ export default function CartEscalatedDocsIndex({
                     {/* 4. Resolved */}
                     <div
                         onClick={() => handleKpiClick('resolved')}
-                        className={`group cursor-pointer rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
                             selectedSeverity === 'resolved'
                                 ? 'border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-500/20 shadow-xs'
                                 : 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-400'
                         }`}
                     >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-3xl font-bold tabular-nums tracking-tight text-emerald-600">
+                                <p className="text-2xl font-bold tabular-nums tracking-tight text-emerald-600">
                                     {kpis.resolved}
                                 </p>
-                                <p className="mt-0.5 text-sm font-semibold text-emerald-700 flex items-center gap-1">
+                                <p className="mt-0.5 text-xs font-semibold text-emerald-700 flex items-center gap-1">
                                     Resolved
                                     <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Corrective actions completed
                                 </p>
                             </div>
                             <div className="rounded-lg bg-emerald-100 p-2 text-emerald-600 group-hover:scale-110 transition-transform">
@@ -379,7 +367,7 @@ export default function CartEscalatedDocsIndex({
                 />
 
                 {/* ── FILTERS AT THE TOP ────────────────────────────────────── */}
-                <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-4 shadow-xs space-y-3">
+                <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-3.5 shadow-xs space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         {/* Search Input */}
                         <div className="relative flex-1 min-w-[260px]">
@@ -389,7 +377,7 @@ export default function CartEscalatedDocsIndex({
                                 value={searchQuery}
                                 onChange={(e) => applyFilters({ search: e.target.value })}
                                 placeholder="Search by reference number, tracking number, type, or name..."
-                                className="h-10 w-full rounded-xl border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]/50 pl-10 pr-4 text-xs font-medium text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-all"
+                                className="h-9 w-full rounded-xl border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]/50 pl-10 pr-4 text-xs font-medium text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-all"
                             />
                             {searchQuery && (
                                 <button
@@ -407,7 +395,7 @@ export default function CartEscalatedDocsIndex({
                             <select
                                 value={selectedSeverity}
                                 onChange={(e) => applyFilters({ severity: e.target.value })}
-                                className="h-10 rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none shadow-2xs"
+                                className="h-9 rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none shadow-2xs"
                             >
                                 <option value="all">All Severities</option>
                                 <option value="overdue">Overdue</option>
@@ -424,7 +412,7 @@ export default function CartEscalatedDocsIndex({
                             <select
                                 value={selectedDept}
                                 onChange={(e) => applyFilters({ department: e.target.value })}
-                                className="h-10 max-w-[210px] rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none truncate shadow-2xs"
+                                className="h-9 max-w-[210px] rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none truncate shadow-2xs"
                             >
                                 <option value="all">All Departments</option>
                                 {departments.map((d) => (
@@ -442,7 +430,7 @@ export default function CartEscalatedDocsIndex({
                             <select
                                 value={selectedType}
                                 onChange={(e) => applyFilters({ type: e.target.value })}
-                                className="h-10 max-w-[190px] rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none truncate shadow-2xs"
+                                className="h-9 max-w-[190px] rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none truncate shadow-2xs"
                             >
                                 <option value="all">All Types</option>
                                 {documentTypes.map((t) => (
@@ -460,7 +448,7 @@ export default function CartEscalatedDocsIndex({
                             <select
                                 value={selectedRange}
                                 onChange={(e) => applyFilters({ range: e.target.value })}
-                                className="h-10 rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none shadow-2xs"
+                                className="h-9 rounded-xl border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none shadow-2xs"
                             >
                                 <option value="all">All Time</option>
                                 <option value="today">Today</option>
@@ -479,7 +467,7 @@ export default function CartEscalatedDocsIndex({
                             searchQuery !== '') && (
                             <button
                                 onClick={handleResetFilters}
-                                className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                                className="h-9 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-medium hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
                             >
                                 <RotateCcw className="h-3.5 w-3.5" />
                                 Reset
@@ -489,8 +477,8 @@ export default function CartEscalatedDocsIndex({
                 </div>
 
                 {/* ── STRUCTURED & CLEAN ESCALATED DOCUMENTS TABLE ──────────── */}
-                <div className="w-full rounded-2xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
-                    <div className="px-6 py-4 border-b border-[var(--tng-slate-100)] flex items-center justify-between">
+                <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-[var(--tng-slate-100)] flex items-center justify-between">
                         <div>
                             <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)]">
                                 ARTA Escalation Records ({escalations.length})
@@ -502,18 +490,18 @@ export default function CartEscalatedDocsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
                             <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Tracking #</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Document Title</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Severity</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Days Elapsed vs SLA</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Originating Dept</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Current Holder / Office</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Notified User</th>
-                                    <th className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Escalated At</th>
-                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">Action</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Tracking #</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Document Title</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Severity</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Days Elapsed vs SLA</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Originating Dept</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Current Holder / Office</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Notified User</th>
+                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Escalated At</th>
+                                    <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-600">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">

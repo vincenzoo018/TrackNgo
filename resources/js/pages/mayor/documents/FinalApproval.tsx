@@ -303,12 +303,12 @@ export default function MayorFinalApproval() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white">
+                <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full">
+                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
                             <thead>
                                 <tr className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
-                                    <th className="px-4 py-3 text-left">
+                                    <th className="px-4 py-2.5 text-left">
                                         <input
                                             type="checkbox"
                                             checked={selectedDocs.length === pendingApprovals?.length && pendingApprovals?.length > 0}
@@ -317,7 +317,7 @@ export default function MayorFinalApproval() {
                                         />
                                     </th>
                                     <th
-                                        className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)] cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
+                                        className="px-4 py-2.5 text-left text-xs font-medium text-slate-600 cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
@@ -325,28 +325,28 @@ export default function MayorFinalApproval() {
                                             {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                                         </span>
                                     </th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-600">
                                         Document Type
                                     </th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-600">
                                         Department
                                     </th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-600">
                                         Date Filed
                                     </th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-600">
                                         Step Progress
                                     </th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-600">
                                         Status
                                     </th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-600">
                                         ARTA
                                     </th>
-                                    <th className="px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-600">
                                         QR
                                     </th>
-                                    <th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--tng-slate-700)]">
+                                    <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-600">
                                         Actions
                                     </th>
                                 </tr>

@@ -47,7 +47,7 @@ export default function CreateUser() {
         <TrackngoLayout>
             <Head title="Create New User — TrackNGo Mati" />
 
-            <div className="flex h-[calc(100vh-140px)] flex-col space-y-6 overflow-y-auto tng-scrollbar pb-8">
+            <div className="space-y-6 pb-8">
                 
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
