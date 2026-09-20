@@ -34,6 +34,8 @@ import type { AuditTrailEntry } from '@/types/trackngo';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 type Props = {
     systemLogs?: AuditTrailEntry[];
@@ -339,41 +341,38 @@ export default function AuditTrailIndex({
                     </div>
                 </div>
 
-                {/* ── Visibility Banner ──────────────────────────────────────── */}
-                <div
-                    className={cn(
-                        'flex items-center justify-between gap-4 p-4 rounded-xl border text-sm',
-                        isFullAccess
-                            ? 'bg-purple-50/70 border-purple-200 text-purple-900'
-                            : 'bg-blue-50/70 border-blue-200 text-blue-900'
-                    )}
-                >
-                    <div className="flex items-center gap-3">
-                        {isFullAccess ? (
-                            <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
-                                <ShieldCheck className="h-5 w-5" />
-                            </div>
-                        ) : (
-                            <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
-                                <Shield className="h-5 w-5" />
-                            </div>
-                        )}
-                        <div>
-                            <span className="font-semibold">
-                                {isFullAccess
-                                    ? 'Global Audit Privilege'
-                                    : 'Role-Scoped Audit View'}
-                            </span>
-                            <p className="text-xs opacity-90 mt-0.5">
-                                {isFullAccess
-                                    ? `As ${userRoleName}, you have full oversight across all users, departments, and operations.`
-                                    : `Viewing activity records for ${userName} (${userRoleName}) and related documents assigned to your department.`}
-                            </p>
-                        </div>
-                    </div>
-                    <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/80 border border-current/20 shadow-2xs">
-                        {isFullAccess ? 'Full System View' : 'Personal & Departmental'}
-                    </span>
+                {/* ── Standardized Summary Cards (System Blue #0066cc) ── */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+                    <StatCard
+                        title="Total Logs"
+                        value={actionLogs.length + systemLogs.length}
+                        sublabel="All recorded events"
+                        icon={Activity}
+                        active={activeTab === 'all'}
+                        onClick={() => handleTabChange('all')}
+                    />
+                    <StatCard
+                        title="Action Trail"
+                        value={actionLogs.length}
+                        sublabel="Workflow & routing logs"
+                        icon={FileText}
+                        active={activeTab === 'action'}
+                        onClick={() => handleTabChange('action')}
+                    />
+                    <StatCard
+                        title="System Trail"
+                        value={systemLogs.length}
+                        sublabel="Security & auth activities"
+                        icon={Lock}
+                        active={activeTab === 'system'}
+                        onClick={() => handleTabChange('system')}
+                    />
+                    <StatCard
+                        title="Filtered View"
+                        value={filteredLogs.length}
+                        sublabel="Matching active filters"
+                        icon={Filter}
+                    />
                 </div>
 
                 {/* ── Category Tabs & Live Status ─────────────────────────── */}
@@ -610,7 +609,8 @@ export default function AuditTrailIndex({
                                             <th className="px-5 py-2.5 whitespace-nowrap">Document Ref</th>
                                         )}
                                         <th className="px-5 py-2.5">Description</th>
-                                        <th className="px-5 py-2.5 text-right whitespace-nowrap">IP Address</th>
+                                        <th className="px-5 py-2.5 whitespace-nowrap font-mono text-[13px]">IP Address</th>
+                                        <th className="px-5 py-2.5 text-right whitespace-nowrap">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-200)] font-normal">
@@ -714,8 +714,22 @@ export default function AuditTrailIndex({
                                                     </td>
 
                                                     {/* IP Address */}
-                                                    <td className="px-5 py-3.5 text-right whitespace-nowrap font-mono text-[13px] text-[var(--tng-slate-500)]">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap font-mono text-[13px] text-[var(--tng-slate-500)]">
                                                         {log.ip_address || '127.0.0.1'}
+                                                    </td>
+
+                                                    {/* Actions */}
+                                                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                                                        <TableActionButtons
+                                                            onEdit={() => alert(`Reviewing details for Audit Log #${log.audit_id || log.id}`)}
+                                                            editTitle="Edit Record"
+                                                            onDelete={() => {
+                                                                if (confirm(`Are you sure you want to delete audit entry #${log.audit_id || log.id}?`)) {
+                                                                    alert('Audit trail logs are immutable and protected by compliance standards.');
+                                                                }
+                                                            }}
+                                                            deleteTitle="Delete Record"
+                                                        />
                                                     </td>
                                                 </tr>
                                             );
@@ -723,7 +737,7 @@ export default function AuditTrailIndex({
                                     ) : (
                                         <tr>
                                             <td
-                                                colSpan={activeTab === 'action' ? 7 : 6}
+                                                colSpan={activeTab === 'action' ? 8 : 7}
                                                 className="px-6 py-12 text-center"
                                             >
                                                 <div className="flex flex-col items-center justify-center space-y-2">

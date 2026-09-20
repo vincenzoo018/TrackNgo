@@ -34,6 +34,27 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('documents.ocrWorkspace');
 
+    // Universal Document Details Route (Redirects to role-specific document view with FSM)
+    Route::get('/documents/{id}', function ($id) {
+        $user = auth()->user();
+        $role = strtolower($user->role->role_name ?? '');
+        $prefix = match($role) {
+            'admin' => 'admin',
+            'mayor' => 'mayor',
+            'department head', 'department_head' => 'department-head',
+            'cart' => 'cart',
+            'hr' => 'hr',
+            default => 'receiving',
+        };
+        return redirect("/{$prefix}/documents/{$id}");
+    })->name('documents.show');
+
+    // Real-Time Notification API Routes
+    Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications');
+    Route::post('/api/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('api.notifications.read');
+    Route::post('/api/notifications/mark-all-read', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('api.notifications.markAllRead');
+    Route::post('/api/notifications/log-toast', [\App\Http\Controllers\NotificationController::class, 'logToastTriggered'])->name('api.notifications.logToast');
+
     // Profile Routes
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');

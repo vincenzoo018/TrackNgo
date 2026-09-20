@@ -17,6 +17,10 @@ class LoginResponse implements LoginResponseContract
         $user = $request->user();
         $roleName = strtolower($user->role->role_name ?? '');
 
+        // Mark login session for one-time toast notification
+        $request->session()->put('tng_just_logged_in', true);
+        $request->session()->put('tng_login_session_token', (string) \Illuminate\Support\Str::uuid());
+
         $dashboard = match ($roleName) {
             'admin'           => '/admin',
             'mayor'           => '/mayor',

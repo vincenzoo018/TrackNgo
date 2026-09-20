@@ -4,6 +4,7 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { useState } from 'react';
 import DepartmentFormModal from '@/components/DepartmentFormModal';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
 
 type Department = {
     department_id: number;
@@ -22,6 +23,7 @@ type Props = {
 
 export default function DepartmentIndex({ dbDepartments, dbUsers }: Props) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [editingDept, setEditingDept] = useState<Department | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
@@ -138,23 +140,12 @@ export default function DepartmentIndex({ dbDepartments, dbUsers }: Props) {
                                             )}
                                         </td>
                                         <td className="px-6 py-3.5 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <button 
-                                                    title="Edit Department"
-                                                    aria-label="Edit Department"
-                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                >
-                                                    <Edit className="h-[18px] w-[18px]" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(dept.department_id)}
-                                                    title="Delete Department"
-                                                    aria-label="Delete Department"
-                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50"
-                                                >
-                                                    <Trash2 className="h-[18px] w-[18px]" />
-                                                </button>
-                                            </div>
+                                            <TableActionButtons
+                                                onEdit={() => setEditingDept(dept)}
+                                                editTitle="Edit Record"
+                                                onDelete={() => handleDelete(dept.department_id)}
+                                                deleteTitle="Delete Record"
+                                            />
                                         </td>
                                     </tr>
                                 )) : (
@@ -184,9 +175,13 @@ export default function DepartmentIndex({ dbDepartments, dbUsers }: Props) {
             </div>
 
             <DepartmentFormModal 
-                isOpen={isAddModalOpen} 
-                onClose={() => setIsAddModalOpen(false)} 
+                isOpen={isAddModalOpen || editingDept !== null} 
+                onClose={() => {
+                    setIsAddModalOpen(false);
+                    setEditingDept(null);
+                }} 
                 users={dbUsers}
+                department={editingDept}
             />
         </TrackngoLayout>
     );

@@ -27,6 +27,7 @@ import {
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
+import { StatCard } from '@/components/trackngo/StatCard';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { QrDetailModal, type QrCodeItem } from '@/components/trackngo/QrDetailModal';
 import { RoutingSlipModal, type RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
@@ -292,98 +293,56 @@ export default function QrCodesIndex({
                     </div>
                 </div>
 
-                {/* ── Scope Visibility Banner ───────────────────────────────── */}
-                <div
-                    className={cn(
-                        'flex items-center justify-between gap-4 p-4 rounded-xl border text-sm',
-                        isFullAccess
-                            ? 'bg-purple-50/70 border-purple-200 text-purple-900'
-                            : 'bg-blue-50/70 border-blue-200 text-blue-900'
-                    )}
-                >
-                    <div className="flex items-center gap-3">
-                        {isFullAccess ? (
-                            <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
-                                <ShieldCheck className="h-5 w-5" />
-                            </div>
-                        ) : (
-                            <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
-                                <Shield className="h-5 w-5" />
-                            </div>
-                        )}
-                        <div>
-                            <span className="font-semibold">
-                                {isFullAccess
-                                    ? 'Global QR Code Traceability'
-                                    : 'Role-Scoped QR Code Access'}
-                            </span>
-                            <p className="text-xs opacity-90 mt-0.5">
-                                {isFullAccess
-                                    ? `As ${userRoleName}, you can view and verify all QR codes generated across all departments and documents.`
-                                    : `Displaying QR codes relevant to ${userName} (${userRoleName}) and your department's incoming/outgoing records.`}
-                            </p>
-                        </div>
-                    </div>
-                    <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/80 border border-current/20 shadow-2xs">
-                        {isFullAccess ? 'Full System View' : 'Personal & Departmental'}
-                    </span>
-                </div>
 
-                {/* ── KPI Metric Cards ──────────────────────────────────────── */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-[var(--tng-slate-200)] shadow-xs">
-                        <div className="text-xs font-medium text-[var(--tng-slate-500)] uppercase tracking-wider">
-                            Total QR Codes
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-[var(--tng-slate-900)]">
-                                {metrics.total}
-                            </span>
-                            <span className="text-xs text-[var(--tng-slate-400)] font-medium">Recorded</span>
-                        </div>
-                    </div>
+                {/* ── KPI Metric Cards (Standardized System Blue) ─────────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+                    <StatCard
+                        title="Total QR Codes"
+                        value={metrics.total}
+                        sublabel="All recorded QR codes"
+                        icon={QrCode}
+                        active={statusFilter === 'all'}
+                        onClick={() => {
+                            setStatusFilter('all');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="bg-white p-4 rounded-xl border border-[var(--tng-slate-200)] shadow-xs">
-                        <div className="text-xs font-medium text-[var(--tng-slate-500)] uppercase tracking-wider">
-                            Active QR Codes
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-emerald-600">
-                                {metrics.active}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
-                                In Transit
-                            </span>
-                        </div>
-                    </div>
+                    <StatCard
+                        title="Active QR Codes"
+                        value={metrics.active}
+                        sublabel="Currently in transit"
+                        icon={Clock}
+                        active={statusFilter === 'active'}
+                        onClick={() => {
+                            setStatusFilter('active');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="bg-white p-4 rounded-xl border border-[var(--tng-slate-200)] shadow-xs">
-                        <div className="text-xs font-medium text-[var(--tng-slate-500)] uppercase tracking-wider">
-                            Completed
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-indigo-600">
-                                {metrics.completed}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">
-                                Finalized
-                            </span>
-                        </div>
-                    </div>
+                    <StatCard
+                        title="Completed"
+                        value={metrics.completed}
+                        sublabel="Finalized & archived"
+                        icon={CheckCircle2}
+                        active={statusFilter === 'completed'}
+                        onClick={() => {
+                            setStatusFilter('completed');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="bg-white p-4 rounded-xl border border-[var(--tng-slate-200)] shadow-xs">
-                        <div className="text-xs font-medium text-[var(--tng-slate-500)] uppercase tracking-wider">
-                            Archived
-                        </div>
-                        <div className="mt-2 flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-purple-600">
-                                {metrics.archived}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">
-                                Repository
-                            </span>
-                        </div>
-                    </div>
+                    <StatCard
+                        title="Archived"
+                        value={metrics.archived}
+                        sublabel="Repository records"
+                        icon={ShieldCheck}
+                        active={statusFilter === 'archived'}
+                        onClick={() => {
+                            setStatusFilter('archived');
+                            setCurrentPage(1);
+                        }}
+                    />
                 </div>
 
                 {/* ── Tabbed Navigation ─────────────────────────────────────── */}

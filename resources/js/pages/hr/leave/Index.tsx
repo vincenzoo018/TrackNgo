@@ -4,6 +4,8 @@ import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { useState, useMemo } from 'react';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 const mockLeaveRequests = [
     { id: 1, employee: 'Ana Garcia', type: 'Vacation Leave', start: '2026-07-25', end: '2026-07-30', days: 4, status: 'pending', reason: 'Family vacation' },
@@ -21,6 +23,7 @@ const statusConfig: Record<string, { icon: typeof Clock; bg: string; text: strin
 };
 
 export default function LeaveIndex() {
+    const [requestsList, setRequestsList] = useState(mockLeaveRequests);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [currentPage, setCurrentPage] = useState(1);
@@ -28,12 +31,12 @@ export default function LeaveIndex() {
 
     const counts = useMemo(() => {
         return {
-            all: mockLeaveRequests.length,
-            pending: mockLeaveRequests.filter((r) => r.status === 'pending').length,
-            approved: mockLeaveRequests.filter((r) => r.status === 'approved').length,
-            rejected: mockLeaveRequests.filter((r) => r.status === 'rejected').length,
+            all: requestsList.length,
+            pending: requestsList.filter((r) => r.status === 'pending').length,
+            approved: requestsList.filter((r) => r.status === 'approved').length,
+            rejected: requestsList.filter((r) => r.status === 'rejected').length,
         };
-    }, []);
+    }, [requestsList]);
 
     const tabs: TabItem[] = [
         { id: 'all', label: 'All Requests', count: counts.all },
@@ -43,7 +46,7 @@ export default function LeaveIndex() {
     ];
 
     const filteredRequests = useMemo(() => {
-        return mockLeaveRequests.filter((req) => {
+        return requestsList.filter((req) => {
             if (activeTab !== 'all' && req.status !== activeTab) return false;
             if (!searchQuery.trim()) return true;
             const q = searchQuery.toLowerCase();
@@ -53,7 +56,20 @@ export default function LeaveIndex() {
                 req.reason.toLowerCase().includes(q)
             );
         });
-    }, [activeTab, searchQuery]);
+    }, [requestsList, activeTab, searchQuery]);
+
+    const handleDelete = (id: number) => {
+        if (confirm('Are you sure you want to delete this leave request?')) {
+            setRequestsList(prev => prev.filter(r => r.id !== id));
+        }
+    };
+
+    const handleEdit = (req: any) => {
+        const newStatus = prompt(`Update status for ${req.employee}'s leave (pending, approved, rejected):`, req.status);
+        if (newStatus && ['pending', 'approved', 'rejected'].includes(newStatus.toLowerCase())) {
+            setRequestsList(prev => prev.map(r => r.id === req.id ? { ...r, status: newStatus.toLowerCase() as any } : r));
+        }
+    };
 
     const paginatedRequests = useMemo(() => {
         return filteredRequests.slice(
@@ -74,35 +90,55 @@ export default function LeaveIndex() {
                     </p>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div className="flex items-center gap-4 rounded-2xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-sm">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
-                            <Clock className="h-6 w-6 text-amber-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{counts.pending}</p>
-                            <p className="text-xs text-[var(--tng-slate-500)]">Pending Requests</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4 rounded-2xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-sm">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
-                            <CheckCircle className="h-6 w-6 text-emerald-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{counts.approved}</p>
-                            <p className="text-xs text-[var(--tng-slate-500)]">Approved This Month</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4 rounded-2xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-sm">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
-                            <XCircle className="h-6 w-6 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-[var(--tng-slate-900)]">{counts.rejected}</p>
-                            <p className="text-xs text-[var(--tng-slate-500)]">Rejected</p>
-                        </div>
-                    </div>
+                {/* ── Summary Metric Cards (Standardized System Blue) ────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+                    <StatCard
+                        title="Total Requests"
+                        value={counts.all}
+                        sublabel="All submitted applications"
+                        icon={CalendarDays}
+                        active={activeTab === 'all'}
+                        onClick={() => {
+                            setActiveTab('all');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Pending"
+                        value={counts.pending}
+                        sublabel="Awaiting HR review"
+                        icon={Clock}
+                        active={activeTab === 'pending'}
+                        onClick={() => {
+                            setActiveTab('pending');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Approved"
+                        value={counts.approved}
+                        sublabel="Authorized leave"
+                        icon={CheckCircle}
+                        active={activeTab === 'approved'}
+                        onClick={() => {
+                            setActiveTab('approved');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Rejected"
+                        value={counts.rejected}
+                        sublabel="Disapproved requests"
+                        icon={XCircle}
+                        active={activeTab === 'rejected'}
+                        onClick={() => {
+                            setActiveTab('rejected');
+                            setCurrentPage(1);
+                        }}
+                    />
                 </div>
 
                 {/* ── Tabbed Navigation ─────────────────────────────────────── */}
@@ -171,18 +207,12 @@ export default function LeaveIndex() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-3.5 whitespace-nowrap text-right">
-                                                    {req.status === 'pending' ? (
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <button className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
-                                                                Approve
-                                                            </button>
-                                                            <button className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100">
-                                                                Reject
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400 font-normal">Completed</span>
-                                                    )}
+                                                    <TableActionButtons
+                                                        onEdit={() => handleEdit(req)}
+                                                        editTitle="Edit Record"
+                                                        onDelete={() => handleDelete(req.id)}
+                                                        deleteTitle="Delete Record"
+                                                    />
                                                 </td>
                                             </tr>
                                         );

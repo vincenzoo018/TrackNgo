@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Contracts\AuditTrailServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\User;
@@ -10,6 +11,10 @@ use Inertia\Inertia;
 
 class DepartmentController extends Controller
 {
+    public function __construct(
+        protected AuditTrailServiceInterface $auditTrailService
+    ) {}
+
     public function index()
     {
         $departments = Department::with('head')->withCount('users')->orderBy('department_name', 'asc')->get();
@@ -48,16 +53,32 @@ class DepartmentController extends Controller
 
         $department->update($validated);
 
+        $this->auditTrailService->logUserAction(
+            action: 'Update Department',
+            description: "HR updated department details for {$department->department_name}",
+            actor: $request->user(),
+            ipAddress: $request->ip()
+        );
+
         return redirect()->back()->with('success', 'Department updated successfully.');
     }
 
-    public function destroy(Department $department)
+    public function destroy(Request $request, Department $department)
     {
         if ($department->users()->count() > 0) {
             return redirect()->back()->withErrors(['error' => 'Cannot delete a department with assigned employees.']);
         }
 
+        $deptName = $department->department_name;
         $department->delete();
+
+        $this->auditTrailService->logUserAction(
+            action: 'Delete Department',
+            description: "HR permanently deleted department {$deptName}",
+            actor: $request->user(),
+            ipAddress: $request->ip()
+        );
+
         return redirect()->back()->with('success', 'Department deleted successfully.');
     }
 }

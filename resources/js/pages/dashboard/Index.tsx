@@ -280,9 +280,13 @@ export default function UnifiedDashboard({
     }, [safeBottlenecks]);
 
     // ── 2. Workflow Status Distribution (Chart.js Donut Chart) ───────────────
-    const hasStatusData = useMemo(() => {
-        return statusDistribution.some((s) => s.count > 0);
+    const safeStatusDistribution = useMemo(() => {
+        return Array.isArray(statusDistribution) ? statusDistribution : [];
     }, [statusDistribution]);
+
+    const hasStatusData = useMemo(() => {
+        return safeStatusDistribution.some((s) => s.count > 0);
+    }, [safeStatusDistribution]);
 
     const donutChartData = useMemo(() => {
         if (!hasStatusData) {
@@ -300,18 +304,18 @@ export default function UnifiedDashboard({
             };
         }
         return {
-            labels: statusDistribution.map((s) => s.label),
+            labels: safeStatusDistribution.map((s) => s.label),
             datasets: [
                 {
-                    data: statusDistribution.map((s) => s.count),
-                    backgroundColor: statusDistribution.map((s) => s.color || '#3b82f6'),
+                    data: safeStatusDistribution.map((s) => s.count),
+                    backgroundColor: safeStatusDistribution.map((s) => s.color || '#3b82f6'),
                     borderColor: '#ffffff',
                     borderWidth: 2,
                     hoverOffset: 6,
                 },
             ],
         };
-    }, [statusDistribution, hasStatusData]);
+    }, [safeStatusDistribution, hasStatusData]);
 
     const donutChartOptions = useMemo<any>(() => {
         return {
@@ -463,18 +467,7 @@ export default function UnifiedDashboard({
                                 {isFullAccess ? 'System Overview & Live Tracking' : `${userRoleName} Dashboard`}
                             </h1>
 
-                            {/* Visibility Tag */}
-                            {isFullAccess ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 border border-indigo-200">
-                                    <ShieldCheck className="h-3.5 w-3.5" />
-                                    System-Wide Live Oversight
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                                    <UserCheck className="h-3.5 w-3.5" />
-                                    Role-Scoped ({userRoleName})
-                                </span>
-                            )}
+
                         </div>
                         <p className="mt-1 text-sm text-[var(--tng-slate-500)]">
                             {isFullAccess

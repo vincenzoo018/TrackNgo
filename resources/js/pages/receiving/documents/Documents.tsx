@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
@@ -11,6 +11,8 @@ import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 export default function ReceivingDocumentsIndex() {
     const { props } = usePage();
@@ -173,6 +175,42 @@ export default function ReceivingDocumentsIndex() {
                             Submit New Document
                         </button>
                     </div>
+                </div>
+
+                {/* ── Standardized Summary Cards (System Blue #0066cc) ── */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+                    <StatCard
+                        title="Total Documents"
+                        value={tabCounts.all}
+                        sublabel="Intake oversight"
+                        icon={FileText}
+                        active={activeTab === 'all'}
+                        onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="Received"
+                        value={tabCounts.received}
+                        sublabel="Logged into receiving"
+                        icon={Inbox}
+                        active={activeTab === 'received'}
+                        onClick={() => { setActiveTab('received'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="Forwarded"
+                        value={tabCounts.forwarded}
+                        sublabel="Dispatched to offices"
+                        icon={Send}
+                        active={activeTab === 'forwarded'}
+                        onClick={() => { setActiveTab('forwarded'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="Returned"
+                        value={tabCounts.returned}
+                        sublabel="Returned transactions"
+                        icon={RotateCcw}
+                        active={activeTab === 'returned'}
+                        onClick={() => { setActiveTab('returned'); setCurrentPage(1); }}
+                    />
                 </div>
 
                 {/* ── Standardized Tabbed Navigation (Receiving Clerk: All, Received, Forwarded, Returned) ── */}
@@ -355,16 +393,26 @@ export default function ReceivingDocumentsIndex() {
                                             </button>
                                         </td>
                                         <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Link
-                                                    href={`/receiving/documents/${doc.document_id}`}
-                                                    title="View Document"
-                                                    aria-label="View Document"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                >
-                                                    <Eye className="h-[18px] w-[18px]" />
-                                                </Link>
-                                            </div>
+                                            <TableActionButtons
+                                                editHref={`/receiving/documents/${doc.document_id}`}
+                                                editTitle="Edit Record"
+                                                onDelete={() => {
+                                                    if (confirm(`Are you sure you want to delete document ${doc.reference_number}?`)) {
+                                                        router.delete(`/documents/${doc.document_id}`);
+                                                    }
+                                                }}
+                                                deleteTitle="Delete Record"
+                                                extraActions={
+                                                    <Link
+                                                        href={`/receiving/documents/${doc.document_id}`}
+                                                        title="View Document"
+                                                        aria-label="View Document"
+                                                        className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
+                                                    >
+                                                        <Eye className="h-[18px] w-[18px]" />
+                                                    </Link>
+                                                }
+                                            />
                                         </td>
                                     </tr>
                                 ))}

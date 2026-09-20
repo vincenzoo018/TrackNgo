@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw, Archive } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
@@ -9,6 +9,7 @@ import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import { cn } from '@/lib/utils';
 
 export default function CartDocumentsIndex() {
@@ -342,16 +343,26 @@ export default function CartDocumentsIndex() {
                                             </button>
                                         </td>
                                         <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Link
-                                                    href={`/cart/documents/${doc.document_id}`}
-                                                    title="View Document"
-                                                    aria-label="View Document"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                >
-                                                    <Eye className="h-[18px] w-[18px]" />
-                                                </Link>
-                                            </div>
+                                            <TableActionButtons
+                                                editHref={`/cart/documents/${doc.document_id}`}
+                                                editTitle="Edit Record"
+                                                onDelete={() => {
+                                                    if (confirm(`Are you sure you want to delete document ${doc.reference_number}?`)) {
+                                                        router.delete(`/cart/documents/${doc.document_id}`);
+                                                    }
+                                                }}
+                                                deleteTitle="Delete Record"
+                                                extraActions={
+                                                    <Link
+                                                        href={`/cart/documents/${doc.document_id}`}
+                                                        title="View Document"
+                                                        aria-label="View Document"
+                                                        className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
+                                                    >
+                                                        <Eye className="h-[18px] w-[18px]" />
+                                                    </Link>
+                                                }
+                                            />
                                         </td>
                                     </tr>
                                 ))}

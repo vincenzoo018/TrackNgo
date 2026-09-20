@@ -1,10 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Users, Search, Filter, UserPlus, Mail, Phone, Edit, Trash2 } from 'lucide-react';
+import { Users, Search, Filter, UserPlus, Mail, Phone, Edit, Trash2, Building2, ShieldCheck, UserX } from 'lucide-react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { useState, useMemo } from 'react';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import AddEmployeeModal from '@/components/AddEmployeeModal';
 import TablePagination from '@/components/trackngo/TablePagination';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 type Employee = {
     id: number;
@@ -96,6 +98,56 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                         <UserPlus className="h-4 w-4" />
                         Add Employee
                     </button>
+                </div>
+
+                {/* ── Summary Metric Cards (Standardized System Blue) ────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+                    <StatCard
+                        title="Total Employees"
+                        value={tabCounts.all}
+                        sublabel="Registered personnel"
+                        icon={Users}
+                        active={activeTab === 'all'}
+                        onClick={() => {
+                            setActiveTab('all');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Active Employees"
+                        value={tabCounts.active}
+                        sublabel="Currently on active duty"
+                        icon={ShieldCheck}
+                        active={activeTab === 'active'}
+                        onClick={() => {
+                            setActiveTab('active');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Inactive Employees"
+                        value={tabCounts.inactive}
+                        sublabel="On leave or inactive"
+                        icon={UserX}
+                        active={activeTab === 'inactive'}
+                        onClick={() => {
+                            setActiveTab('inactive');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Departments"
+                        value={dbDepartments.length}
+                        sublabel="Assigned municipal offices"
+                        icon={Building2}
+                        onClick={() => {
+                            setDeptFilter('all');
+                            setCurrentPage(1);
+                        }}
+                    />
                 </div>
 
                 {/* ── Tabbed Navigation ─────────────────────────────────────── */}
@@ -199,24 +251,12 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                                             )}
                                         </td>
                                         <td className="px-6 py-3.5 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Link 
-                                                    href={`/hr/employees/${emp.id}/edit`}
-                                                    title="Edit Employee"
-                                                    aria-label="Edit Employee"
-                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                >
-                                                    <Edit className="h-[18px] w-[18px]" />
-                                                </Link>
-                                                <button 
-                                                    onClick={() => handleDelete(emp.id)}
-                                                    title="Delete Employee"
-                                                    aria-label="Delete Employee"
-                                                    className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400/50"
-                                                >
-                                                    <Trash2 className="h-[18px] w-[18px]" />
-                                                </button>
-                                            </div>
+                                            <TableActionButtons
+                                                editHref={`/hr/employees/${emp.id}/edit`}
+                                                editTitle="Edit Record"
+                                                onDelete={() => handleDelete(emp.id)}
+                                                deleteTitle="Delete Record"
+                                            />
                                         </td>
                                     </tr>
                                 )) : (

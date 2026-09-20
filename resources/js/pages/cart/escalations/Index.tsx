@@ -3,6 +3,8 @@ import { Head, Link, router } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 import {
     BaseModal,
     ModalSection,
@@ -15,6 +17,7 @@ import {
     AlertTriangle,
     Clock,
     CheckCircle2,
+    Inbox,
     Search,
     ChevronDown,
     Building2,
@@ -59,6 +62,7 @@ export interface EscalationItem {
 
 export interface KpiData {
     total: number;
+    received?: number;
     overdue: number;
     warnings: number;
     resolved: number;
@@ -95,7 +99,7 @@ export interface UnifiedEscalationsProps {
 
 export default function CartEscalatedDocsIndex({
     escalations = [],
-    kpis = { total: 0, overdue: 0, warnings: 0, resolved: 0 },
+    kpis = { total: 0, received: 0, overdue: 0, warnings: 0, resolved: 0 },
     departments = [],
     documentTypes = [],
     filters = { severity: 'all', department: 'all', type: 'all', range: 'all', search: '' },
@@ -227,18 +231,7 @@ export default function CartEscalatedDocsIndex({
                                 Escalated Docs (Unified ARTA Monitoring)
                             </h1>
 
-                            {/* Role-based Visibility Badge */}
-                            {isFullAccess ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 border border-indigo-200">
-                                    <ShieldCheck className="h-3.5 w-3.5" />
-                                    System-Wide Live Oversight
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                                    <UserCheck className="h-3.5 w-3.5" />
-                                    Role-Scoped ({userRoleName})
-                                </span>
-                            )}
+
                         </div>
                         <p className="mt-0.5 text-xs sm:text-sm text-[var(--tng-slate-500)]">
                             Mandated under ARTA Memorandum Circular No. 2020-07 and Republic Act 11032. Centralized monitoring of active SLA thresholds, overdue delays, and corrective escalations.
@@ -256,107 +249,52 @@ export default function CartEscalatedDocsIndex({
                     </div>
                 </div>
 
-                {/* ── CLICKABLE KPI CARDS (4-COLUMN GRID, COMPACT) ──────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 shrink-0">
-                    {/* 1. Total Escalations */}
-                    <div
+                {/* ── CLICKABLE KPI CARDS (Standardized System Blue) ─────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-5 shrink-0">
+                    <StatCard
+                        title="Total Cases"
+                        value={kpis.total}
+                        sublabel="All flagged records"
+                        icon={FileText}
+                        active={selectedSeverity === 'all'}
                         onClick={() => handleKpiClick('all')}
-                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                            selectedSeverity === 'all'
-                                ? 'border-blue-500 bg-blue-50/90 ring-2 ring-blue-500/20 shadow-xs'
-                                : 'border-blue-200 bg-blue-50/50 hover:border-blue-400'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-2xl font-bold tabular-nums tracking-tight text-blue-600">
-                                    {kpis.total}
-                                </p>
-                                <p className="mt-0.5 text-xs font-semibold text-blue-700 flex items-center gap-1">
-                                    Total Escalations
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-blue-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                            </div>
-                            <div className="rounded-lg bg-blue-100 p-2 text-blue-600 group-hover:scale-110 transition-transform">
-                                <FileText className="h-5 w-5" />
-                            </div>
-                        </div>
-                    </div>
+                    />
 
-                    {/* 2. Overdue */}
-                    <div
+                    <StatCard
+                        title="Received"
+                        value={kpis.received ?? 0}
+                        sublabel="Logged into CART"
+                        icon={Inbox}
+                        active={selectedSeverity === 'received'}
+                        onClick={() => handleKpiClick('received')}
+                    />
+
+                    <StatCard
+                        title="Overdue"
+                        value={kpis.overdue}
+                        sublabel="Exceeded SLA limits"
+                        icon={AlertTriangle}
+                        active={selectedSeverity === 'overdue'}
                         onClick={() => handleKpiClick('overdue')}
-                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                            selectedSeverity === 'overdue'
-                                ? 'border-red-500 bg-red-50/90 ring-2 ring-red-500/20 shadow-xs'
-                                : 'border-red-200 bg-red-50/50 hover:border-red-400'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-2xl font-bold tabular-nums tracking-tight text-red-600">
-                                    {kpis.overdue}
-                                </p>
-                                <p className="mt-0.5 text-xs font-semibold text-red-700 flex items-center gap-1">
-                                    Overdue
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-red-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                            </div>
-                            <div className="rounded-lg bg-red-100 p-2 text-red-600 group-hover:scale-110 transition-transform">
-                                <AlertTriangle className="h-5 w-5" />
-                            </div>
-                        </div>
-                    </div>
+                    />
 
-                    {/* 3. Warnings */}
-                    <div
+                    <StatCard
+                        title="Warnings"
+                        value={kpis.warnings}
+                        sublabel="Approaching deadline"
+                        icon={Clock}
+                        active={selectedSeverity === 'warning'}
                         onClick={() => handleKpiClick('warning')}
-                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                            selectedSeverity === 'warning'
-                                ? 'border-amber-500 bg-amber-50/90 ring-2 ring-amber-500/20 shadow-xs'
-                                : 'border-amber-200 bg-amber-50/50 hover:border-amber-400'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-2xl font-bold tabular-nums tracking-tight text-amber-600">
-                                    {kpis.warnings}
-                                </p>
-                                <p className="mt-0.5 text-xs font-semibold text-amber-700 flex items-center gap-1">
-                                    Warnings
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-amber-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                            </div>
-                            <div className="rounded-lg bg-amber-100 p-2 text-amber-600 group-hover:scale-110 transition-transform">
-                                <Clock className="h-5 w-5" />
-                            </div>
-                        </div>
-                    </div>
+                    />
 
-                    {/* 4. Resolved */}
-                    <div
+                    <StatCard
+                        title="Resolved"
+                        value={kpis.resolved}
+                        sublabel="Corrective actions completed"
+                        icon={CheckCircle2}
+                        active={selectedSeverity === 'resolved'}
                         onClick={() => handleKpiClick('resolved')}
-                        className={`group cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                            selectedSeverity === 'resolved'
-                                ? 'border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-500/20 shadow-xs'
-                                : 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-400'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-2xl font-bold tabular-nums tracking-tight text-emerald-600">
-                                    {kpis.resolved}
-                                </p>
-                                <p className="mt-0.5 text-xs font-semibold text-emerald-700 flex items-center gap-1">
-                                    Resolved
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500 opacity-70 group-hover:opacity-100" />
-                                </p>
-                            </div>
-                            <div className="rounded-lg bg-emerald-100 p-2 text-emerald-600 group-hover:scale-110 transition-transform">
-                                <CheckCircle2 className="h-5 w-5" />
-                            </div>
-                        </div>
-                    </div>
+                    />
                 </div>
 
                 {/* ── Standardized Tabbed Navigation (CART: All, Escalated, Resolved, Pending) ── */}
@@ -643,33 +581,27 @@ export default function CartEscalatedDocsIndex({
                                                     )}
                                                 </td>
 
-                                                {/* 9. Action (Resolve button) */}
                                                 <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Link
-                                                            href={`/cart/documents/${item.id}`}
-                                                            title="Inspect Document"
-                                                            aria-label="Inspect Document"
-                                                            className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                        >
-                                                            <Eye className="h-[18px] w-[18px]" />
-                                                        </Link>
-
-                                                        {item.resolved ? (
-                                                            <span className="rounded-lg p-2 text-emerald-500" title="Resolved" aria-label="Resolved">
-                                                                <CheckCircle2 className="h-[18px] w-[18px]" />
-                                                            </span>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => setResolvingItem(item)}
-                                                                title="Resolve Escalation"
-                                                                aria-label="Resolve Escalation"
-                                                                className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-emerald-50 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 cursor-pointer"
+                                                    <TableActionButtons
+                                                        onEdit={() => setResolvingItem(item)}
+                                                        editTitle="Edit Record"
+                                                        onDelete={() => {
+                                                            if (confirm(`Are you sure you want to delete escalation case for ${item.tracking_number}?`)) {
+                                                                router.reload();
+                                                            }
+                                                        }}
+                                                        deleteTitle="Delete Record"
+                                                        extraActions={
+                                                            <Link
+                                                                href={`/cart/documents/${item.id}`}
+                                                                title="Inspect Document"
+                                                                aria-label="Inspect Document"
+                                                                className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
                                                             >
-                                                                <CheckCircle2 className="h-[18px] w-[18px]" />
-                                                            </button>
-                                                        )}
-                                                    </div>
+                                                                <Eye className="h-[18px] w-[18px]" />
+                                                            </Link>
+                                                        }
+                                                    />
                                                 </td>
                                             </tr>
                                         );

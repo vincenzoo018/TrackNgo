@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
-import { Plus, Search, FileSignature, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, FileSignature } from 'lucide-react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
 
 export default function Templates() {
     return (
@@ -26,10 +27,12 @@ export default function Templates() {
                         <div className="rounded-lg bg-blue-50 p-3 text-blue-600">
                             <FileSignature className="h-6 w-6" />
                         </div>
-                        <div className="flex gap-1 text-[var(--tng-slate-400)]">
-                            <button className="p-1 hover:text-[var(--tng-blue-600)] transition-colors"><Edit className="w-4 h-4" /></button>
-                            <button className="p-1 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <TableActionButtons
+                            onEdit={() => alert('Edit template')}
+                            editTitle="Edit Record"
+                            onDelete={() => { if (confirm('Delete template?')) alert('Deleted'); }}
+                            deleteTitle="Delete Record"
+                        />
                     </div>
                     <h3 className="text-lg font-semibold text-[var(--tng-slate-900)] mb-1">Standard SMS Alert</h3>
                     <p className="text-sm text-[var(--tng-slate-500)] mb-4 flex-1">
@@ -46,10 +49,12 @@ export default function Templates() {
                         <div className="rounded-lg bg-amber-50 p-3 text-amber-600">
                             <FileSignature className="h-6 w-6" />
                         </div>
-                        <div className="flex gap-1 text-[var(--tng-slate-400)]">
-                            <button className="p-1 hover:text-[var(--tng-blue-600)] transition-colors"><Edit className="w-4 h-4" /></button>
-                            <button className="p-1 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <TableActionButtons
+                            onEdit={() => alert('Edit template')}
+                            editTitle="Edit Record"
+                            onDelete={() => { if (confirm('Delete template?')) alert('Deleted'); }}
+                            deleteTitle="Delete Record"
+                        />
                     </div>
                     <h3 className="text-lg font-semibold text-[var(--tng-slate-900)] mb-1">Escalation Warning</h3>
                     <p className="text-sm text-[var(--tng-slate-500)] mb-4 flex-1">
@@ -66,10 +71,12 @@ export default function Templates() {
                         <div className="rounded-lg bg-emerald-50 p-3 text-emerald-600">
                             <FileSignature className="h-6 w-6" />
                         </div>
-                        <div className="flex gap-1 text-[var(--tng-slate-400)]">
-                            <button className="p-1 hover:text-[var(--tng-blue-600)] transition-colors"><Edit className="w-4 h-4" /></button>
-                            <button className="p-1 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <TableActionButtons
+                            onEdit={() => alert('Edit template')}
+                            editTitle="Edit Record"
+                            onDelete={() => { if (confirm('Delete template?')) alert('Deleted'); }}
+                            deleteTitle="Delete Record"
+                        />
                     </div>
                     <h3 className="text-lg font-semibold text-[var(--tng-slate-900)] mb-1">Routing Slip Printout</h3>
                     <p className="text-sm text-[var(--tng-slate-500)] mb-4 flex-1">

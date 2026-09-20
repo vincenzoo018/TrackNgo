@@ -1,5 +1,6 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import {
     BaseModal,
     ModalSection,
@@ -36,6 +37,7 @@ import {
 import { useState, useMemo } from 'react';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 type RoleItem = {
     role_id: number;
@@ -234,59 +236,50 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                     )}
                 </div>
 
-                {/* KPI Summary Cards */}
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                    <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-4 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
-                                Total Accounts
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[var(--tng-blue-600)]">
-                                <Users className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-[var(--tng-slate-900)]">{stats.total}</p>
-                        <p className="mt-0.5 text-xs text-[var(--tng-slate-400)]">Registered across city government</p>
-                    </div>
+                {/* ── KPI Summary Cards (Standardized System Blue) ───────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+                    <StatCard
+                        title="Total Accounts"
+                        value={stats.total}
+                        sublabel="Registered across city government"
+                        icon={Users}
+                        active={activeTab === 'all'}
+                        onClick={() => {
+                            setActiveTab('all');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-4 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
-                                Active Users
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                                <ShieldCheck className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-emerald-600">{stats.active}</p>
-                        <p className="mt-0.5 text-xs text-[var(--tng-slate-400)]">Authorized to process workflows</p>
-                    </div>
+                    <StatCard
+                        title="Active Users"
+                        value={stats.active}
+                        sublabel="Authorized to process workflows"
+                        icon={ShieldCheck}
+                        active={activeTab === 'active'}
+                        onClick={() => {
+                            setActiveTab('active');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-4 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
-                                System Roles
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
-                                <Shield className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-purple-600">{stats.rolesCount}</p>
-                        <p className="mt-0.5 text-xs text-[var(--tng-slate-400)]">Configured access tiers</p>
-                    </div>
+                    <StatCard
+                        title="System Roles"
+                        value={stats.rolesCount}
+                        sublabel="Configured access tiers"
+                        icon={Shield}
+                    />
 
-                    <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white p-4 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
-                                Suspended / Inactive
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
-                                <ShieldAlert className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-rose-600">{stats.inactive}</p>
-                        <p className="mt-0.5 text-xs text-[var(--tng-slate-400)]">Access restricted or revoked</p>
-                    </div>
+                    <StatCard
+                        title="Suspended / Inactive"
+                        value={stats.inactive}
+                        sublabel="Access restricted or revoked"
+                        icon={ShieldAlert}
+                        active={activeTab === 'suspended'}
+                        onClick={() => {
+                            setActiveTab('suspended');
+                            setCurrentPage(1);
+                        }}
+                    />
                 </div>
 
                 {/* ── Unified Role Tabs (Admin: All, Active, Suspended, Archived) ── */}
@@ -462,44 +455,25 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
 
                                             {/* 6. Actions (Edit, Override, Delete) */}
                                             <td className="px-6 py-3.5 text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    {/* Edit (Pencil) */}
-                                                    <button
-                                                        onClick={() => setEditingUser(user)}
-                                                        title={isHr ? "Override Employee Information" : "Edit User Information"}
-                                                        aria-label="Edit User"
-                                                        className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-amber-50 hover:text-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-400/50 active:scale-95 cursor-pointer"
-                                                    >
-                                                        <Edit2 className="h-[18px] w-[18px]" />
-                                                    </button>
-
-                                                    {/* Override (Circular Arrow / Key) */}
-                                                    <button
-                                                        onClick={() => setOverridingUser(user)}
-                                                        title={isHr ? "Override Department Assignment" : "Override Role & Access"}
-                                                        aria-label="Override"
-                                                        className="rounded-lg p-1.5 text-[var(--tng-slate-400)] transition-all hover:bg-purple-50 hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400/50 active:scale-95 cursor-pointer"
-                                                    >
-                                                        <RotateCcw className="h-[18px] w-[18px]" />
-                                                    </button>
-
-                                                    {/* Delete (Trash bin - Admin Only) */}
-                                                    {isAdmin && (
+                                                <TableActionButtons
+                                                    onEdit={() => setEditingUser(user)}
+                                                    editTitle="Edit Record"
+                                                    onDelete={isAdmin ? () => setDeletingUser(user) : undefined}
+                                                    deleteTitle={user.id === currentUserId ? "Cannot delete yourself" : "Delete Record"}
+                                                    deleteDisabled={user.id === currentUserId}
+                                                    showDelete={isAdmin}
+                                                    extraActions={
                                                         <button
-                                                            onClick={() => setDeletingUser(user)}
-                                                            disabled={user.id === currentUserId}
-                                                            title={user.id === currentUserId ? "Cannot delete yourself" : "Delete User Account"}
-                                                            aria-label="Delete User"
-                                                            className={`rounded-lg p-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-rose-400/50 active:scale-95 ${
-                                                                user.id === currentUserId
-                                                                    ? 'text-slate-300 cursor-not-allowed'
-                                                                    : 'text-[var(--tng-slate-400)] hover:bg-rose-50 hover:text-rose-600 cursor-pointer'
-                                                            }`}
+                                                            type="button"
+                                                            onClick={() => setOverridingUser(user)}
+                                                            title={isHr ? "Override Department Assignment" : "Override Role & Access"}
+                                                            aria-label="Override"
+                                                            className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
                                                         >
-                                                            <Trash2 className="h-[18px] w-[18px]" />
+                                                            <RotateCcw className="h-[18px] w-[18px]" />
                                                         </button>
-                                                    )}
-                                                </div>
+                                                    }
+                                                />
                                             </td>
                                         </tr>
                                     );

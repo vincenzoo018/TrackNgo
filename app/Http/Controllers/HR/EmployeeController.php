@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Contracts\AuditTrailServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Role;
@@ -12,6 +13,10 @@ use Inertia\Inertia;
 
 class EmployeeController extends Controller
 {
+    public function __construct(
+        protected AuditTrailServiceInterface $auditTrailService
+    ) {}
+
     public function index()
     {
         $employees = User::with(['department', 'role'])->orderBy('last_name', 'asc')->orderBy('first_name', 'asc')->get();
@@ -109,12 +114,29 @@ class EmployeeController extends Controller
 
         $employee->update($data);
 
+        $this->auditTrailService->logUserAction(
+            action: 'Update Employee',
+            description: "HR updated employee records for {$employee->name} ({$employee->email})",
+            actor: $request->user(),
+            ipAddress: $request->ip()
+        );
+
         return redirect()->route('hr.employees.index')->with('success', 'Employee updated successfully.');
     }
 
-    public function destroy(User $employee)
+    public function destroy(Request $request, User $employee)
     {
+        $empName = $employee->name;
+        $empEmail = $employee->email;
         $employee->delete();
+
+        $this->auditTrailService->logUserAction(
+            action: 'Delete Employee',
+            description: "HR permanently deleted employee record {$empName} ({$empEmail})",
+            actor: $request->user(),
+            ipAddress: $request->ip()
+        );
+
         return redirect()->back()->with('success', 'Employee deleted successfully.');
     }
 }

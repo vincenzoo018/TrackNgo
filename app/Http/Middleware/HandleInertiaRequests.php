@@ -61,12 +61,20 @@ class HandleInertiaRequests extends Middleware
             ];
         }
 
+        $notifications = null;
+        if ($user) {
+            $notifications = \App\Services\NotificationService::getNotificationsForUser($user);
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 'user' => $userData,
+                'just_logged_in' => (bool) $request->session()->pull('tng_just_logged_in', false),
+                'session_token' => $request->session()->get('tng_login_session_token') ?: (string) $request->session()->getId(),
             ],
+            'notifications' => $notifications,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

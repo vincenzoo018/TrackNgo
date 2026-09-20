@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
@@ -12,6 +12,8 @@ import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 export default function MayorFinalApproval() {
     const { props } = usePage();
@@ -198,6 +200,42 @@ export default function MayorFinalApproval() {
                             Submit Document
                         </button>
                     </div>
+                </div>
+
+                {/* ── Standardized Summary Cards (System Blue #0066cc) ── */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+                    <StatCard
+                        title="Total Documents"
+                        value={tabCounts.all}
+                        sublabel="Executive docket"
+                        icon={FileText}
+                        active={activeTab === 'all'}
+                        onClick={() => { setActiveTab('all'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="For Approval"
+                        value={tabCounts.for_approval}
+                        sublabel="Pending mayoral action"
+                        icon={FileSignature}
+                        active={activeTab === 'for_approval'}
+                        onClick={() => { setActiveTab('for_approval'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="Approved"
+                        value={tabCounts.approved}
+                        sublabel="Approved & signed"
+                        icon={CheckCircle2}
+                        active={activeTab === 'approved'}
+                        onClick={() => { setActiveTab('approved'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="Returned"
+                        value={tabCounts.returned}
+                        sublabel="Returned for revisions"
+                        icon={RotateCcw}
+                        active={activeTab === 'returned'}
+                        onClick={() => { setActiveTab('returned'); setCurrentPage(1); }}
+                    />
                 </div>
 
                 {/* ── Standardized Tabbed Navigation (Mayor: All, For Approval, Approved, Returned) ── */}
@@ -402,16 +440,26 @@ export default function MayorFinalApproval() {
                                             </button>
                                         </td>
                                         <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                                <Link
-                                                    href={`/mayor/documents/${doc.document_id}`}
-                                                    title="Review Document"
-                                                    aria-label="Review Document"
-                                                    className="rounded-lg p-2 text-[var(--tng-slate-400)] transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                >
-                                                    <Eye className="h-[18px] w-[18px]" />
-                                                </Link>
-                                            </div>
+                                            <TableActionButtons
+                                                editHref={`/mayor/documents/${doc.document_id}`}
+                                                editTitle="Edit Record"
+                                                onDelete={() => {
+                                                    if (confirm(`Are you sure you want to delete document ${doc.reference_number}?`)) {
+                                                        router.delete(`/documents/${doc.document_id}`);
+                                                    }
+                                                }}
+                                                deleteTitle="Delete Record"
+                                                extraActions={
+                                                    <Link
+                                                        href={`/mayor/documents/${doc.document_id}`}
+                                                        title="Review Document"
+                                                        aria-label="Review Document"
+                                                        className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
+                                                    >
+                                                        <Eye className="h-[18px] w-[18px]" />
+                                                    </Link>
+                                                }
+                                            />
                                         </td>
                                     </tr>
                                 ))}

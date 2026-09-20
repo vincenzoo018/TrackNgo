@@ -3,12 +3,13 @@ import {
     LogOut,
     Menu,
     X,
-    Bell,
     Search,
     ChevronDown,
 } from 'lucide-react';
-import { type ReactNode, useState, useEffect } from 'react';
+import { type ReactNode, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { ToastContainer, type ToastItem } from '@/components/trackngo/ToastNotification';
+import { NotificationDropdown } from '@/components/trackngo/NotificationDropdown';
 import { adminNav } from '@/config/nav/admin.nav';
 import { receivingNav } from '@/config/nav/receiving.nav';
 import { departmentHeadNav } from '@/config/nav/departmentHead.nav';
@@ -86,6 +87,171 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
     const [searchQuery, setSearchQuery] = useState('');
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
+    // ── Real-Time Notifications State ────────────────────────────────
+    const pageProps = props as any;
+    const initialNotifications = pageProps.notifications || {
+        counts: { total: 0, received: 0, warning: 0, overdue: 0, escalated: 0 },
+        items: [],
+        banner: null,
+    };
+    const [notificationData, setNotificationData] = useState(initialNotifications);
+
+    // ── Session-Scoped Toast State (Trigger ONLY once upon login, NEVER on module navigation or reload) ────
+    const [activeToasts, setActiveToasts] = useState<ToastItem[]>([]);
+    const userId = (props.auth?.user as any)?.id || 'guest';
+    const sessionToken = (props.auth as any)?.session_token || String(userId);
+    const sessionShownKey = `tng_toasts_shown_${sessionToken}`;
+
+    useEffect(() => {
+        if (pageProps.notifications) {
+            setNotificationData(pageProps.notifications);
+        }
+    }, [pageProps.notifications]);
+
+    // Evaluate toasts strictly once upon initial login; NEVER on module navigation or page refresh
+    useEffect(() => {
+        try {
+            const isJustLoggedIn =
+                Boolean((props.auth as any)?.just_logged_in) ||
+                sessionStorage.getItem('tng_just_logged_in') === 'true';
+
+            const alreadyShownForSession = sessionStorage.getItem(sessionShownKey) === 'true';
+
+            // If not a fresh login, or if this login session has already displayed its toasts: DO NOT TRIGGER
+            if (!isJustLoggedIn || alreadyShownForSession) {
+                return;
+            }
+
+            if (!notificationData.items || notificationData.items.length === 0) return;
+
+            // Immediately mark this session as completed and remove transient login flag
+            sessionStorage.removeItem('tng_just_logged_in');
+            sessionStorage.setItem(sessionShownKey, 'true');
+
+            // Display top priority notifications upon login (up to 2 items)
+            const toShow = notificationData.items.slice(0, 2);
+            setActiveToasts(toShow);
+
+            // Automatically record toast display in Audit Trail
+            toShow.forEach((item: any) => {
+                try {
+                    fetch('/api/notifications/log-toast', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                        },
+                        body: JSON.stringify({
+                            id: item.id,
+                            message: item.toast_message || item.title,
+                            reference_number: item.reference_number,
+                            severity: item.severity,
+                        }),
+                    }).catch(() => {});
+                } catch (e) {}
+            });
+        } catch (e) {
+            console.error('Session storage error in toast notifications', e);
+        }
+    }, [props.auth, notificationData.items, sessionShownKey]);
+
+    const handleDismissToast = (id: string) => {
+        setActiveToasts((prev) => prev.filter((t) => t.id !== id));
+    };
+
+    // Live 30s Polling for SLA Timers & Receipt Updates
+    useEffect(() => {
+        let mounted = true;
+        const fetchNotifications = async () => {
+            try {
+                const res = await fetch('/api/notifications');
+                if (res.ok && mounted) {
+                    const data = await res.json();
+                    setNotificationData(data);
+                }
+            } catch (e) {
+                // Ignore silent background network errors
+            }
+        };
+
+        const interval = setInterval(fetchNotifications, 30000);
+        return () => {
+            mounted = false;
+            clearInterval(interval);
+        };
+    }, []);
+
+    const handleMarkAllRead = async () => {
+        try {
+            await fetch('/api/notifications/mark-all-read', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                },
+            });
+            setNotificationData((prev: any) => ({
+                ...prev,
+                counts: { ...prev.counts, received: 0, total: prev.counts.warning + prev.counts.overdue + prev.counts.escalated },
+                items: prev.items.map((it: any) => ({ ...it, is_read: true })),
+            }));
+        } catch (e) {}
+    };
+
+    const handleItemClick = async (id: string) => {
+        try {
+            await fetch(`/api/notifications/${id}/read`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                },
+            });
+        } catch (e) {}
+    };
+
+    // Determine badge count & styling for sidebar navigation items
+    const getNavItemBadge = (title: string) => {
+        const lowerTitle = title.toLowerCase();
+        const counts = notificationData.counts || { total: 0, received: 0, warning: 0, overdue: 0, escalated: 0 };
+
+        if (lowerTitle.includes('escalat') && (counts.overdue > 0 || counts.escalated > 0)) {
+            return {
+                text: `${counts.overdue + counts.escalated}`,
+                color: 'bg-rose-600 text-white',
+                label: `Overdue / Escalated: ${counts.overdue + counts.escalated}`,
+            };
+        }
+        if (lowerTitle === 'documents' || lowerTitle === 'my documents' || lowerTitle === 'all documents') {
+            if (counts.received > 0) {
+                return {
+                    text: `${counts.received}`,
+                    color: 'bg-[var(--tng-blue-600)] text-white',
+                    label: `Received: ${counts.received}`,
+                };
+            } else if (counts.total > 0) {
+                return {
+                    text: `${counts.total}`,
+                    color: (counts.overdue > 0 || counts.escalated > 0) ? 'bg-rose-600 text-white' : 'bg-slate-500 text-white',
+                    label: `Active alerts: ${counts.total}`,
+                };
+            }
+        }
+        if (lowerTitle.includes('endorsement') && counts.received > 0) {
+            return {
+                text: `${counts.received}`,
+                color: 'bg-[var(--tng-blue-600)] text-white',
+                label: `Received Endorsements: ${counts.received}`,
+            };
+        }
+        if (lowerTitle.includes('approval') && (counts.warning > 0 || counts.overdue > 0)) {
+            return {
+                text: `${counts.warning + counts.overdue}`,
+                color: counts.overdue > 0 ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white',
+                label: `Approaching SLA: ${counts.warning + counts.overdue}`,
+            };
+        }
+        return null;
+    };
+
     // Close mobile sidebar on route change
     useEffect(() => {
         setMobileOpen(false);
@@ -157,30 +323,48 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const active = isActive(typeof item.href === 'string' ? item.href : item.href.url);
+                        const badge = getNavItemBadge(item.title);
 
                         return (
                             <Link
                                 key={item.title}
                                 href={item.href}
                                 className={cn(
-                                    'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-[13px] font-medium transition-all duration-200',
+                                    'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-[13px] font-medium transition-all duration-200 relative',
                                     active
                                         ? 'bg-[var(--tng-blue-600)] text-white shadow-md shadow-blue-600/25 font-semibold'
                                         : 'text-[var(--tng-slate-600)] hover:bg-[var(--tng-blue-50)] hover:text-[var(--tng-blue-700)]',
                                     !sidebarOpen && 'justify-center px-0',
                                 )}
                             >
-                                {Icon && (
-                                    <Icon
-                                        className={cn(
-                                            'h-4 w-4 shrink-0 transition-colors',
-                                            active
-                                                ? 'text-white'
-                                                : 'text-[var(--tng-slate-400)] group-hover:text-[var(--tng-blue-600)]',
+                                <div className="relative">
+                                    {Icon && (
+                                        <Icon
+                                            className={cn(
+                                                'h-4 w-4 shrink-0 transition-colors',
+                                                active
+                                                    ? 'text-white'
+                                                    : 'text-[var(--tng-slate-400)] group-hover:text-[var(--tng-blue-600)]',
+                                            )}
+                                        />
+                                    )}
+                                    {!sidebarOpen && badge && (
+                                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                                    )}
+                                </div>
+                                {sidebarOpen && (
+                                    <div className="flex flex-1 items-center justify-between gap-1 overflow-hidden">
+                                        <span className="truncate">{item.title}</span>
+                                        {badge && (
+                                            <span 
+                                                className={cn('inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-2xs leading-none shrink-0', badge.color)}
+                                                title={badge.label}
+                                            >
+                                                {badge.text}
+                                            </span>
                                         )}
-                                    />
+                                    </div>
                                 )}
-                                {sidebarOpen && <span>{item.title}</span>}
                             </Link>
                         );
                     })}
@@ -192,6 +376,9 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                         href="/logout"
                         method="post"
                         as="button"
+                        onClick={() => {
+                            try { sessionStorage.clear(); } catch(e){}
+                        }}
                         className={cn(
                             'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-[13px] font-medium text-red-500 transition-colors hover:bg-red-50',
                             !sidebarOpen && 'justify-center px-0',
@@ -238,13 +425,13 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* Notification Bell */}
-                        <button className="relative rounded-lg p-2 text-[var(--tng-slate-500)] transition-colors hover:bg-[var(--tng-slate-100)]">
-                            <Bell className="h-5 w-5" />
-                            <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                                3
-                            </span>
-                        </button>
+                        {/* Real-Time Notification Bell & Dropdown */}
+                        <NotificationDropdown
+                            counts={notificationData.counts}
+                            items={notificationData.items}
+                            onMarkAllRead={handleMarkAllRead}
+                            onItemClick={handleItemClick}
+                        />
 
                         {/* User Menu */}
                         <div className="relative">
@@ -295,7 +482,10 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                                             href="/logout"
                                             method="post"
                                             as="button"
-                                            onClick={() => setProfileDropdownOpen(false)}
+                                            onClick={() => {
+                                                setProfileDropdownOpen(false);
+                                                try { sessionStorage.clear(); } catch(e){}
+                                            }}
                                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
                                         >
                                             Sign Out
@@ -306,6 +496,8 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                         </div>
                     </div>
                 </header>
+ 
+
 
                 {/* Breadcrumbs */}
                 {breadcrumbs && breadcrumbs.length > 0 && (
@@ -336,6 +528,8 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                         {children}
                     </div>
                 </main>
+                {/* Small, dismissible popup toast at top-right corner (#0066cc) */}
+                <ToastContainer toasts={activeToasts} onDismiss={handleDismissToast} />
             </div>
         </div>
     );

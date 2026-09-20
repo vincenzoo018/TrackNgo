@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Archive,
     Search,
@@ -29,6 +29,8 @@ import { getStandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helpe
 import { cn } from '@/lib/utils';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StatCard } from '@/components/trackngo/StatCard';
 
 export default function ArchivedDocumentsIndex() {
     const { props, url } = usePage();
@@ -263,71 +265,50 @@ export default function ArchivedDocumentsIndex() {
                     </div>
                 </div>
 
-                {/* ── Stat Cards ─────────────────────────────────────────── */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:shadow">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                                Total Archived
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                                <Archive className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <div className="mt-3 flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-slate-900">{metrics.total}</span>
-                            <span className="text-xs text-slate-500">finalized records</span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-400">All departments combined</p>
-                    </div>
+                {/* ── Stat Cards (Standardized System Blue) ─────────────────── */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+                    <StatCard
+                        title="Total Archived"
+                        value={metrics.total}
+                        sublabel="All finalized records"
+                        icon={Archive}
+                        active={activeTab === 'all'}
+                        onClick={() => {
+                            setActiveTab('all');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5 shadow-sm transition-all hover:shadow">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                                Approved Documents
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                                <CheckCircle2 className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <div className="mt-3 flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-emerald-800">{metrics.approved}</span>
-                            <span className="text-xs text-emerald-600">official approvals</span>
-                        </div>
-                        <p className="mt-1 text-xs text-emerald-600/80">Approved by Department Head / Mayor</p>
-                    </div>
+                    <StatCard
+                        title="Approved Documents"
+                        value={metrics.approved}
+                        sublabel="Official executive approvals"
+                        icon={CheckCircle2}
+                        active={activeTab === 'approved'}
+                        onClick={() => {
+                            setActiveTab('approved');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-5 shadow-sm transition-all hover:shadow">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-teal-700">
-                                Completed & Released
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
-                                <FileCheck2 className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <div className="mt-3 flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-teal-800">{metrics.completed}</span>
-                            <span className="text-xs text-teal-600">fully resolved</span>
-                        </div>
-                        <p className="mt-1 text-xs text-teal-600/80">Released to applicants & finalized</p>
-                    </div>
+                    <StatCard
+                        title="Completed & Released"
+                        value={metrics.completed}
+                        sublabel="Released to applicants & finalized"
+                        icon={FileCheck2}
+                        active={activeTab === 'completed'}
+                        onClick={() => {
+                            setActiveTab('completed');
+                            setCurrentPage(1);
+                        }}
+                    />
 
-                    <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-5 shadow-sm transition-all hover:shadow">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
-                                ARTA Compliance
-                            </span>
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-                                <ShieldCheck className="h-4 w-4" />
-                            </span>
-                        </div>
-                        <div className="mt-3 flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-blue-800">{metrics.complianceRate}%</span>
-                            <span className="text-xs text-blue-600">on-time rate</span>
-                        </div>
-                        <p className="mt-1 text-xs text-blue-600/80">Processed within Republic Act 11032</p>
-                    </div>
+                    <StatCard
+                        title="ARTA Compliance"
+                        value={`${metrics.complianceRate}%`}
+                        sublabel="On-time statutory processing rate"
+                        icon={ShieldCheck}
+                    />
                 </div>
 
                 {/* ── Standardized Tabbed Navigation (Archived: All, Approved, Completed) ── */}
@@ -587,24 +568,37 @@ export default function ArchivedDocumentsIndex() {
 
                                             {/* Actions */}
                                             <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        onClick={() => setPreviewDoc(doc)}
-                                                        title="Quick Overview"
-                                                        aria-label="Quick Overview"
-                                                        className="rounded-lg p-2 text-slate-400 transition-all hover:bg-blue-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-                                                    >
-                                                        <Eye className="h-[18px] w-[18px]" />
-                                                    </button>
-                                                    <Link
-                                                        href={showUrl}
-                                                        title="Full Details & Audit Trail"
-                                                        aria-label="View Full Details"
-                                                        className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400/50"
-                                                    >
-                                                        <ExternalLink className="h-[18px] w-[18px]" />
-                                                    </Link>
-                                                </div>
+                                                <TableActionButtons
+                                                    onEdit={() => setPreviewDoc(doc)}
+                                                    editTitle="Edit Record"
+                                                    onDelete={() => {
+                                                        if (confirm(`Are you sure you want to delete archived document ${doc.reference_number}?`)) {
+                                                            router.delete(`/documents/${doc.document_id}`);
+                                                        }
+                                                    }}
+                                                    deleteTitle="Delete Record"
+                                                    extraActions={
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setPreviewDoc(doc)}
+                                                                title="Quick Overview"
+                                                                aria-label="Quick Overview"
+                                                                className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
+                                                            >
+                                                                <Eye className="h-[18px] w-[18px]" />
+                                                            </button>
+                                                            <Link
+                                                                href={showUrl}
+                                                                title="Full Details & Audit Trail"
+                                                                aria-label="View Full Details"
+                                                                className="p-1 text-slate-400 hover:text-[#0066cc] transition-colors rounded hover:bg-slate-100/70 focus:outline-none focus:ring-2 focus:ring-[#0066cc]/40 active:scale-95 cursor-pointer"
+                                                            >
+                                                                <ExternalLink className="h-[18px] w-[18px]" />
+                                                            </Link>
+                                                        </>
+                                                    }
+                                                />
                                             </td>
                                         </tr>
                                     );
