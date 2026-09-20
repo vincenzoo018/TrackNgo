@@ -544,9 +544,9 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     {/* Secondary Right Pane: Actions + Discussion + Audit Trail (5 of 12 cols, ~35%-40% width) */}
                     <div className="xl:col-span-5 2xl:col-span-4 flex flex-col gap-6">
                         {/* Core Actions */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
-                            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                                ⚡ Core Actions
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                            <h2 className="mb-4 text-[18px] font-medium text-[#0066cc]">
+                                Core Actions
                             </h2>
                             <div className="space-y-3">
                                 {(() => {
@@ -615,11 +615,11 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     }
                                     return (
                                         <>
-                                            <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-98">
+                                            <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]">
                                                 <Forward className="h-4 w-4" />
                                                 Forward / Endorse
                                             </button>
-                                            <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                            <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                 <RotateCcw className="h-4 w-4" />
                                                 Return Document
                                             </button>
@@ -627,18 +627,18 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     );
                                 })()}
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => setQrModalOpen(true)} className="flex items-center justify-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-50 shadow-2xs">
+                                    <button onClick={() => setQrModalOpen(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#005bb5] shadow-xs hover:shadow-sm">
                                         <QrCode className="h-4 w-4" />
                                         Print QR
                                     </button>
-                                    <button onClick={() => setExportModalOpen(true)} className="flex items-center justify-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-50 shadow-2xs">
+                                    <button onClick={() => setExportModalOpen(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#005bb5] shadow-xs hover:shadow-sm">
                                         <Download className="h-4 w-4" />
                                         Export PDF
                                     </button>
                                 </div>
                                 <button
                                     onClick={() => setParallelRoutingOpen(true)}
-                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-50 px-4 py-2.5 text-[14px] font-medium text-blue-700 transition-colors hover:bg-blue-100 border border-blue-200"
+                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200 border border-slate-200"
                                 >
                                     <GitMerge className="h-4 w-4" />
                                     Parallel Routing (Split)

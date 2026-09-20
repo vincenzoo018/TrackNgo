@@ -511,9 +511,9 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                     {/* Right Activity Column: Review Actions + Distinct Discussion/Audit Panels + Signatories (5 of 12 cols) */}
                     <div className="xl:col-span-5 2xl:col-span-4 flex flex-col gap-5">
                         {/* Review Actions Card */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
-                            <h2 className="mb-3.5 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                                ⚡ Review Actions
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                            <h2 className="mb-3.5 text-[18px] font-medium text-[#0066cc]">
+                                Review Actions
                             </h2>
                             <div className="space-y-3">
                                 {(() => {
@@ -523,12 +523,12 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                             <>
                                                 <button 
                                                     onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document for review?', 'Receive')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700"
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]"
                                                 >
                                                     <CheckCircle2 className="h-4 w-4" />
                                                     Receive / Accept Document
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2.5 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document
                                                 </button>
@@ -540,16 +540,16 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                             <>
                                                 <button 
                                                     onClick={handleReview}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-amber-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-amber-600/25 transition-all hover:bg-amber-700"
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-amber-700"
                                                 >
                                                     <FileSearch className="h-4 w-4" />
                                                     Mark as Under Review
                                                 </button>
-                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-blue-700">
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]">
                                                     <Forward className="h-4 w-4" />
                                                     Forward / Endorse
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2.5 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document
                                                 </button>
@@ -559,11 +559,11 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                     if (std === 'Ongoing' || doc.status === 'reviewed') {
                                         return (
                                             <>
-                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-blue-700">
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]">
                                                     <Forward className="h-4 w-4" />
                                                     Endorse to Mayor
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2.5 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document
                                                 </button>
@@ -612,9 +612,9 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                         />
 
                         {/* Signatories Section */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] flex flex-col gap-6">
-                            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                                <span className="text-base">✍️</span> Signatories
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-6">
+                            <h3 className="text-[18px] font-medium text-[#0066cc]">
+                                Signatories
                             </h3>
                             {/* Sender */}
                             <div className="text-center relative w-full flex flex-col items-center">

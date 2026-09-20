@@ -171,15 +171,15 @@ export default function LeaveIndex() {
                 {/* Leave Requests Table */}
                 <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                        <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                             <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Employee</th>
-                                    <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Leave Type</th>
-                                    <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Duration</th>
-                                    <th className="px-6 py-2.5 text-xs font-medium text-slate-600 text-center">Days</th>
-                                    <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Status</th>
-                                    <th className="px-6 py-2.5 text-xs font-medium text-slate-600 text-right">Actions</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Employee</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Leave Type</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Duration</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Days</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Status</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -188,25 +188,25 @@ export default function LeaveIndex() {
                                         const config = statusConfig[req.status] ?? statusConfig.pending;
                                         return (
                                             <tr key={req.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-semibold text-slate-900">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-900">
                                                     {req.employee}
                                                 </td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-slate-700">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                                     {req.type}
                                                 </td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-slate-700">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                                     {req.start} — {req.end}
                                                 </td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-bold text-slate-900 text-center">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-900 text-center">
                                                     {req.days}
                                                 </td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap">
-                                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-bold border ${config.bg} ${config.text} ${config.border}`}>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium border ${config.bg} ${config.text} ${config.border}`}>
                                                         <config.icon className="h-3.5 w-3.5" />
                                                         {config.label}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-3.5 whitespace-nowrap text-right">
+                                                <td className="px-4 py-3 whitespace-nowrap text-right">
                                                     <TableActionButtons
                                                         onEdit={() => handleEdit(req)}
                                                         editTitle="Edit Record"
@@ -219,7 +219,7 @@ export default function LeaveIndex() {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-8 text-center text-[14px] text-slate-400">
+                                        <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-slate-400">
                                             No leave requests found for this filter.
                                         </td>
                                     </tr>

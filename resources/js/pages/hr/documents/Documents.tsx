@@ -115,8 +115,8 @@ export default function HrDocuments() {
                             {activeFilterCount > 0 && <span className="ml-1 text-[var(--tng-blue-600)]">({activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active)</span>}
                         </p>
                     </div>
-                    <button className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)]">
-                        <Plus className="h-4 w-4" />
+                    <button className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs hover:shadow-sm transition-all hover:bg-[#005bb5]">
+                        <Plus className="h-4 w-4 text-white" />
                         New Document
                     </button>
                 </div>
@@ -211,11 +211,11 @@ export default function HrDocuments() {
                 {/* Documents Table */}
                 <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
-                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-medium text-slate-600">
+                        <table className="w-full text-left border-collapse text-[13px] text-slate-700">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
                                     <th
-                                        className="px-6 py-2.5 cursor-pointer select-none hover:text-[var(--tng-blue-600)] transition-colors text-left"
+                                        className="px-4 py-3 cursor-pointer select-none hover:text-[#0066cc] transition-colors text-left text-[14px] font-normal text-slate-600"
                                         onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                                     >
                                         <span className="flex items-center gap-1">
@@ -223,11 +223,11 @@ export default function HrDocuments() {
                                             {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                                         </span>
                                     </th>
-                                    <th className="px-6 py-2.5 text-left">Title</th>
-                                    <th className="px-6 py-2.5 text-left">Type</th>
-                                    <th className="px-6 py-2.5 text-left">Status</th>
-                                    <th className="px-6 py-2.5 text-left">Date</th>
-                                    <th className="px-6 py-2.5 text-right">Action</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Title</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Type</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Status</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Date</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -237,25 +237,25 @@ export default function HrDocuments() {
                                         onClick={() => router.visit(`/hr/documents/${doc.document_id}`)}
                                         className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 cursor-pointer group"
                                     >
-                                        <td className="px-6 py-3.5 text-[14px] font-semibold text-[var(--tng-blue-600)] group-hover:underline">
+                                        <td className="px-4 py-3 text-[13px] font-normal text-[#0066cc] group-hover:underline">
                                             {doc.reference_number}
                                             {doc.tracking_number && (
-                                                <div className="text-[12px] text-[var(--tng-slate-400)] font-normal">{doc.tracking_number}</div>
+                                                <div className="text-[12px] text-slate-500 font-normal">{doc.tracking_number}</div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-3.5 text-[14px] font-medium text-[var(--tng-slate-800)]">{doc.title}</td>
-                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-600)]">{doc.type?.type_name || 'N/A'}</td>
-                                        <td className="px-6 py-3.5">
+                                        <td className="px-4 py-3 text-[13px] font-normal text-slate-900">{doc.title}</td>
+                                        <td className="px-4 py-3 text-[13px] font-normal text-slate-600">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />
                                         </td>
-                                        <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-500)]">
+                                        <td className="px-4 py-3 text-[13px] font-normal text-slate-600">
                                             {new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
                                                 month: 'short',
                                                 day: '2-digit',
                                                 year: 'numeric',
                                             })}
                                         </td>
-                                        <td className="px-6 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <TableActionButtons
                                                 editHref={`/hr/documents/${doc.document_id}`}
                                                 editTitle="Edit Record"

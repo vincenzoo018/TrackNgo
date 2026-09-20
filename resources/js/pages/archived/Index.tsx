@@ -257,9 +257,9 @@ export default function ArchivedDocumentsIndex() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setExportModalOpen(true)}
-                            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-400 active:scale-98"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] hover:shadow-sm"
                         >
-                            <Download className="h-4 w-4 text-slate-500" />
+                            <Download className="h-4 w-4 text-white shrink-0" />
                             Export CSV
                         </button>
                     </div>
@@ -415,10 +415,10 @@ export default function ArchivedDocumentsIndex() {
                 {/* ── Main Data Table ────────────────────────────────────── */}
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600">
+                        <table className="w-full text-left border-collapse text-[13px] text-slate-700">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
                                 <tr>
-                                    <th className="w-10 px-4 py-2.5 text-center">
+                                    <th className="w-10 px-4 py-3 text-center">
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.length === paginatedDocs.length && paginatedDocs.length > 0}
@@ -428,7 +428,7 @@ export default function ArchivedDocumentsIndex() {
                                     </th>
                                     <th
                                         onClick={() => handleSort('ref')}
-                                        className="cursor-pointer select-none px-4 py-2.5 transition-colors hover:text-slate-900"
+                                        className="cursor-pointer select-none px-4 py-3 transition-colors hover:text-[#0066cc] text-[14px] font-normal text-slate-600"
                                     >
                                         <div className="flex items-center gap-1">
                                             <span>Reference Number</span>
@@ -437,10 +437,10 @@ export default function ArchivedDocumentsIndex() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-4 py-2.5">Department</th>
+                                    <th className="px-4 py-3 text-[14px] font-normal text-slate-600">Department</th>
                                     <th
                                         onClick={() => handleSort('date_filed')}
-                                        className="cursor-pointer select-none px-4 py-2.5 transition-colors hover:text-slate-900"
+                                        className="cursor-pointer select-none px-4 py-3 transition-colors hover:text-[#0066cc] text-[14px] font-normal text-slate-600"
                                     >
                                         <div className="flex items-center gap-1">
                                             <span>Date Filed</span>
@@ -449,9 +449,9 @@ export default function ArchivedDocumentsIndex() {
                                             )}
                                         </div>
                                     </th>
-                                    <th className="px-4 py-2.5">Final Status</th>
-                                    <th className="px-4 py-2.5">ARTA Compliance</th>
-                                    <th className="px-4 py-2.5 text-right">Actions</th>
+                                    <th className="px-4 py-3 text-[14px] font-normal text-slate-600">Final Status</th>
+                                    <th className="px-4 py-3 text-[14px] font-normal text-slate-600">ARTA Compliance</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">
@@ -475,7 +475,7 @@ export default function ArchivedDocumentsIndex() {
                                             className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
                                         >
                                             {/* Checkbox */}
-                                            <td className="px-4 py-3.5 text-center">
+                                            <td className="px-4 py-3 text-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedIds.includes(doc.document_id)}
@@ -485,7 +485,7 @@ export default function ArchivedDocumentsIndex() {
                                             </td>
 
                                             {/* Reference & Title */}
-                                            <td className="px-4 py-3.5">
+                                            <td className="px-4 py-3">
                                                 <div className="flex items-start gap-2.5">
                                                     <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
                                                         <FileText className="h-3.5 w-3.5" />
@@ -493,7 +493,7 @@ export default function ArchivedDocumentsIndex() {
                                                     <div className="min-w-0">
                                                         <Link
                                                             href={showUrl}
-                                                            className="font-bold text-[14px] text-slate-900 hover:text-blue-600 hover:underline"
+                                                            className="text-[13px] font-normal text-[#0066cc] hover:underline"
                                                         >
                                                             {doc.reference_number}
                                                         </Link>
@@ -501,7 +501,7 @@ export default function ArchivedDocumentsIndex() {
                                                             {doc.title || 'Untitled Document'}
                                                         </p>
                                                         <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[11px] text-slate-400 font-mono">
+                                                            <span className="text-[12px] text-slate-400 font-mono">
                                                                 {doc.tracking_number || 'No Tracking #'}
                                                             </span>
                                                             <span className="text-[11px] rounded bg-slate-100 px-1.5 py-0.2 text-slate-600">
@@ -513,45 +513,45 @@ export default function ArchivedDocumentsIndex() {
                                             </td>
 
                                             {/* Department */}
-                                            <td className="px-4 py-3.5">
+                                            <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1.5">
                                                     <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                    <span className="font-normal text-[14px] text-slate-700">
+                                                    <span className="font-normal text-[13px] text-slate-700">
                                                         {doc.department?.department_name || 'General Administration'}
                                                     </span>
                                                 </div>
-                                                <span className="text-[11px] text-slate-400 pl-5">
+                                                <span className="text-[12px] text-slate-400 pl-5">
                                                     Code: {doc.department?.code || 'GEN'}
                                                 </span>
                                             </td>
 
                                             {/* Date Filed */}
-                                            <td className="px-4 py-3.5">
-                                                <div className="flex items-center gap-1 text-slate-700 font-normal text-[14px]">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1 text-slate-700 font-normal text-[13px]">
                                                     <Calendar className="h-3.5 w-3.5 text-slate-400" />
                                                     <span>{formattedDateFiled}</span>
                                                 </div>
                                                 {doc.completed_at && (
-                                                    <div className="text-[11px] text-slate-400 mt-0.5">
+                                                    <div className="text-[12px] text-slate-400 mt-0.5">
                                                         Finalized: {new Date(doc.completed_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
                                                     </div>
                                                 )}
                                             </td>
 
                                             {/* Status */}
-                                            <td className="px-4 py-3.5">
+                                            <td className="px-4 py-3">
                                                 {isApproved ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[13px] font-bold text-emerald-700 border border-emerald-200">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700 border border-emerald-200">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                                                         Approved
                                                     </span>
                                                 ) : isCompleted ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-[13px] font-bold text-teal-700 border border-teal-200">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-0.5 text-[12px] font-medium text-teal-700 border border-teal-200">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
                                                         Completed
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[13px] font-bold text-slate-700 border border-slate-300">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-medium text-slate-700 border border-slate-300">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
                                                         Archived
                                                     </span>
@@ -559,7 +559,7 @@ export default function ArchivedDocumentsIndex() {
                                             </td>
 
                                             {/* ARTA Compliance */}
-                                            <td className="px-4 py-3.5">
+                                            <td className="px-4 py-3">
                                                 <ArtaBadge
                                                     daysLeft={doc.arta_days_left ?? 3}
                                                     threshold={doc.type?.arta_processing_days ?? 3}
@@ -567,7 +567,7 @@ export default function ArchivedDocumentsIndex() {
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                            <td className="px-4 py-3 text-right whitespace-nowrap">
                                                 <TableActionButtons
                                                     onEdit={() => setPreviewDoc(doc)}
                                                     editTitle="Edit Record"

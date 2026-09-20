@@ -93,9 +93,9 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                     <button 
                         type="button"
                         onClick={() => setIsAddModalOpen(true)}
-                        className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-[var(--tng-blue-700)] active:scale-[0.98] cursor-pointer"
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs hover:shadow-sm transition-all hover:bg-[#005bb5] active:scale-[0.98] cursor-pointer"
                     >
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4 text-white" />
                         Add Employee
                     </button>
                 </div>
@@ -198,59 +198,59 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                 {/* Employee Data Table */}
                 <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-[var(--tng-slate-700)]">
-                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)] text-xs font-medium text-slate-600">
+                        <table className="w-full text-left border-collapse text-[13px] text-[var(--tng-slate-700)]">
+                            <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-6 py-2.5 text-left">Employee Name</th>
-                                    <th className="px-6 py-2.5 text-left">Role & Department</th>
-                                    <th className="px-6 py-2.5 text-left">Contact Info</th>
-                                    <th className="px-6 py-2.5 text-left">Status</th>
-                                    <th className="px-6 py-2.5 text-right">Actions</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Employee Name</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Role & Department</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Contact Info</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Status</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                 {paginatedEmployees.length > 0 ? paginatedEmployees.map((emp) => (
                                     <tr key={emp.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                        <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-[13px] font-bold text-teal-700">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-[12px] font-medium text-teal-700">
                                                     {emp.first_name[0]}{emp.last_name[0]}
                                                 </div>
                                                 <div>
-                                                    <div className="font-semibold text-[var(--tng-slate-900)] text-[14px]">
+                                                    <div className="text-[13px] font-normal text-slate-900">
                                                         {emp.last_name}, {emp.first_name} {emp.middle_name ? emp.middle_name[0] + '.' : ''}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                            <div className="text-[var(--tng-slate-900)] font-medium text-[14px]">{emp.role?.role_name || 'No Role'}</div>
-                                            <div className="text-[var(--tng-slate-500)] text-[12px]">{emp.department?.department_name || 'No Department'}</div>
+                                        <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
+                                            <div className="text-slate-900 text-[13px] font-normal">{emp.role?.role_name || 'No Role'}</div>
+                                            <div className="text-slate-500 text-[12px]">{emp.department?.department_name || 'No Department'}</div>
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap space-y-0.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                            <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-[14px]">
-                                                <Mail className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
+                                        <td className="px-4 py-3 whitespace-nowrap space-y-0.5 text-[13px] font-normal text-slate-700">
+                                            <div className="flex items-center gap-2 text-slate-600 text-[13px] font-normal">
+                                                <Mail className="h-3.5 w-3.5 text-slate-400" />
                                                 {emp.email}
                                             </div>
                                             {emp.mobile_number && (
-                                                <div className="flex items-center gap-2 text-[var(--tng-slate-600)] text-[14px]">
-                                                    <Phone className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
+                                                <div className="flex items-center gap-2 text-slate-600 text-[13px] font-normal">
+                                                    <Phone className="h-3.5 w-3.5 text-slate-400" />
                                                     {emp.mobile_number}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap">
+                                        <td className="px-4 py-3 whitespace-nowrap">
                                             {emp.is_active ? (
-                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[13px] font-bold text-emerald-700">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700">
                                                     Active
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-[13px] font-bold text-red-700">
+                                                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[12px] font-medium text-red-700">
                                                     Inactive
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-3.5 whitespace-nowrap text-right">
+                                        <td className="px-4 py-3 whitespace-nowrap text-right">
                                             <TableActionButtons
                                                 editHref={`/hr/employees/${emp.id}/edit`}
                                                 editTitle="Edit Record"

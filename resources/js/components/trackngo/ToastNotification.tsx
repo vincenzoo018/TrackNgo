@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
-import { X } from 'lucide-react';
+import { X, Info, AlertTriangle, AlertCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface ToastItem {
@@ -72,12 +72,12 @@ export function ToastNotification({
         }
     };
 
-    // Determine icon
-    const icon = toast.icon || (
-        toast.severity === 'escalated' ? '⚡' :
-        toast.severity === 'overdue' ? '❗' :
-        toast.severity === 'warning' ? '⚠' : '📄'
-    );
+    // Determine minimal clean icon
+    const renderToastIcon = () => {
+        if (toast.severity === 'escalated') return <AlertCircle className="h-4 w-4 text-white shrink-0 mt-0.5" />;
+        if (toast.severity === 'overdue' || toast.severity === 'warning') return <AlertTriangle className="h-4 w-4 text-white shrink-0 mt-0.5" />;
+        return <FileText className="h-4 w-4 text-white shrink-0 mt-0.5" />;
+    };
 
     // Format content message (defensively strip any leading emoji/icon if already duplicated)
     let message = toast.toast_message || toast.title || 'New document notification';
@@ -113,9 +113,9 @@ export function ToastNotification({
                 title="Click to view document in FSM stage"
             >
                 {/* Minimal Icon */}
-                <span className="text-[17px] leading-none shrink-0 mt-0.5 select-none" aria-hidden="true">
-                    {icon}
-                </span>
+                <div className="shrink-0 mt-0.5" aria-hidden="true">
+                    {renderToastIcon()}
+                </div>
 
                 {/* Content: 14px regular font, white text */}
                 <div className="flex-1 min-w-0">

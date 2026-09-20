@@ -76,37 +76,37 @@ export function StatCard({
             return icon;
         }
         const IconComponent = icon as any;
-        return <IconComponent className="h-5 w-5 text-white stroke-[2.2]" />;
+        return <IconComponent className="h-4 w-4 text-[#0066cc] stroke-[2.2]" />;
     };
 
     const isClickable = Boolean(href || onClick);
 
     const cardInner = (
         <div className="flex h-full flex-col justify-between gap-2.5">
-            {/* Top row: 16px bold uppercase title + optional icon / arrow */}
+            {/* Top row: 16px bold uppercase title + optional minimal icon / arrow */}
             <div className="flex items-center justify-between gap-2">
-                <span className="text-[16px] font-bold uppercase tracking-wider text-white truncate select-none">
+                <span className="text-[16px] font-bold uppercase tracking-wider text-slate-700 truncate select-none">
                     {displayTitle}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
                     {icon && (
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-white transition-transform group-hover:scale-105">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-[#0066cc] transition-transform group-hover:scale-105">
                             {renderIcon()}
                         </div>
                     )}
                     {isClickable && (
-                        <ArrowUpRight className="h-4 w-4 text-white/70 opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-200" />
+                        <ArrowUpRight className="h-4 w-4 text-slate-400 opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-200" />
                     )}
                 </div>
             </div>
 
             {/* Middle & Bottom: 28px bold value + 12px muted sub-label */}
             <div className="mt-auto">
-                <div className="text-[28px] font-bold leading-tight tracking-tight text-white tabular-nums select-none">
+                <div className="text-[28px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums select-none">
                     {isNumeric ? Number(displayNumeric).toLocaleString() : displayNumeric}
                 </div>
                 {displaySublabel && (
-                    <p className="mt-1 text-[12px] font-normal leading-normal text-white/80 select-none line-clamp-1">
+                    <p className="mt-1 text-[12px] font-normal leading-normal text-slate-500 select-none line-clamp-1">
                         {displaySublabel}
                     </p>
                 )}
@@ -115,13 +115,13 @@ export function StatCard({
     );
 
     const baseStyles = cn(
-        'group relative block w-full min-h-[115px] rounded-xl p-4 lg:p-5 text-white transition-all duration-200 select-none overflow-hidden',
-        // Design specifications: System blue (#0066cc) background, white text
-        'bg-[#0066cc] border border-[#0055b3]/50',
-        // Hover state: Slight shadow (box-shadow: 0 2px 6px rgba(0,0,0,0.2))
-        'hover:shadow-[0_2px_6px_rgba(0,0,0,0.2)] hover:-translate-y-0.5',
+        'group relative block w-full min-h-[115px] rounded-xl p-4 lg:p-5 text-slate-800 transition-all duration-200 select-none overflow-hidden',
+        // Design specifications: All white background, clean neutral border
+        'bg-white border border-slate-200 shadow-xs',
+        // Hover state: Slight shadow (box-shadow: 0 2px 6px rgba(0,0,0,0.1))
+        'hover:shadow-[0_2px_6px_rgba(0,0,0,0.1)] hover:-translate-y-0.5 hover:border-slate-300',
         isClickable && 'cursor-pointer active:scale-[0.99]',
-        active && 'ring-2 ring-white/70 shadow-[0_2px_6px_rgba(0,0,0,0.25)] bg-[#005cb8]',
+        active && 'ring-2 ring-[#0066cc]/40 border-[#0066cc] bg-slate-50/50 shadow-[0_2px_6px_rgba(0,102,204,0.1)]',
         className
     );
 

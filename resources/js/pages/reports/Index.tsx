@@ -364,11 +364,10 @@ export default function ReportsIndex({
                     <div className="flex flex-wrap items-center gap-2.5">
                         {/* Date Range Dropdown */}
                         <div className="relative inline-flex items-center">
-                            <Filter className="absolute left-3 h-4 w-4 text-[var(--tng-slate-400)] pointer-events-none" />
                             <select
                                 value={selectedRange}
                                 onChange={(e) => applyFilters(e.target.value, selectedDept)}
-                                className="h-9 rounded-lg border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none"
+                                className="h-9 rounded-lg border border-slate-200 bg-slate-100 px-3 pr-8 text-[14px] font-medium text-slate-700 hover:bg-slate-200 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] transition-colors cursor-pointer appearance-none"
                             >
                                 <option value="all">All Time</option>
                                 <option value="today">Today</option>
@@ -376,17 +375,16 @@ export default function ReportsIndex({
                                 <option value="30days">Past 30 Days</option>
                                 <option value="this_month">This Month</option>
                             </select>
-                            <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-[var(--tng-slate-400)] pointer-events-none" />
+                            <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
                         </div>
 
                         {/* Department Filter (Admin / Cart oversight) */}
                         {isFullAccess && (
                             <div className="relative inline-flex items-center">
-                                <Building2 className="absolute left-3 h-4 w-4 text-[var(--tng-slate-400)] pointer-events-none" />
                                 <select
                                     value={selectedDept}
                                     onChange={(e) => applyFilters(selectedRange, e.target.value)}
-                                    className="h-9 max-w-[200px] rounded-lg border border-[var(--tng-slate-200)] bg-white pl-9 pr-8 text-xs font-medium text-[var(--tng-slate-700)] hover:border-[var(--tng-slate-300)] focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)] transition-colors cursor-pointer appearance-none truncate"
+                                    className="h-9 max-w-[200px] rounded-lg border border-slate-200 bg-slate-100 px-3 pr-8 text-[14px] font-medium text-slate-700 hover:bg-slate-200 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] transition-colors cursor-pointer appearance-none truncate"
                                 >
                                     <option value="all">All Departments</option>
                                     {departments.map((d) => (
@@ -395,7 +393,7 @@ export default function ReportsIndex({
                                         </option>
                                     ))}
                                 </select>
-                                <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-[var(--tng-slate-400)] pointer-events-none" />
+                                <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
                             </div>
                         )}
 
@@ -403,29 +401,31 @@ export default function ReportsIndex({
                         <button
                             onClick={handleExportCsv}
                             disabled={isExportingCsv}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] bg-white px-3.5 py-2 text-xs font-semibold text-[var(--tng-slate-700)] hover:bg-[var(--tng-slate-50)] hover:border-[var(--tng-slate-300)] transition-colors disabled:opacity-60 shadow-xs"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#005bb5] shadow-xs hover:shadow-sm transition-all disabled:opacity-60"
+                            style={{ fontFamily: "'Segoe UI', Roboto, sans-serif" }}
                             title="Export analytics and activity logs to CSV"
                         >
-                            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                            {isExportingCsv ? 'Exporting...' : 'Export CSV'}
+                            <FileSpreadsheet className="h-4 w-4 text-white shrink-0" />
+                            <span>{isExportingCsv ? 'Exporting...' : 'Export CSV'}</span>
                         </button>
 
-                        {/* PDF Export Button */}
+                        {/* PDF Export Button (Top-Right System Blue) */}
                         <button
                             onClick={handleExportPdf}
                             disabled={isGeneratingPdf}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--tng-slate-900)] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[var(--tng-slate-800)] transition-colors disabled:opacity-60 shadow-xs"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#005bb5] shadow-xs hover:shadow-sm transition-all disabled:opacity-60"
+                            style={{ fontFamily: "'Segoe UI', Roboto, sans-serif" }}
                             title="Download formatted official PDF report"
                         >
                             {isGeneratingPdf ? (
                                 <>
-                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white shrink-0" />
                                     <span>Generating PDF...</span>
                                 </>
                             ) : (
                                 <>
-                                    <FileDown className="h-4 w-4 text-[var(--tng-blue-400)]" />
-                                    <span>Download PDF Report</span>
+                                    <FileDown className="h-4 w-4 text-white shrink-0" />
+                                    <span>Download PDF</span>
                                 </>
                             )}
                         </button>
@@ -501,8 +501,7 @@ export default function ReportsIndex({
                     <div className="flex flex-col rounded-xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-xs">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-[var(--tng-blue-600)]" />
+                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                     Department Processing Days vs SLA Limit
                                 </h2>
                                 <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
@@ -582,8 +581,7 @@ export default function ReportsIndex({
                     <div className="flex flex-col rounded-xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-xs">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-emerald-600" />
+                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                     Weekly Document Filing Volume Trends
                                 </h2>
                                 <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
@@ -647,8 +645,7 @@ export default function ReportsIndex({
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
                         <div>
-                            <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <Building2 className="h-5 w-5 text-[var(--tng-blue-600)]" />
+                            <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                 Department Bottlenecks and Processing Delays
                             </h2>
                             <p className="text-xs text-[var(--tng-slate-500)] mt-0.5">
@@ -670,77 +667,77 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600">
+                        <table className="w-full text-left border-collapse text-[13px] text-slate-700">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-slate-600">
                                 <tr>
-                                    <th className="py-2.5 px-4">Department Name</th>
-                                    <th className="py-2.5 px-3">Code</th>
-                                    <th className="py-2.5 px-3 text-center">Total Docs</th>
-                                    <th className="py-2.5 px-3 text-center">Pending</th>
-                                    <th className="py-2.5 px-3 text-center">Delayed</th>
-                                    <th className="py-2.5 px-3 text-center">Avg Days</th>
-                                    <th className="py-2.5 px-3 text-center">Legal SLA</th>
-                                    <th className="py-2.5 px-3 text-center">Variance</th>
-                                    <th className="py-2.5 px-4 text-right">Status</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Department Name</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Code</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Total Docs</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Pending</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Delayed</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Avg Days</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Legal SLA</th>
+                                    <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Variance</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">
                                 {filteredBottlenecks.length > 0 ? (
                                     filteredBottlenecks.map((dept) => (
                                         <tr key={dept.id} className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40">
-                                            <td className="py-3 px-4 font-semibold text-[var(--tng-slate-800)] text-[14px]">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-slate-800">
                                                 {dept.name}
                                             </td>
-                                            <td className="py-3 px-3 font-mono text-[14px] text-slate-600">
+                                            <td className="px-4 py-3 font-mono text-[13px] font-normal text-slate-600">
                                                 {dept.code}
                                             </td>
-                                            <td className="py-3 px-3 text-center font-normal text-[14px] text-[var(--tng-slate-700)]">
+                                            <td className="px-4 py-3 text-center text-[13px] font-normal text-slate-700">
                                                 {dept.totalDocs}
                                             </td>
-                                            <td className="py-2.5 px-3 text-center">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                            <td className="px-4 py-3 text-center">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
                                                     {dept.pendingDocs}
                                                 </span>
                                             </td>
-                                            <td className="py-2.5 px-3 text-center">
+                                            <td className="px-4 py-3 text-center">
                                                 {dept.delayedDocs > 0 ? (
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-red-50 text-red-700 border border-red-200">
                                                         {dept.delayedDocs}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-slate-400 font-mono text-[13px]">0</span>
+                                                    <span className="text-slate-400 font-mono text-[13px] font-normal">0</span>
                                                 )}
                                             </td>
-                                            <td className="py-2.5 px-3 text-center font-bold text-[var(--tng-slate-800)]">
+                                            <td className="px-4 py-3 text-center text-[13px] font-normal text-slate-800">
                                                 {dept.avgDays}d
                                             </td>
-                                            <td className="py-2.5 px-3 text-center text-slate-500 font-normal">
+                                            <td className="px-4 py-3 text-center text-[13px] font-normal text-slate-500">
                                                 {dept.sla}d
                                             </td>
-                                            <td className="py-2.5 px-3 text-center font-normal">
+                                            <td className="px-4 py-3 text-center text-[13px] font-normal">
                                                 <span
                                                     className={
                                                         dept.diff > 0
-                                                            ? 'text-red-600 font-semibold'
-                                                            : 'text-emerald-600 font-semibold'
+                                                            ? 'text-red-600 text-[12px] font-normal'
+                                                            : 'text-emerald-600 text-[12px] font-normal'
                                                     }
                                                 >
                                                     {dept.diff > 0 ? `+${dept.diff}d` : `${dept.diff}d`}
                                                 </span>
                                             </td>
-                                            <td className="py-2.5 px-4 text-right">
+                                            <td className="px-4 py-3 text-right">
                                                 {dept.status === 'Bottleneck' ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-[13px] font-bold text-red-700">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-[12px] font-semibold text-red-700">
                                                         <AlertTriangle className="h-3.5 w-3.5" />
                                                         Bottleneck
                                                     </span>
                                                 ) : dept.status === 'Warning' ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[13px] font-bold text-amber-700">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[12px] font-medium text-amber-700">
                                                         <Clock className="h-3.5 w-3.5" />
                                                         Warning
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[13px] font-bold text-emerald-700">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700">
                                                         <CheckCircle2 className="h-3.5 w-3.5" />
                                                         Normal
                                                     </span>
@@ -750,7 +747,7 @@ export default function ReportsIndex({
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={9} className="py-6 text-center text-slate-400">
+                                        <td colSpan={9} className="py-8 text-center text-slate-400 text-[13px] font-normal">
                                             No department matching your filter criteria.
                                         </td>
                                     </tr>
@@ -765,8 +762,7 @@ export default function ReportsIndex({
                     <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-[var(--tng-blue-600)]" />
+                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                     User-Specific Activity & Workflow Logs
                                 </h2>
                                 <span className="text-[12px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
@@ -808,18 +804,18 @@ export default function ReportsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
-                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600">
+                        <table className="w-full text-left border-collapse text-[13px] text-slate-700">
+                            <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] text-slate-600">
                                 <tr>
-                                    <th className="py-2.5 px-4">Timestamp</th>
-                                    <th className="py-2.5 px-3">Action</th>
-                                    <th className="py-2.5 px-3">User</th>
-                                    <th className="py-2.5 px-3">Role</th>
-                                    <th className="py-2.5 px-3">Department</th>
-                                    <th className="py-2.5 px-3">Document Ref</th>
-                                    <th className="py-2.5 px-3 font-mono text-[13px]">IP Address</th>
-                                    <th className="py-2.5 px-4">Description</th>
-                                    <th className="py-2.5 px-4 text-right">Actions</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Timestamp</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Action</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">User</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Role</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Department</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Document Ref</th>
+                                    <th className="px-4 py-3 text-left font-mono text-[13px] font-normal text-slate-600">IP Address</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Description</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-normal">
@@ -836,12 +832,12 @@ export default function ReportsIndex({
 
                                         return (
                                             <tr key={log.id} className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40">
-                                                <td className="py-2.5 px-4 text-slate-500 font-mono text-[13px] whitespace-nowrap">
+                                                <td className="px-4 py-3 text-slate-500 font-mono text-[13px] font-normal whitespace-nowrap">
                                                     {log.timestamp}
                                                 </td>
-                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <span
-                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[13px] font-bold ${
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-medium ${
                                                             isApproval
                                                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                                                 : isWarning
@@ -854,25 +850,25 @@ export default function ReportsIndex({
                                                         {log.action}
                                                     </span>
                                                 </td>
-                                                <td className="py-2.5 px-3 font-semibold text-[var(--tng-slate-800)] whitespace-nowrap">
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-800 whitespace-nowrap">
                                                     {log.userName}
                                                 </td>
-                                                <td className="py-2.5 px-3 text-[var(--tng-slate-600)] whitespace-nowrap">
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-600 whitespace-nowrap">
                                                     {log.userRole}
                                                 </td>
-                                                <td className="py-2.5 px-3 text-[var(--tng-slate-600)] truncate max-w-[150px]" title={log.department}>
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-600 truncate max-w-[150px]" title={log.department}>
                                                     {log.department}
                                                 </td>
-                                                <td className="py-2.5 px-3 font-mono text-[13px] font-medium text-blue-700 whitespace-nowrap">
+                                                <td className="px-4 py-3 font-mono text-[13px] font-normal text-[#0066cc] whitespace-nowrap">
                                                     {log.documentRef}
                                                 </td>
-                                                <td className="py-2.5 px-3 font-mono text-[13px] text-slate-400 whitespace-nowrap">
+                                                <td className="px-4 py-3 font-mono text-[13px] font-normal text-slate-400 whitespace-nowrap">
                                                     {log.ipAddress}
                                                 </td>
-                                                <td className="py-2.5 px-4 text-[var(--tng-slate-600)] truncate max-w-[200px]" title={log.description || ''}>
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-600 truncate max-w-[200px]" title={log.description || ''}>
                                                     {log.description || '—'}
                                                 </td>
-                                                <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                                                <td className="px-4 py-3 text-right whitespace-nowrap">
                                                     <TableActionButtons
                                                         onEdit={() => alert(`Reviewing activity log #${log.id}`)}
                                                         editTitle="Edit Record"
@@ -889,7 +885,7 @@ export default function ReportsIndex({
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan={9} className="py-6 text-center text-slate-400">
+                                        <td colSpan={9} className="py-8 text-center text-slate-400 text-[13px] font-normal">
                                             No activity logs found matching your filters.
                                         </td>
                                     </tr>

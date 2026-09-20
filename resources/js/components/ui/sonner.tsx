@@ -11,13 +11,17 @@ function Toaster({ ...props }: ToasterProps) {
         <Sonner
             theme={appearance}
             className="toaster group"
-            position="bottom-right"
-            duration={10000}
+            position="top-right"
+            duration={6000}
             style={
                 {
-                    '--normal-bg': 'var(--popover)',
-                    '--normal-text': 'var(--popover-foreground)',
-                    '--normal-border': 'var(--border)',
+                    '--normal-bg': '#0066cc',
+                    '--normal-text': '#ffffff',
+                    '--normal-border': '#0055b3',
+                    '--success-bg': '#0066cc',
+                    '--success-text': '#ffffff',
+                    '--info-bg': '#0066cc',
+                    '--info-text': '#ffffff',
                 } as React.CSSProperties
             }
             {...props}

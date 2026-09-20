@@ -608,8 +608,7 @@ export default function UnifiedDashboard({
                     <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-blue-300 transition-colors">
                         <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-[var(--tng-blue-600)]" />
+                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                     Department Bottlenecks
                                 </h2>
                                 <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
@@ -630,8 +629,7 @@ export default function UnifiedDashboard({
                     <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-emerald-300 transition-colors">
                         <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                    <PieChartIcon className="h-5 w-5 text-emerald-600" />
+                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                     Workflow Status Distribution
                                 </h2>
                                 <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
@@ -662,8 +660,7 @@ export default function UnifiedDashboard({
                 <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-purple-300 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div>
-                            <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5 text-purple-600" />
+                            <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                 Weekly Volume Trends
                             </h2>
                             <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">

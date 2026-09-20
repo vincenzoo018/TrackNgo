@@ -228,9 +228,10 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
-                                className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--tng-blue-700)] transition-all shadow-md shadow-blue-600/20 active:scale-[0.98] cursor-pointer"
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#005bb5] shadow-xs hover:shadow-sm transition-all cursor-pointer"
                             >
-                                <UserPlus className="h-4 w-4" /> Add User Account
+                                <UserPlus className="h-4 w-4 text-white shrink-0" />
+                                <span>Add User Account</span>
                             </button>
                         </div>
                     )}
@@ -361,18 +362,17 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                 </div>
 
                 {/* Table with Clean Styling, Alternating Row Colors, and Pagination */}
-                {/* Table with Clean Styling, Alternating Row Colors, and Pagination */}
                 <div className="w-full overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs">
                     <div className="w-full overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-[14px] text-[var(--tng-slate-700)]">
-                            <thead className="bg-[var(--tng-slate-50)] text-xs font-medium text-slate-600 border-b border-[var(--tng-slate-200)]">
+                        <table className="w-full text-left border-collapse text-[13px] text-[var(--tng-slate-700)]">
+                            <thead className="bg-[var(--tng-slate-50)] text-[14px] font-normal text-slate-600 border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-6 py-2.5">User Name</th>
-                                    <th className="px-6 py-2.5">Email Address</th>
-                                    <th className="px-6 py-2.5">Role Access</th>
-                                    <th className="px-6 py-2.5">Department</th>
-                                    <th className="px-6 py-2.5">Status</th>
-                                    <th className="px-6 py-2.5 text-right">Actions</th>
+                                    <th className="px-4 py-3 font-normal">User Name</th>
+                                    <th className="px-4 py-3 font-normal">Email Address</th>
+                                    <th className="px-4 py-3 font-normal">Role Access</th>
+                                    <th className="px-4 py-3 font-normal">Department</th>
+                                    <th className="px-4 py-3 font-normal">Status</th>
+                                    <th className="px-4 py-3 text-right font-normal">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-200)]">
@@ -385,21 +385,21 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                                     return (
                                         <tr
                                             key={user.id}
-                                            className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
+                                            className="min-h-[44px] transition-colors odd:bg-white even:bg-slate-50/70 hover:bg-blue-50/40"
                                         >
                                             {/* 1. User Name */}
-                                            <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-[var(--tng-slate-700)]">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-xs shadow-2xs ${
+                                                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-medium text-xs shadow-2xs ${
                                                         isActive ? 'bg-[var(--tng-blue-600)] text-white' : 'bg-slate-300 text-slate-600'
                                                     }`}>
                                                         {initials}
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-[14px] text-slate-900 flex items-center gap-2">
+                                                        <div className="font-normal text-[13px] text-slate-800 flex items-center gap-2">
                                                             {user.first_name} {user.middle_name ? `${user.middle_name} ` : ''}{user.last_name}
                                                             {user.id === currentUserId && (
-                                                                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-bold text-blue-700">
+                                                                <span className="rounded bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[11px] font-normal text-blue-700">
                                                                     You
                                                                 </span>
                                                             )}
@@ -417,44 +417,44 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                                             </td>
 
                                             {/* 2. Email Address */}
-                                            <td className="px-6 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                <div className="flex items-center gap-2 font-mono text-[14px] text-slate-700">
+                                            <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="flex items-center gap-2 font-mono text-[13px] text-slate-600 font-normal">
                                                     <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                                     <span>{user.email}</span>
                                                 </div>
                                             </td>
 
                                             {/* 3. Role Access */}
-                                            <td className="px-6 py-3.5 whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-bold border ${getRoleBadge(roleName)}`}>
+                                            <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal">
+                                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium border ${getRoleBadge(roleName)}`}>
                                                     <Shield className="h-3.5 w-3.5" />
                                                     {roleName}
                                                 </span>
                                             </td>
 
                                             {/* 4. Department */}
-                                            <td className="px-6 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                <div className="flex items-center gap-1.5 text-[14px] text-slate-700">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-[var(--tng-slate-700)]">
+                                                <div className="flex items-center gap-1.5 text-[13px] text-slate-600 font-normal">
                                                     <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                                                     <span className="truncate max-w-[220px]">{deptName}</span>
                                                 </div>
                                             </td>
 
                                             {/* 5. Status */}
-                                            <td className="px-6 py-3.5 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal">
                                                 {isActive ? (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[13px] font-bold text-emerald-700 border border-emerald-200 shadow-2xs">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700 border border-emerald-200 shadow-2xs">
                                                         <ShieldCheck className="h-3.5 w-3.5" /> Active
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-[13px] font-bold text-rose-700 border border-rose-200 shadow-2xs">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-medium text-slate-600 border border-slate-200 shadow-2xs">
                                                         <XCircle className="h-3.5 w-3.5" /> Inactive
                                                     </span>
                                                 )}
                                             </td>
 
                                             {/* 6. Actions (Edit, Override, Delete) */}
-                                            <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                            <td className="px-4 py-3 text-right whitespace-nowrap text-[13px] font-normal">
                                                 <TableActionButtons
                                                     onEdit={() => setEditingUser(user)}
                                                     editTitle="Edit Record"

@@ -418,7 +418,7 @@ export default function CartEscalatedDocsIndex({
                 <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="px-5 py-3.5 border-b border-[var(--tng-slate-100)] flex items-center justify-between">
                         <div>
-                            <h2 className="text-[18px] font-semibold text-[var(--tng-slate-900)]">
+                            <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
                                 ARTA Escalation Records ({escalations.length})
                             </h2>
                             <p className="text-xs text-[var(--tng-slate-500)] mt-0.5">
@@ -428,18 +428,18 @@ export default function CartEscalatedDocsIndex({
                     </div>
 
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                        <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                             <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                 <tr>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Tracking #</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Document Title</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Severity</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Days Elapsed vs SLA</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Originating Dept</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Current Holder / Office</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Notified User</th>
-                                    <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Escalated At</th>
-                                    <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-600">Action</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Tracking #</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Document Title</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Severity</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Days Elapsed vs SLA</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Originating Dept</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Current Holder / Office</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Notified User</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Escalated At</th>
+                                    <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -451,10 +451,10 @@ export default function CartEscalatedDocsIndex({
                                                 className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group"
                                             >
                                                 {/* 1. Tracking # */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                                     <Link
                                                         href={`/cart/documents/${item.id}`}
-                                                        className="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 text-[14px]"
+                                                        className="font-mono text-[#0066cc] hover:underline flex items-center gap-1.5 text-[13px] font-normal"
                                                     >
                                                         {item.tracking_number}
                                                         <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
@@ -465,40 +465,40 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 2. Document Title */}
-                                                <td className="px-4 py-3.5 max-w-xs text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 max-w-xs text-[13px] font-normal text-slate-700">
                                                     <Link
                                                         href={`/cart/documents/${item.id}`}
-                                                        className="font-semibold text-slate-900 hover:text-blue-600 transition-colors line-clamp-1 block text-[14px]"
+                                                        className="text-slate-900 hover:text-[#0066cc] transition-colors line-clamp-1 block text-[13px] font-normal"
                                                     >
                                                         {item.title}
                                                     </Link>
-                                                    <span className="text-[12px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-medium inline-block mt-1">
+                                                    <span className="text-[12px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-normal inline-block mt-1">
                                                         {item.type_name}
                                                     </span>
                                                 </td>
 
                                                 {/* 3. Severity (Warning, Critical, Overdue) */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap">
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     {item.severity === 'Resolved' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[13px] font-bold text-emerald-700 border border-emerald-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700 border border-emerald-200">
                                                             <CheckCircle2 className="h-3.5 w-3.5" />
                                                             Resolved
                                                         </span>
                                                     )}
                                                     {item.severity === 'Critical' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-[13px] font-bold text-rose-700 border border-rose-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-[12px] font-semibold text-rose-700 border border-rose-200">
                                                             <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
                                                             Critical
                                                         </span>
                                                     )}
                                                     {item.severity === 'Overdue' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[13px] font-bold text-red-700 border border-red-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-0.5 text-[12px] font-semibold text-red-700 border border-red-200">
                                                             <AlertTriangle className="h-3.5 w-3.5" />
                                                             Overdue
                                                         </span>
                                                     )}
                                                     {item.severity === 'Warning' && (
-                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[13px] font-bold text-amber-700 border border-amber-200">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[12px] font-medium text-amber-700 border border-amber-200">
                                                             <Clock className="h-3.5 w-3.5" />
                                                             Warning
                                                         </span>
@@ -506,29 +506,29 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 4. Days Elapsed vs SLA Threshold */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                                     <div className="flex items-center gap-1.5">
                                                         <span
-                                                            className={`font-bold tabular-nums text-[14px] ${
+                                                            className={`tabular-nums text-[13px] font-normal ${
                                                                 item.days_elapsed > item.sla_threshold
-                                                                    ? 'text-red-600'
+                                                                    ? 'text-red-600 font-semibold'
                                                                     : 'text-slate-800'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             {item.days_elapsed}
                                                         </span>
-                                                        <span className="text-slate-400 font-medium">/</span>
-                                                        <span className="text-slate-600 font-semibold tabular-nums text-[13px]">
+                                                        <span className="text-slate-400">/</span>
+                                                        <span className="text-slate-600 tabular-nums text-[13px] font-normal">
                                                             {item.sla_threshold}d SLA
                                                         </span>
                                                     </div>
                                                     <div className="mt-0.5">
                                                         {item.variance > 0 ? (
-                                                            <span className="text-[12px] font-semibold text-red-600">
+                                                            <span className="text-[12px] font-normal text-red-600">
                                                                 +{item.variance}d breach
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[12px] font-semibold text-emerald-600">
+                                                            <span className="text-[12px] font-normal text-emerald-600">
                                                                 On-Time ({Math.abs(item.variance)}d left)
                                                             </span>
                                                         )}
@@ -536,11 +536,11 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 5. Originating Department */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                                     <div className="flex items-center gap-1.5">
                                                         <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
                                                         <div>
-                                                            <p className="font-semibold text-slate-800 text-[14px]">
+                                                            <p className="font-normal text-slate-800 text-[13px]">
                                                                 {item.originating_department}
                                                             </p>
                                                             <span className="text-[12px] text-slate-400 font-mono">
@@ -551,37 +551,37 @@ export default function CartEscalatedDocsIndex({
                                                 </td>
 
                                                 {/* 6. Current Holder / Office */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
                                                     <div className="space-y-0.5">
-                                                        <p className="font-semibold text-slate-800 flex items-center gap-1 text-[14px]">
+                                                        <p className="font-normal text-slate-800 flex items-center gap-1 text-[13px]">
                                                             <User className="h-3.5 w-3.5 text-slate-400" />
                                                             {item.current_holder_user}
                                                         </p>
-                                                        <p className="text-[12px] text-slate-500 font-medium">
+                                                        <p className="text-[12px] text-slate-500 font-normal">
                                                             {item.current_holder_office}
                                                         </p>
                                                     </div>
                                                 </td>
 
                                                 {/* 7. Notified User */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                    <p className="font-semibold text-slate-800 text-[14px]">{item.notified_user}</p>
-                                                    <p className="text-[12px] text-slate-400 font-medium">
+                                                <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
+                                                    <p className="font-normal text-slate-800 text-[13px]">{item.notified_user}</p>
+                                                    <p className="text-[12px] text-slate-400 font-normal">
                                                         {item.notified_role}
                                                     </p>
                                                 </td>
 
                                                 {/* 8. Escalated At (Date/Time) */}
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-slate-500 font-normal text-[14px]">
-                                                    <p className="text-[14px] text-slate-700">{item.escalated_at}</p>
+                                                <td className="px-4 py-3 whitespace-nowrap text-slate-500 font-normal text-[13px]">
+                                                    <p className="text-[13px] text-slate-700 font-normal">{item.escalated_at}</p>
                                                     {item.resolved_at && (
-                                                        <span className="text-[12px] text-emerald-600 block mt-0.5 font-medium">
+                                                        <span className="text-[12px] text-emerald-600 block mt-0.5 font-normal">
                                                             Resolved: {item.resolved_at}
                                                         </span>
                                                     )}
                                                 </td>
 
-                                                <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                                                <td className="px-4 py-3 whitespace-nowrap text-right">
                                                     <TableActionButtons
                                                         onEdit={() => setResolvingItem(item)}
                                                         editTitle="Edit Record"

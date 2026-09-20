@@ -534,9 +534,9 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                     {/* Secondary Right Pane: Actions + Discussion + Audit Trail (5 of 12 cols, ~35%-40% width) */}
                     <div className="xl:col-span-5 2xl:col-span-4 flex flex-col gap-6">
                         {/* Review Actions */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
-                            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                                ⚡ Review Actions
+                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+                            <h2 className="mb-4 text-[18px] font-medium text-[#0066cc]">
+                                Review Actions
                             </h2>
                             <div className="space-y-3">
                                 {(() => {
@@ -546,19 +546,19 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                             <>
                                                 <button 
                                                     onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document?', 'Receive')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-3 text-[14px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-98"
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
                                                 >
                                                     <CheckCircle2 className="h-4 w-4" />
                                                     Receive / Accept Document
                                                 </button>
                                                 <button 
                                                     onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-98"
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
                                                 >
                                                     <Sparkles className="h-4 w-4" />
                                                     Sign & Approve Document
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-200 transition-colors shadow-xs">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return to Sender
                                                 </button>
@@ -570,20 +570,20 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                             <>
                                                 <button 
                                                     onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-3 text-[14px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-98"
+                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
                                                 >
                                                     <Sparkles className="h-4 w-4" />
                                                     Sign & Approve Document
                                                 </button>
-                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:bg-blue-700 active:scale-98">
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98">
                                                     <Forward className="h-4 w-4" />
                                                     Forward / Endorse
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-200 transition-colors shadow-xs">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return to Sender
                                                 </button>
-                                                <button onClick={() => setEscalateModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-amber-300 bg-amber-50 px-4 py-2 text-[14px] font-medium text-amber-700 transition-colors hover:bg-amber-100">
+                                                <button onClick={() => setEscalateModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-200 transition-colors shadow-xs">
                                                     <ShieldAlert className="h-4 w-4" />
                                                     Flag / Escalate
                                                 </button>
@@ -600,12 +600,12 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                                     <button
                                                         type="button"
                                                         onClick={() => setCorrectionModalOpen(true)}
-                                                        className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-rose-600 px-3 py-2 text-[13px] font-semibold text-white hover:bg-rose-700 transition-colors shadow-xs"
+                                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-rose-700 transition-colors shadow-xs"
                                                     >
                                                         <Paperclip className="h-3.5 w-3.5" />
                                                         Upload Correction
                                                     </button>
-                                                    <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-blue-600 px-3 py-2 text-[13px] font-semibold text-white transition-all hover:bg-blue-700">
+                                                    <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-3 py-2 text-[13px] font-medium text-white transition-all hover:bg-[#005bb5] shadow-xs">
                                                         <Forward className="h-3.5 w-3.5" />
                                                         Re-route / Endorse
                                                     </button>
@@ -634,9 +634,9 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                         />
 
                         {/* Signatures Section */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] flex flex-col gap-6">
-                            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                                <span className="text-base">✍️</span> Signatories
+                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col gap-6">
+                            <h3 className="text-[18px] font-medium text-[#0066cc]">
+                                Signatories
                             </h3>
                             {/* Sender */}
                             <div className="text-center relative w-full flex flex-col items-center">

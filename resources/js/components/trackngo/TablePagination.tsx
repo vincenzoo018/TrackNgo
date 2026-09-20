@@ -53,13 +53,13 @@ export function TablePagination({
             {/* Left: Record Range Summary & Items Per Page Selector */}
             <div className="flex flex-wrap items-center gap-4 text-[14px] text-slate-600 font-normal">
                 <div>
-                    Showing <span className="font-bold text-slate-900">{startIndex + 1}</span> to{' '}
-                    <span className="font-bold text-slate-900">{endIndex}</span> of{' '}
-                    <span className="font-bold text-slate-900">{totalItems}</span> {itemLabel}
+                    Showing <span className="font-normal text-slate-800">{startIndex + 1}</span> to{' '}
+                    <span className="font-normal text-slate-800">{endIndex}</span> of{' '}
+                    <span className="font-normal text-slate-800">{totalItems}</span> {itemLabel}
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label htmlFor={`perPageSelect-${itemLabel}`} className="text-[14px] font-medium text-slate-500">
+                    <label htmlFor={`perPageSelect-${itemLabel}`} className="text-[14px] font-normal text-slate-500">
                         Rows per page:
                     </label>
                     <select
@@ -69,7 +69,7 @@ export function TablePagination({
                             onPageSizeChange(Number(e.target.value));
                             onPageChange(1);
                         }}
-                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[14px] font-semibold text-slate-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[14px] font-normal text-slate-700 outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
                     >
                         {pageSizeOptions.map((opt) => (
                             <option key={opt} value={opt}>

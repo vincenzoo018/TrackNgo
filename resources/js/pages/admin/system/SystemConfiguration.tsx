@@ -62,49 +62,49 @@ export default function SystemConfiguration() {
                                 className="pl-9 pr-4 py-2 w-80 rounded-md border border-[var(--tng-slate-200)] focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none text-sm"
                             />
                         </div>
-                        <button className="flex items-center gap-2 bg-[var(--tng-blue-600)] text-white px-4 py-2 rounded-md hover:bg-[var(--tng-blue-700)] transition-colors text-sm font-medium shadow-sm">
+                        <button className="inline-flex items-center gap-2 bg-[#0066cc] text-white px-4 py-2 rounded-md hover:bg-[#005bb5] transition-all text-[14px] font-medium shadow-xs hover:shadow-sm">
                             <UserPlus className="w-4 h-4" /> Add User
                         </button>
                     </div>
 
                     <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                         <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                                 <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Name</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Email</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Role</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Department</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Status</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600 text-right">Actions</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Name</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Email</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Role</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Department</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Status</th>
+                                        <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                     {mockUsers.map((user) => (
                                         <tr key={user.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                            <td className="px-6 py-3.5 font-semibold text-slate-900 text-[14px]">{user.name}</td>
-                                            <td className="px-6 py-3.5 font-mono text-[14px] text-slate-600">{user.email}</td>
-                                            <td className="px-6 py-3.5 text-[14px]">
-                                                <span className="inline-flex items-center rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[13px] font-bold text-blue-700 capitalize">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-slate-900">{user.name}</td>
+                                            <td className="px-4 py-3 font-mono text-[13px] font-normal text-slate-600">{user.email}</td>
+                                            <td className="px-4 py-3 text-[13px] font-normal">
+                                                <span className="inline-flex items-center rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[12px] font-medium text-[#0066cc] capitalize">
                                                     {user.role.replace('_', ' ')}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3.5 text-[14px] text-slate-700">{user.department?.name || '—'}</td>
-                                            <td className="px-6 py-3.5 whitespace-nowrap">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-slate-600">{user.department?.name || '—'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
                                                 {user.is_active ? (
-                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[13px] font-bold text-emerald-700">
+                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700">
                                                         Active
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[13px] font-bold text-rose-700">
+                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[12px] font-medium text-rose-700">
                                                         Inactive
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                                            <td className="px-4 py-3 text-right whitespace-nowrap">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                                    <button className="p-1.5 text-slate-400 hover:text-[#0066cc] hover:bg-blue-50 rounded-lg transition-colors" title="Edit Record" aria-label="Edit Record">
                                                         <Pencil className="h-[18px] w-[18px]" />
                                                     </button>
                                                     <button className={`p-1.5 rounded-lg transition-colors ${user.is_active ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`} title={user.is_active ? "Deactivate" : "Activate"}>
@@ -128,32 +128,32 @@ export default function SystemConfiguration() {
             {activeTab === 'departments' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 bg-[var(--tng-blue-600)] text-white px-4 py-2 rounded-md hover:bg-[var(--tng-blue-700)] transition-colors text-sm font-medium shadow-sm">
+                        <button className="inline-flex items-center gap-2 bg-[#0066cc] text-white px-4 py-2 rounded-md hover:bg-[#005bb5] transition-all text-[14px] font-medium shadow-xs hover:shadow-sm">
                             <Plus className="w-4 h-4" /> Add Department
                         </button>
                     </div>
 
                     <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                         <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                                 <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Code</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Department Name</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Status</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Code</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Department Name</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                     {mockDepartments.map((dept) => (
                                         <tr key={dept.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                            <td className="px-6 py-3.5">
-                                                <span className="font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[13px]">
+                                            <td className="px-4 py-3">
+                                                <span className="font-normal text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[12px]">
                                                     {dept.code}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3.5 font-semibold text-slate-900 text-[14px]">{dept.name}</td>
-                                            <td className="px-6 py-3.5 whitespace-nowrap">
-                                                <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[13px] font-bold text-emerald-700">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-slate-900">{dept.name}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700">
                                                     Active
                                                 </span>
                                             </td>
@@ -170,33 +170,33 @@ export default function SystemConfiguration() {
             {activeTab === 'categories' && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 bg-[var(--tng-blue-600)] text-white px-4 py-2 rounded-md hover:bg-[var(--tng-blue-700)] transition-colors text-sm font-medium shadow-sm">
+                        <button className="inline-flex items-center gap-2 bg-[#0066cc] text-white px-4 py-2 rounded-md hover:bg-[#005bb5] transition-all text-[14px] font-medium shadow-xs hover:shadow-sm">
                             <Plus className="w-4 h-4" /> Add Document Type
                         </button>
                     </div>
 
                     <div className="w-full rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                         <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                                 <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">Type Name</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">ARTA Limit</th>
-                                        <th className="px-6 py-2.5 text-xs font-medium text-slate-600">ARTA Tier</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Type Name</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">ARTA Limit</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">ARTA Tier</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                     {mockDocumentTypes.map((type) => (
                                         <tr key={type.id} className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group">
-                                            <td className="px-6 py-3.5 font-semibold text-slate-900 text-[14px]">{type.name}</td>
-                                            <td className="px-6 py-3.5 text-[14px] text-slate-700">{type.arta_processing_days} days</td>
-                                            <td className="px-6 py-3.5 whitespace-nowrap">
+                                            <td className="px-4 py-3 text-[13px] font-normal text-slate-900">{type.name}</td>
+                                            <td className="px-4 py-3 text-[13px] font-normal text-slate-700">{type.arta_processing_days} days</td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
                                                 {type.arta_processing_days <= 3 ? (
-                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[13px] font-bold text-emerald-700">Simple</span>
+                                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[12px] font-medium text-emerald-700">Simple</span>
                                                 ) : type.arta_processing_days <= 7 ? (
-                                                    <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[13px] font-bold text-amber-700">Complex</span>
+                                                    <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[12px] font-medium text-amber-700">Complex</span>
                                                 ) : (
-                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-1 text-[13px] font-bold text-rose-700">Highly Technical</span>
+                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[12px] font-medium text-rose-700">Highly Technical</span>
                                                 )}
                                             </td>
                                         </tr>

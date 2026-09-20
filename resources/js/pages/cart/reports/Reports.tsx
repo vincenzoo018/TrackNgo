@@ -13,11 +13,11 @@ export default function Reports() {
                     <p className="mt-1 text-[var(--tng-slate-500)]">Generate and view system-wide analytics and performance metrics</p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm font-medium text-[var(--tng-slate-600)] transition-colors hover:bg-[var(--tng-slate-50)]">
+                    <button className="flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs transition-colors hover:bg-[#005bb5]">
                         <FileSpreadsheet className="h-4 w-4" />
                         Export CSV
                     </button>
-                    <button className="flex items-center gap-2 rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--tng-blue-700)]">
+                    <button className="flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs transition-colors hover:bg-[#005bb5]">
                         <Download className="h-4 w-4" />
                         Download Report
                     </button>
@@ -63,7 +63,7 @@ export default function Reports() {
             <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-sm overflow-hidden flex flex-col">
                     <div className="border-b border-[var(--tng-slate-200)] px-6 py-4">
-                        <h3 className="font-semibold text-[var(--tng-slate-900)]">Department Performance</h3>
+                        <h3 className="text-[18px] font-medium text-[#0066cc]">Department Performance</h3>
                     </div>
                     <div className="p-6 flex-1 flex items-center justify-center bg-[var(--tng-slate-50)]">
                         <p className="text-[var(--tng-slate-500)] text-sm flex flex-col items-center gap-2">
@@ -74,7 +74,7 @@ export default function Reports() {
                 </div>
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-sm overflow-hidden flex flex-col">
                     <div className="border-b border-[var(--tng-slate-200)] px-6 py-4">
-                        <h3 className="font-semibold text-[var(--tng-slate-900)]">Document Types Breakdown</h3>
+                        <h3 className="text-[18px] font-medium text-[#0066cc]">Document Types Breakdown</h3>
                     </div>
                     <div className="p-6 flex-1 flex items-center justify-center bg-[var(--tng-slate-50)]">
                         <p className="text-[var(--tng-slate-500)] text-sm flex flex-col items-center gap-2">

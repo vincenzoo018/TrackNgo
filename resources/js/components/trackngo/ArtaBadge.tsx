@@ -18,30 +18,29 @@ export function ArtaBadge({ daysLeft, threshold, className }: ArtaBadgeProps) {
     let textColor: string;
 
     if (isOverdue) {
-        label = `ARTA OVERDUE – ${Math.abs(daysLeft)}D PAST`;
-        bgColor = 'bg-red-100/80';
-        textColor = 'text-red-700';
+        label = `ARTA Overdue (${Math.abs(daysLeft)}d past)`;
+        bgColor = 'bg-red-50 border border-red-200';
+        textColor = 'text-red-700 font-semibold';
     } else if (isUrgent) {
-        label = 'ARTA 0D LEFT';
-        bgColor = 'bg-orange-100/80';
-        textColor = 'text-orange-700';
+        label = 'ARTA (0d left)';
+        bgColor = 'bg-amber-50 border border-amber-200';
+        textColor = 'text-amber-700 font-medium';
     } else if (isMet) {
-        label = `ARTA ${daysLeft}D MET`;
-        bgColor = 'bg-emerald-100/80';
-        textColor = 'text-emerald-700';
+        label = `ARTA (${daysLeft}d met)`;
+        bgColor = 'bg-emerald-50 border border-emerald-200';
+        textColor = 'text-emerald-700 font-normal';
     } else {
-        label = `ARTA ${daysLeft}D LEFT`;
-        bgColor = 'bg-blue-100/80';
-        textColor = 'text-blue-700';
+        label = `ARTA (${daysLeft}d left)`;
+        bgColor = 'bg-slate-100 border border-slate-200';
+        textColor = 'text-slate-600 font-normal';
     }
 
     return (
         <span
             className={cn(
-                'inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap',
+                'inline-flex items-center rounded-md px-2 py-0.5 text-[12px] whitespace-nowrap',
                 bgColor,
                 textColor,
-                isOverdue && 'tng-pulse-overdue',
                 className,
             )}
         >

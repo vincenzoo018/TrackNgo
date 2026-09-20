@@ -276,7 +276,7 @@ export default function QrCodesIndex({
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] bg-white border border-[var(--tng-slate-300)] rounded-lg hover:bg-[var(--tng-slate-50)] transition-colors shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-[14px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors shadow-xs disabled:opacity-50"
                         >
                             <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
                             Refresh
@@ -285,9 +285,9 @@ export default function QrCodesIndex({
                             type="button"
                             onClick={handleExportCsv}
                             disabled={filteredQrCodes.length === 0}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-white bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-white bg-[#0066cc] hover:bg-[#005bb5] rounded-lg transition-all shadow-xs hover:shadow-sm disabled:opacity-50"
                         >
-                            <Download className="h-4 w-4" />
+                            <Download className="h-4 w-4 text-white shrink-0" />
                             Export CSV ({filteredQrCodes.length})
                         </button>
                     </div>
@@ -509,17 +509,17 @@ export default function QrCodesIndex({
                 {viewMode === 'table' ? (
                     <div className="w-full bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
                         <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                                 <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">QR Code ID</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Document Reference</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Routing Slip ID</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Department</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Type</th>
-                                        <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-600">Status</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Date Generated</th>
-                                        <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-600">Actions</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">QR Code ID</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Document Reference</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Routing Slip ID</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Department</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Type</th>
+                                        <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Status</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Date Generated</th>
+                                        <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -530,20 +530,20 @@ export default function QrCodesIndex({
                                                 className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group"
                                             >
                                                 {/* 1. QR Code ID with visual thumbnail */}
-                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
                                                     <div className="flex items-center gap-2.5">
                                                         <img
                                                             src={qr.qr_image_url}
                                                             alt={qr.qr_id}
                                                             onClick={() => setSelectedQr(qr)}
-                                                            className="w-9 h-9 rounded border border-slate-200 bg-white p-0.5 cursor-pointer hover:scale-110 transition-transform shrink-0"
+                                                            className="w-8 h-8 rounded border border-slate-200 bg-white p-0.5 cursor-pointer hover:scale-110 transition-transform shrink-0"
                                                             title="Click to inspect QR code"
                                                         />
                                                         <div className="min-w-0">
-                                                            <div className="font-mono text-[14px] font-bold text-slate-900 truncate">
+                                                            <div className="font-mono text-[13px] font-normal text-slate-900 truncate">
                                                                 {qr.qr_id}
                                                             </div>
-                                                            <span className="text-[12px] text-slate-400 font-sans block">
+                                                            <span className="text-[12px] text-slate-400 font-sans font-normal block">
                                                                 {qr.stop_number}
                                                             </span>
                                                         </div>
@@ -551,24 +551,24 @@ export default function QrCodesIndex({
                                                 </td>
 
                                                 {/* 2. Document Reference & Title */}
-                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
                                                     <Link
                                                         href={`/${currentRole}/documents/${qr.document_id}`}
                                                         className="group block"
                                                         title={`${qr.document_ref} - ${qr.document_title}`}
                                                     >
-                                                        <span className="font-mono font-bold text-[14px] text-[var(--tng-blue-600)] group-hover:text-[var(--tng-blue-800)] group-hover:underline flex items-center gap-1">
+                                                        <span className="font-mono font-normal text-[13px] text-[#0066cc] group-hover:underline flex items-center gap-1">
                                                             {qr.document_ref}
                                                             <ExternalLink className="h-3.5 w-3.5 opacity-60 shrink-0" />
                                                         </span>
-                                                        <span className="text-[12px] text-[var(--tng-slate-500)] group-hover:text-[var(--tng-slate-700)] truncate block mt-0.5">
+                                                        <span className="text-[12px] text-slate-500 font-normal truncate block mt-0.5">
                                                             {qr.document_title}
                                                         </span>
                                                     </Link>
                                                 </td>
 
                                                 {/* 3. Routing Slip ID */}
-                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedSlip({
@@ -588,7 +588,7 @@ export default function QrCodesIndex({
                                                             stop_number: qr.stop_number,
                                                             qr_data: qr.qr_data,
                                                         })}
-                                                        className="font-mono text-[13px] font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2.5 py-1 rounded border border-[var(--tng-blue-200)] hover:bg-[var(--tng-blue-100)] transition-colors inline-flex items-center gap-1 truncate max-w-full"
+                                                        className="font-mono text-[12px] font-normal text-[#0066cc] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-100 transition-colors inline-flex items-center gap-1 truncate max-w-full"
                                                         title="View linked official routing slip"
                                                     >
                                                         <Route className="h-3.5 w-3.5 shrink-0" />
@@ -597,27 +597,27 @@ export default function QrCodesIndex({
                                                 </td>
 
                                                 {/* 4. Department */}
-                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                    <div className="font-semibold text-[14px] text-[var(--tng-slate-900)] truncate" title={qr.department}>
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
+                                                    <div className="font-normal text-[13px] text-slate-900 truncate" title={qr.department}>
                                                         {qr.department}
                                                     </div>
-                                                    <div className="text-[12px] text-[var(--tng-slate-400)] truncate mt-0.5">
+                                                    <div className="text-[12px] text-slate-400 font-normal truncate mt-0.5">
                                                         Office Code: {qr.department_code}
                                                     </div>
                                                 </td>
 
                                                 {/* 5. Document Type */}
-                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                    <span className="text-[13px] text-[var(--tng-slate-700)] bg-[var(--tng-slate-50)] px-2.5 py-0.5 rounded border border-[var(--tng-slate-200)] truncate block" title={qr.document_type}>
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
+                                                    <span className="text-[12px] text-slate-700 font-normal bg-slate-50 px-2 py-0.5 rounded border border-slate-200 truncate block" title={qr.document_type}>
                                                         {qr.document_type}
                                                     </span>
                                                 </td>
 
                                                 {/* 6. Status */}
-                                                <td className="px-4 py-3.5 text-center">
+                                                <td className="px-4 py-3 text-center">
                                                     <span
                                                         className={cn(
-                                                            'inline-block px-2.5 py-0.5 rounded-full text-[13px] font-bold border',
+                                                            'inline-block px-2.5 py-0.5 rounded-full text-[12px] font-medium border',
                                                             getStatusBadge(qr.status)
                                                         )}
                                                     >
@@ -626,17 +626,17 @@ export default function QrCodesIndex({
                                                 </td>
 
                                                 {/* 7. Date Generated */}
-                                                <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                    <div className="text-[14px] text-[var(--tng-slate-800)] font-medium">
+                                                <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
+                                                    <div className="text-[13px] text-slate-800 font-normal">
                                                         {qr.formatted_date}
                                                     </div>
-                                                    <div className="text-[12px] text-[var(--tng-slate-400)]">
+                                                    <div className="text-[12px] text-slate-400 font-normal">
                                                         {qr.date_generated.slice(-8)}
                                                     </div>
                                                 </td>
 
                                                 {/* 8. Actions: View Modal & Download (Icons only) */}
-                                                <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                                <td className="px-4 py-3 text-right whitespace-nowrap">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <button
                                                             type="button"
@@ -765,7 +765,7 @@ export default function QrCodesIndex({
                                         <button
                                             type="button"
                                             onClick={() => setSelectedQr(qr)}
-                                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-white bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] rounded-lg transition-colors shadow-2xs"
+                                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-white bg-[#0066cc] hover:bg-[#005bb5] rounded-lg transition-colors shadow-2xs"
                                         >
                                             <Eye className="h-3.5 w-3.5" />
                                             <span>Inspect</span>

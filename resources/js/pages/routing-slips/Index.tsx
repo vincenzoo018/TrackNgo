@@ -457,7 +457,7 @@ export default function RoutingSlipsIndex({
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-[var(--tng-slate-700)] bg-white border border-[var(--tng-slate-300)] rounded-lg hover:bg-[var(--tng-slate-50)] transition-colors shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-[14px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors shadow-xs disabled:opacity-50"
                         >
                             <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
                             Refresh
@@ -466,9 +466,9 @@ export default function RoutingSlipsIndex({
                             type="button"
                             onClick={handleExportCsv}
                             disabled={filteredSlips.length === 0}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-white bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-white bg-[#0066cc] hover:bg-[#005bb5] rounded-lg transition-all shadow-xs hover:shadow-sm disabled:opacity-50"
                         >
-                            <Download className="h-4 w-4" />
+                            <Download className="h-4 w-4 text-white shrink-0" />
                             Export CSV ({filteredSlips.length})
                         </button>
                     </div>
@@ -898,17 +898,17 @@ export default function RoutingSlipsIndex({
                     /* ── TABLE VIEW (Tabular Records & CSV Export) ────────── */
                     <div className="w-full bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
                         <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse text-[14px] text-slate-700">
+                            <table className="w-full text-left border-collapse text-[13px] text-slate-700">
                                 <thead className="bg-[var(--tng-slate-50)] border-b border-[var(--tng-slate-200)]">
                                     <tr>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Slip ID</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Document Reference</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">From</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">To</th>
-                                        <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-600">Action</th>
-                                        <th className="px-4 py-2.5 text-xs font-medium text-slate-600">Instruction</th>
-                                        <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-600">Status</th>
-                                        <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-600">Actions</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Slip ID</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Document Reference</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">From</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">To</th>
+                                        <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Action</th>
+                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Instruction</th>
+                                        <th className="px-4 py-3 text-center text-[14px] font-normal text-slate-600">Status</th>
+                                        <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[var(--tng-slate-100)]">
@@ -924,57 +924,57 @@ export default function RoutingSlipsIndex({
                                                     className="transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40 group"
                                                 >
                                                     {/* 1. Slip ID */}
-                                                    <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                        <div className="font-mono text-[14px] font-bold text-[var(--tng-blue-700)] bg-[var(--tng-blue-50)] px-2 py-0.5 rounded border border-[var(--tng-blue-200)] inline-block truncate max-w-full">
+                                                    <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
+                                                        <div className="font-mono text-[13px] font-normal text-[#0066cc] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block truncate max-w-full">
                                                             {slip.tracking_number}
                                                         </div>
-                                                        <div className="text-[12px] text-[var(--tng-slate-400)] mt-0.5 font-sans">
+                                                        <div className="text-[12px] text-slate-400 mt-0.5 font-sans font-normal">
                                                             {slip.formatted_date}
                                                         </div>
                                                     </td>
 
                                                     {/* 2. Document Reference */}
-                                                    <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
                                                         <Link
                                                             href={docUrl}
                                                             className="group block"
                                                             title={`${slip.document_ref} - ${slip.document_title}`}
                                                         >
-                                                            <span className="font-mono font-bold text-[14px] text-[var(--tng-blue-600)] group-hover:text-[var(--tng-blue-800)] group-hover:underline flex items-center gap-1">
+                                                            <span className="font-mono font-normal text-[13px] text-[#0066cc] group-hover:underline flex items-center gap-1">
                                                                 {slip.document_ref}
                                                                 <ExternalLink className="h-3.5 w-3.5 opacity-60 shrink-0" />
                                                             </span>
-                                                            <span className="text-[12px] text-[var(--tng-slate-500)] group-hover:text-[var(--tng-slate-700)] truncate block mt-0.5">
+                                                            <span className="text-[12px] text-slate-500 font-normal truncate block mt-0.5">
                                                                 {slip.document_title}
                                                             </span>
                                                         </Link>
                                                     </td>
 
                                                     {/* 3. From */}
-                                                    <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                        <div className="font-semibold text-[14px] text-[var(--tng-slate-900)] truncate" title={slip.from_name}>
+                                                    <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
+                                                        <div className="font-normal text-[13px] text-slate-900 truncate" title={slip.from_name}>
                                                             {slip.from_name}
                                                         </div>
-                                                        <div className="text-[12px] text-[var(--tng-slate-500)] truncate mt-0.5" title={slip.from_department}>
+                                                        <div className="text-[12px] text-slate-500 font-normal truncate mt-0.5" title={slip.from_department}>
                                                             {slip.from_department}
                                                         </div>
                                                     </td>
 
                                                     {/* 4. To */}
-                                                    <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
-                                                        <div className="font-semibold text-[14px] text-[var(--tng-slate-900)] truncate" title={slip.to_department}>
+                                                    <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
+                                                        <div className="font-normal text-[13px] text-slate-900 truncate" title={slip.to_department}>
                                                             {slip.to_department}
                                                         </div>
-                                                        <div className="text-[12px] text-[var(--tng-slate-500)] truncate mt-0.5" title={slip.to_name}>
+                                                        <div className="text-[12px] text-slate-500 font-normal truncate mt-0.5" title={slip.to_name}>
                                                             {slip.to_name}
                                                         </div>
                                                     </td>
 
                                                     {/* 5. Action */}
-                                                    <td className="px-4 py-3.5 text-center">
+                                                    <td className="px-4 py-3 text-center">
                                                         <span
                                                             className={cn(
-                                                                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[13px] font-bold border',
+                                                                'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-medium border',
                                                                 actionBadge.bg
                                                             )}
                                                         >
@@ -984,9 +984,9 @@ export default function RoutingSlipsIndex({
                                                     </td>
 
                                                     {/* 6. Instruction */}
-                                                    <td className="px-4 py-3.5 text-[14px] font-normal text-[var(--tng-slate-700)]">
+                                                    <td className="px-4 py-3 text-[13px] font-normal text-slate-700">
                                                         <p
-                                                            className="line-clamp-2 text-[13px] text-[var(--tng-slate-700)] bg-[var(--tng-slate-50)] p-1.5 rounded border border-[var(--tng-slate-100)] leading-snug"
+                                                            className="line-clamp-2 text-[12px] text-slate-700 font-normal bg-slate-50 p-1.5 rounded border border-slate-100 leading-snug"
                                                             title={slip.instruction}
                                                         >
                                                             {slip.instruction || 'No specific instruction provided.'}
@@ -994,10 +994,10 @@ export default function RoutingSlipsIndex({
                                                     </td>
 
                                                     {/* 7. Status */}
-                                                    <td className="px-4 py-3.5 text-center">
+                                                    <td className="px-4 py-3 text-center">
                                                         <span
                                                             className={cn(
-                                                                'inline-block px-2.5 py-1 rounded-full text-[13px] font-bold border',
+                                                                'inline-block px-2.5 py-0.5 rounded-full text-[12px] font-medium border',
                                                                 getStatusBadge(slip.status)
                                                             )}
                                                         >
