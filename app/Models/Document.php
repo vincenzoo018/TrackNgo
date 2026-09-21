@@ -78,6 +78,11 @@ class Document extends Model
         return $this->belongsTo(Department::class, 'current_holder_department_id', 'department_id');
     }
 
+    public function destinationDepartment()
+    {
+        return $this->belongsTo(Department::class, 'destination_department_id', 'department_id');
+    }
+
     public function linkedDocument()
     {
         return $this->belongsTo(Document::class, 'linked_document_id', 'document_id');

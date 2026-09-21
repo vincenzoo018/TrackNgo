@@ -8,6 +8,7 @@ import { getStandardizedStatus, StandardizedStatus, isFinalizedOrArchived } from
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
+import { StepDots } from '@/components/trackngo/StepProgress';
 import { cn } from '@/lib/utils';
 
 export default function HrDocuments() {
@@ -225,6 +226,7 @@ export default function HrDocuments() {
                                     </th>
                                     <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Title</th>
                                     <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Type</th>
+                                    <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Step Progress</th>
                                     <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Status</th>
                                     <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Date</th>
                                     <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Action</th>
@@ -245,6 +247,14 @@ export default function HrDocuments() {
                                         </td>
                                         <td className="px-4 py-3 text-[13px] font-normal text-slate-900">{doc.title}</td>
                                         <td className="px-4 py-3 text-[13px] font-normal text-slate-600">{doc.type?.type_name || 'N/A'}</td>
+                                        <td className="px-4 py-3">
+                                            <StepDots
+                                                current={doc.current_step_index}
+                                                total={doc.is_internal ? 6 : 7}
+                                                isInternal={doc.is_internal}
+                                                isSlaBreached={Boolean(doc.is_escalated || (doc.arta_days_left !== undefined && doc.arta_days_left < 0))}
+                                            />
+                                        </td>
                                         <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />
                                         </td>

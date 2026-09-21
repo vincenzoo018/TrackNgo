@@ -74,7 +74,7 @@ class DocumentService implements DocumentServiceInterface
             'status'                       => $status,
             'ocr_text'                     => $data['ocr_text'] ?? null,
             'current_step_index'           => 1,
-            'total_steps'                  => 6,
+            'total_steps'                  => $isInternal ? 6 : 7,
             'sender'                       => $actor->name,
             'current_holder_department_id' => $currentHolderDeptId,
             'is_internal'                  => $isInternal,
@@ -136,6 +136,8 @@ class DocumentService implements DocumentServiceInterface
         $document = Document::findOrFail($documentId);
 
         return match ($action) {
+            'register'                  => $this->workflowService->register($document, $params, $actor, $ipAddress),
+            'receive'                   => $this->workflowService->accept($document, $actor, $ipAddress),
             'accept'                    => $this->workflowService->accept($document, $actor, $ipAddress),
             'review'                    => $this->workflowService->review($document, $actor, $ipAddress),
             'endorse'                   => $this->workflowService->endorse($document, $params, $actor, $ipAddress),

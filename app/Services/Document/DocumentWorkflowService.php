@@ -14,17 +14,75 @@ class DocumentWorkflowService
         protected AuditTrailServiceInterface $auditTrailService
     ) {}
 
+    public function register(Document $document, array $params, User $actor, ?string $ip = null): Document
+    {
+        $trackingNumber = $document->tracking_number;
+        if (empty($trackingNumber) || str_starts_with($trackingNumber, 'PENDING-')) {
+            $numberGenerator = app(\App\Services\Document\DocumentNumberGenerator::class);
+            $trackingNumber = $numberGenerator->generateTrackingNumber();
+        }
+
+        $targetDeptId = $document->destination_department_id ?? $document->department_id;
+        if (!$targetDeptId && !empty($params['target_department_id'])) {
+            $targetDeptId = (int) $params['target_department_id'];
+        }
+
+        $stepIndex = 2;
+        $newStatus = 'registered';
+
+        RoutingSlip::create([
+            'document_id'          => $document->document_id,
+            'tracking_number'      => $trackingNumber,
+            'from_user_id'         => $actor->id,
+            'from_department_id'   => $actor->department_id ?? $document->current_holder_department_id,
+            'to_user_id'           => $params['to_user_id'] ?? null,
+            'target_department_id' => $targetDeptId,
+            'sender_name'          => $actor->name,
+            'action'               => 'register',
+            'instruction'          => $params['instruction'] ?? 'Document officially registered and routed for processing.',
+            'status'               => 'pending',
+            'date_received'        => now(),
+        ]);
+
+        $document->update([
+            'tracking_number'              => $trackingNumber,
+            'status'                       => $newStatus,
+            'current_holder_department_id' => $targetDeptId,
+            'current_holder_id'            => $params['to_user_id'] ?? null,
+            'current_step_index'           => $stepIndex,
+        ]);
+
+        $destName = $targetDeptId ? Department::find($targetDeptId)?->department_name : 'Destination Department';
+
+        $this->auditTrailService->logDocumentAction(
+            document: $document,
+            action: 'Register',
+            description: "Document officially registered by {$actor->name} with Tracking No. {$trackingNumber} and routed to {$destName}.",
+            actor: $actor,
+            ipAddress: $ip
+        );
+
+        \App\Services\NotificationService::triggerDocumentReceiptNotification($document, $actor);
+
+        return $document;
+    }
+
     public function accept(Document $document, User $actor, ?string $ip = null): Document
     {
+        $stepIndex = $document->is_internal ? 5 : 2;
+        if (!$document->is_internal && $document->current_step_index >= 4) {
+            $stepIndex = 5;
+        }
+
         $document->update([
             'status'             => 'Accepted',
-            'current_step_index' => 3,
+            'current_step_index' => $stepIndex,
         ]);
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Accepted',
-            description: "Document officially received and accepted by {$actor->name} (FSM: Submitted -> Registered -> Accepted).",
+            description: "Document officially received and accepted by {$actor->name}.",
             actor: $actor,
             ipAddress: $ip
         );
@@ -36,9 +94,14 @@ class DocumentWorkflowService
 
     public function review(Document $document, User $actor, ?string $ip = null): Document
     {
+        $stepIndex = 3;
+        if ($document->current_step_index >= 4) {
+            $stepIndex = 6;
+        }
+
         $document->update([
             'status'             => 'Ongoing',
-            'current_step_index' => 4,
+            'current_step_index' => $stepIndex,
         ]);
 
         $this->auditTrailService->logDocumentAction(
@@ -152,11 +215,12 @@ class DocumentWorkflowService
             'date_received'        => now(),
         ]);
 
+        $stepIndex = $document->is_internal ? 5 : 6;
         $document->update([
             'status'                       => 'approved',
             'current_holder_department_id' => $destDeptId,
             'current_holder_id'            => null,
-            'current_step_index'           => 5,
+            'current_step_index'           => $stepIndex,
         ]);
 
         $this->auditTrailService->logDocumentAction(
@@ -172,12 +236,13 @@ class DocumentWorkflowService
 
     public function releaseToApplicant(Document $document, User $actor, ?string $ip = null): Document
     {
+        $stepIndex = $document->is_internal ? 6 : 7;
         $document->update([
             'status'                       => 'completed',
             'completed_at'                 => now(),
             'current_holder_id'            => null,
             'current_holder_department_id' => null,
-            'current_step_index'           => 6,
+            'current_step_index'           => $stepIndex,
         ]);
 
         $this->auditTrailService->logDocumentAction(

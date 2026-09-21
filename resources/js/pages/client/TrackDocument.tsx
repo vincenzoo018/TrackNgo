@@ -117,8 +117,13 @@ export default function TrackDocument() {
                             </div>
 
                             <div>
-                                <p className="mb-4 text-xs font-semibold uppercase text-[var(--tng-slate-500)]">Routing Progress</p>
-                                <StepProgress currentStep={result.stepProgress} totalSteps={result.totalSteps} />
+                                <p className="mb-4 text-xs font-semibold uppercase text-[var(--tng-slate-500)]">FSM Lifecycle Progress (External 7 Steps)</p>
+                                <StepProgress
+                                    processType="external"
+                                    currentStep={result.stepProgress}
+                                    totalSteps={7}
+                                    submitterName="Public Submitter"
+                                />
                             </div>
                         </div>
                     )}

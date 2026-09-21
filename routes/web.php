@@ -19,9 +19,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
     Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
     Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
+    Route::post('/documents/{id}/register', [\App\Http\Controllers\DocumentController::class, 'register'])->name('documents.register');
+    Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept'])->name('documents.accept');
     Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
     Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review'])->name('documents.review');
     Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse'])->name('documents.endorse');
+    Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate'])->name('documents.escalate');
+    Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link'])->name('documents.link');
+    Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant'])->name('documents.release');
     Route::post('/documents/{id}/archive', [\App\Http\Controllers\DocumentController::class, 'archiveDocument'])->name('documents.archive');
     Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
     Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
@@ -332,6 +337,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
         Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
         Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept']);
+        Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review']);
+        Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate']);
+        Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);

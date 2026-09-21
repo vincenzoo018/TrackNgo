@@ -29,6 +29,7 @@ export function getStandardizedStatus(rawStatus?: string): StandardizedStatus {
         s === 'accepted' || 
         s === 'dept accepted' || 
         s === 'mayor accepted' ||
+        s === 'registered' ||
         s.includes('receiv')
     ) {
         return 'Received';

@@ -374,7 +374,12 @@ export default function AdminDocumentsIndex() {
                                             })}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <StepDots current={doc.current_step_index} total={doc.total_steps || 5} />
+                                            <StepDots
+                                                current={doc.current_step_index}
+                                                total={doc.is_internal ? 6 : 7}
+                                                isInternal={doc.is_internal}
+                                                isSlaBreached={Boolean(doc.is_escalated || (doc.arta_days_left !== undefined && doc.arta_days_left < 0))}
+                                            />
                                         </td>
                                         <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />

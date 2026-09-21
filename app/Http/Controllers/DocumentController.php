@@ -8,8 +8,10 @@ use App\Models\Document;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use App\Contracts\AuditTrailServiceInterface;
 
 class DocumentController extends Controller
 {
@@ -44,6 +46,26 @@ class DocumentController extends Controller
         }
 
         return redirect()->back()->with('success', 'Document submitted successfully. Tracking: ' . $document->tracking_number);
+    }
+
+    public function register(Request $request, $id)
+    {
+        $actor = $request->user() ?: auth()->user();
+        $document = $this->documentService->executeWorkflowAction((int) $id, 'register', $request->all(), $actor, $request->ip());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message'  => 'Document registered successfully.',
+                'document' => $document,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Document registered and routed successfully. Tracking: ' . $document->tracking_number);
+    }
+
+    public function receive(Request $request, $id)
+    {
+        return $this->accept($request, $id);
     }
 
     public function accept(Request $request, $id)
@@ -238,5 +260,79 @@ class DocumentController extends Controller
         $this->documentService->deleteDocument((int) $id, $actor, $request->ip());
 
         return redirect()->back()->with('success', 'Document deleted successfully.');
+    }
+
+    public function getComments(Request $request, $id): JsonResponse
+    {
+        $comments = DB::table('document_comments')
+            ->where('document_id', $id)
+            ->join('users', 'document_comments.user_id', '=', 'users.id')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+            ->select(
+                'document_comments.*',
+                DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"),
+                'roles.role_name as user_role'
+            )
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($comments);
+    }
+
+    public function logAction(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'action'      => 'required|string',
+            'description' => 'required|string',
+        ]);
+
+        $actor = $request->user() ?: auth()->user();
+        $document = Document::findOrFail($id);
+
+        app(AuditTrailServiceInterface::class)->logDocumentAction(
+            document: $document,
+            action: $request->action,
+            description: $request->description,
+            actor: $actor,
+            ipAddress: $request->ip()
+        );
+
+        return response()->json(['message' => 'Action logged successfully.']);
+    }
+
+    public function getTimelineSync(Request $request, $id): JsonResponse
+    {
+        $document = Document::findOrFail($id);
+
+        $auditTrail = \App\Models\AuditTrail::with(['user.role'])
+            ->where('document_id', $id)
+            ->orderBy('timestamp', 'desc')
+            ->get();
+
+        $comments = DB::table('document_comments')
+            ->where('document_id', $id)
+            ->join('users', 'document_comments.user_id', '=', 'users.id')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+            ->select(
+                'document_comments.*',
+                DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"),
+                'roles.role_name as user_role'
+            )
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $attachments = \App\Models\DocumentAttachment::with(['user.role'])
+            ->where('document_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json([
+            'status'             => $document->status,
+            'return_reason'      => $document->return_reason,
+            'current_step_index' => $document->current_step_index,
+            'auditTrail'         => $auditTrail,
+            'comments'           => $comments,
+            'attachments'        => $attachments,
+        ]);
     }
 }

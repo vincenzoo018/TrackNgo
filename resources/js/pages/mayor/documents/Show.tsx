@@ -367,16 +367,19 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                         </div>
                     </div>
 
-                    {/* FSM (workflow tracker): Display immediately under Current Holder when opening a document, showing all 6 stages */}
+                    {/* FSM (workflow tracker): Finite State Machine Document Lifecycle Progress Tracker */}
                     <div className="rounded-[8px] border border-slate-200 bg-slate-50/50 p-5">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-4 px-1">
-                            Workflow State Tracker (6 Stages)
-                        </p>
+                        <div className="flex items-center justify-between mb-2 px-1">
+                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                FSM Document Lifecycle Tracker
+                            </p>
+                        </div>
                         <StepProgress
+                            document={doc}
                             currentStep={doc.current_step_index || 1}
-                            totalSteps={6}
                             currentHolderName={doc.current_holder?.name ?? doc.currentHolder?.name}
                             auditTrails={trail}
+                            allowProcessSwitch={true}
                         />
                     </div>
 

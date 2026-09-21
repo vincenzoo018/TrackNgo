@@ -377,16 +377,19 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                         </div>
                     </div>
 
-                    {/* FSM (workflow tracker): Display immediately under Current Holder when opening a document, showing all 6 stages */}
+                    {/* FSM (workflow tracker): Finite State Machine Document Lifecycle Progress Tracker */}
                     <div className="rounded-[8px] border border-slate-200 bg-slate-50/50 p-5">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-4 px-1">
-                            Workflow State Tracker (6 Stages)
-                        </p>
+                        <div className="flex items-center justify-between mb-2 px-1">
+                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                FSM Document Lifecycle Tracker
+                            </p>
+                        </div>
                         <StepProgress
+                            document={doc}
                             currentStep={doc.current_step_index || 1}
-                            totalSteps={6}
                             currentHolderName={doc.current_holder?.name ?? doc.currentHolder?.name}
                             auditTrails={trail}
+                            allowProcessSwitch={true}
                         />
                     </div>
 
@@ -554,11 +557,11 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                     if (doc.status === 'submitted' || doc.status === 'pending_registration') {
                                         return (
                                             <>
-                                                <button onClick={handleRegister} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-orange-600 px-4 py-3 text-[14px] font-semibold text-white shadow-md shadow-orange-600/25 transition-all hover:bg-orange-700 active:scale-98">
+                                                <button onClick={handleRegister} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#0066cc] px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98">
                                                     <QrCode className="h-4 w-4" />
                                                     Register &amp; Route Document
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document
                                                 </button>
@@ -570,12 +573,12 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                             <>
                                                 <button
                                                     onClick={() => requestAction('release', 'Release Document', 'Are you sure you want to release this document to the applicant?', 'Release')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 py-3 text-[14px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:bg-emerald-700 active:scale-98"
+                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#0066cc] px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
                                                 >
                                                     <CheckCircle2 className="h-4 w-4" />
                                                     Release to Applicant
                                                 </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-rose-300 bg-rose-50 px-4 py-2 text-[14px] font-medium text-rose-700 transition-colors hover:bg-rose-100">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document
                                                 </button>

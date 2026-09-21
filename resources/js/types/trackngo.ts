@@ -62,6 +62,43 @@ export const STATUS_LABELS: Record<DocumentStatus, string> = {
     archived: 'Archived',
 };
 
+export type FsmProcessType = 'external' | 'internal_dept' | 'internal_mayor';
+
+export type FsmStepDefinition = {
+    step: number;
+    label: string;
+    role: string;
+    description?: string;
+};
+
+export const EXTERNAL_7_STEPS: FsmStepDefinition[] = [
+    { step: 1, label: 'Submitted', role: 'Receiving Clerk' },
+    { step: 2, label: 'Accepted', role: 'Department Head' },
+    { step: 3, label: 'Reviewed', role: 'Department Head' },
+    { step: 4, label: 'Forwarded', role: 'Dept Head → Mayor' },
+    { step: 5, label: 'Accepted', role: 'Mayor' },
+    { step: 6, label: 'Reviewed', role: 'Mayor' },
+    { step: 7, label: 'Released', role: 'Clerk → Released' },
+];
+
+export const INTERNAL_DEPT_6_STEPS: FsmStepDefinition[] = [
+    { step: 1, label: 'Submitted', role: 'Department Head' },
+    { step: 2, label: 'Registered', role: 'Receiving Clerk' },
+    { step: 3, label: 'Reviewed', role: 'Department Head' },
+    { step: 4, label: 'Forwarded', role: 'Dept Head → Mayor' },
+    { step: 5, label: 'Accepted', role: 'Mayor' },
+    { step: 6, label: 'Released', role: 'Mayor → Clerk → Released' },
+];
+
+export const INTERNAL_MAYOR_6_STEPS: FsmStepDefinition[] = [
+    { step: 1, label: 'Submitted', role: 'Mayor' },
+    { step: 2, label: 'Registered', role: 'Receiving Clerk' },
+    { step: 3, label: 'Reviewed', role: 'Department Head' },
+    { step: 4, label: 'Forwarded', role: 'Dept Head → Next' },
+    { step: 5, label: 'Accepted', role: 'Department Head' },
+    { step: 6, label: 'Released', role: 'Dept → Clerk → Released' },
+];
+
 export const WORKFLOW_STEPS: { key: DocumentStatus; label: string }[] = [
     { key: 'submitted', label: 'Submitted' },
     { key: 'registered', label: 'Registered' },
