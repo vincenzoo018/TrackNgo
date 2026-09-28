@@ -1,6 +1,6 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { StepDots } from '@/components/trackngo/StepProgress';
@@ -22,8 +22,30 @@ export default function ReceivingDocumentsIndex() {
     const documentTypes = (props.dbDocumentTypes || []) as any[];
     const users = (props.dbUsers || []) as any[];
 
-    type ReceivingTab = 'all' | 'received' | 'forwarded' | 'returned';
+    const authUserId = String((props.auth as any)?.user?.id ?? '');
+
+    type ReceivingTab = 'all' | 'received' | 'sent' | 'forwarded' | 'returned';
     const [activeTab, setActiveTab] = useState<ReceivingTab>('all');
+    // Row just submitted from the modal: pinned to the top and highlighted briefly
+    const [highlightId, setHighlightId] = useState<number | null>(null);
+
+    /**
+     * Receiving Clerk buckets:
+     *  - Sent:      documents this clerk filed & dispatched (external step 1 → Department Head)
+     *  - Received:  documents sitting with the clerk (pending registration, approved for release, etc.)
+     *  - Forwarded: documents the clerk registered/routed on to another office
+     *  - Returned:  documents returned for revision
+     */
+    const classifyDoc = (doc: any): Exclude<ReceivingTab, 'all'> | null => {
+        const s = (doc.status || '').toLowerCase();
+        if (s === 'returned') return 'returned';
+        if (['completed', 'archived'].includes(s)) return null;
+        if (authUserId && String(doc.submitted_by) === authUserId) return 'sent';
+        if (String(doc.current_holder_id ?? '') === authUserId ||
+            ['received', 'pending', 'pending_registration', 'approved'].includes(s)) return 'received';
+        if (['forwarded', 'in_transit', 'registered', 'sent', 'endorsed', 'accepted', 'ongoing'].includes(s)) return 'forwarded';
+        return null;
+    };
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -37,31 +59,59 @@ export default function ReceivingDocumentsIndex() {
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+    // Real-time auto sync: reload dbDocuments when document is received or sent, and poll every 4s
+    useEffect(() => {
+        const handleDocUpdate = () => {
+            router.reload({ only: ['dbDocuments'] });
+        };
+
+        window.addEventListener('tng:document-received', handleDocUpdate);
+        window.addEventListener('tng:document-sent', handleDocUpdate);
+        window.addEventListener('tng:fsm-refresh', handleDocUpdate);
+
+        const interval = setInterval(() => {
+            router.reload({ only: ['dbDocuments'] });
+        }, 4000);
+
+        return () => {
+            window.removeEventListener('tng:document-received', handleDocUpdate);
+            window.removeEventListener('tng:document-sent', handleDocUpdate);
+            window.removeEventListener('tng:fsm-refresh', handleDocUpdate);
+            clearInterval(interval);
+        };
+    }, []);
+
     // Pagination state (default: 20 per page, expandable to 50, 100)
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
 
     const tabCounts = useMemo(() => {
-        let received = 0;
-        let forwarded = 0;
-        let returned = 0;
+        const counts = { all: rawDocuments.length, received: 0, sent: 0, forwarded: 0, returned: 0 };
         rawDocuments.forEach((doc: any) => {
-            const s = (doc.status || '').toLowerCase();
-            if (s === 'received' || s === 'pending') {
-                received++;
-            } else if (s === 'forwarded' || s === 'sent' || s === 'endorsed' || s === 'in_transit') {
-                forwarded++;
-            } else if (s === 'returned') {
-                returned++;
-            }
+            const bucket = classifyDoc(doc);
+            if (bucket) counts[bucket]++;
         });
-        return {
-            all: rawDocuments.length,
-            received,
-            forwarded,
-            returned,
+        return counts;
+    }, [rawDocuments, authUserId]);
+
+    // After "Generate & Submit": jump to the Sent tab and surface the new row
+    useEffect(() => {
+        const handleSent = (e: Event) => {
+            const created = (e as CustomEvent).detail;
+            if (!created?.document_id) return;
+            setActiveTab('sent');
+            setCurrentPage(1);
+            setHighlightId(Number(created.document_id));
         };
-    }, [rawDocuments]);
+        window.addEventListener('tng:document-sent', handleSent);
+        return () => window.removeEventListener('tng:document-sent', handleSent);
+    }, []);
+
+    useEffect(() => {
+        if (highlightId === null) return;
+        const timer = setTimeout(() => setHighlightId(null), 8000);
+        return () => clearTimeout(timer);
+    }, [highlightId]);
 
     const handleExportList = () => {
         const header = ['Ref No', 'Tracking No', 'Document Type', 'Department', 'Date Filed', 'Status'];
@@ -81,16 +131,9 @@ export default function ReceivingDocumentsIndex() {
     const filteredDocs = useMemo(() => {
         let result = documents.filter((doc: any) => {
             const stdStatus = getStandardizedStatus(doc.status);
-            const rawStatus = (doc.status || '').toLowerCase();
             
-            // Receiving Clerk Tab filtering: All, Received, Forwarded, Returned
-            if (activeTab === 'received') {
-                if (rawStatus !== 'received' && rawStatus !== 'pending') return false;
-            } else if (activeTab === 'forwarded') {
-                if (rawStatus !== 'forwarded' && rawStatus !== 'sent' && rawStatus !== 'endorsed' && rawStatus !== 'in_transit') return false;
-            } else if (activeTab === 'returned') {
-                if (rawStatus !== 'returned') return false;
-            }
+            // Receiving Clerk Tab filtering: All, Received, Sent, Forwarded, Returned
+            if (activeTab !== 'all' && classifyDoc(doc) !== activeTab) return false;
 
             const q = searchQuery.toLowerCase();
             const matchesSearch = !q ||
@@ -109,13 +152,17 @@ export default function ReceivingDocumentsIndex() {
         });
 
         result.sort((a: any, b: any) => {
+            if (highlightId !== null) {
+                if (a.document_id === highlightId) return -1;
+                if (b.document_id === highlightId) return 1;
+            }
             const refA = a.reference_number || '';
             const refB = b.reference_number || '';
             return sortDir === 'asc' ? refA.localeCompare(refB) : refB.localeCompare(refA);
         });
 
         return result;
-    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab]);
+    }, [documents, searchQuery, filterType, filterDept, filterStatus, sortDir, activeTab, highlightId, authUserId]);
 
     const paginatedDocs = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
@@ -178,7 +225,7 @@ export default function ReceivingDocumentsIndex() {
                 </div>
 
                 {/* ── Standardized Summary Cards (System Blue #0066cc) ── */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
                     <StatCard
                         title="Total Documents"
                         value={tabCounts.all}
@@ -194,6 +241,14 @@ export default function ReceivingDocumentsIndex() {
                         icon={Inbox}
                         active={activeTab === 'received'}
                         onClick={() => { setActiveTab('received'); setCurrentPage(1); }}
+                    />
+                    <StatCard
+                        title="Sent"
+                        value={tabCounts.sent}
+                        sublabel="Submitted to Department Heads"
+                        icon={Send}
+                        active={activeTab === 'sent'}
+                        onClick={() => { setActiveTab('sent'); setCurrentPage(1); }}
                     />
                     <StatCard
                         title="Forwarded"
@@ -218,6 +273,7 @@ export default function ReceivingDocumentsIndex() {
                     tabs={[
                         { id: 'all', label: 'All Documents', icon: <FileText className="h-4 w-4" />, count: tabCounts.all },
                         { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 text-blue-600" />, count: tabCounts.received },
+                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 text-emerald-600" />, count: tabCounts.sent },
                         { id: 'forwarded', label: 'Forwarded', icon: <Send className="h-4 w-4 text-purple-600" />, count: tabCounts.forwarded },
                         { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 text-amber-600" />, count: tabCounts.returned },
                     ]}
@@ -345,7 +401,10 @@ export default function ReceivingDocumentsIndex() {
                                 {paginatedDocs.map((doc: any, idx: number) => (
                                     <tr
                                         key={doc.document_id}
-                                        className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
+                                        className={cn(
+                                            'group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40',
+                                            doc.document_id === highlightId && 'bg-emerald-50! ring-1 ring-inset ring-emerald-300'
+                                        )}
                                         style={{ animationDelay: `${idx * 40}ms` }}
                                     >
                                         <td className="px-4 py-3">

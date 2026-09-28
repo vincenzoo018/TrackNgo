@@ -159,14 +159,44 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
         setActiveToasts((prev) => prev.filter((t) => t.id !== id));
     };
 
-    // Live 30s Polling for SLA Timers & Receipt Updates
+    // Keep track of known notification IDs to detect newly arrived documents in real-time
+    const knownNotificationIdsRef = useRef<Set<string>>(new Set());
+
+    // Live 4s Polling for Real-Time Document Receipts & SLA Updates
     useEffect(() => {
         let mounted = true;
+        if (initialNotifications?.items) {
+            initialNotifications.items.forEach((it: any) => knownNotificationIdsRef.current.add(String(it.id)));
+        }
+
         const fetchNotifications = async () => {
             try {
                 const res = await fetch('/api/notifications');
                 if (res.ok && mounted) {
                     const data = await res.json();
+                    
+                    // Detect newly arrived notifications
+                    const newItems: any[] = [];
+                    if (data.items && Array.isArray(data.items)) {
+                        data.items.forEach((it: any) => {
+                            const strId = String(it.id);
+                            if (!knownNotificationIdsRef.current.has(strId)) {
+                                knownNotificationIdsRef.current.add(strId);
+                                if (!it.is_read) {
+                                    newItems.push(it);
+                                }
+                            }
+                        });
+                    }
+
+                    if (newItems.length > 0) {
+                        // Trigger immediate real-time incoming toast
+                        setActiveToasts((prev) => [...newItems.slice(0, 2), ...prev.slice(0, 2)]);
+                        
+                        // Dispatch global event so active document tables reload immediately
+                        window.dispatchEvent(new CustomEvent('tng:document-received', { detail: newItems[0] }));
+                    }
+
                     setNotificationData(data);
                 }
             } catch (e) {
@@ -174,7 +204,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
             }
         };
 
-        const interval = setInterval(fetchNotifications, 30000);
+        const interval = setInterval(fetchNotifications, 4000);
         return () => {
             mounted = false;
             clearInterval(interval);

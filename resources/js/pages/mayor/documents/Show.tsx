@@ -19,6 +19,8 @@ import { DocumentCorrectionModal } from '@/components/trackngo/DocumentCorrectio
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
 import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
 import { getStandardizedStatus } from '@/lib/status-helper';
+import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
+import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
 import { cn } from '@/lib/utils';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
@@ -102,9 +104,13 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
             destination_id: destId,
             remarks: rem
         }, {
+            preserveState: true,
+            preserveScroll: true,
             onSuccess: () => {
                 showToast('Document endorsed successfully');
                 setForwardModalOpen(false);
+                window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                window.dispatchEvent(new CustomEvent('tng:document-sent'));
             }
         });
     };
@@ -184,6 +190,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document accepted successfully.' });
@@ -195,6 +202,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document marked as reviewed.' });
@@ -206,6 +214,8 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document approved and routed to Receiving Clerk!' });
@@ -544,6 +554,38 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                             <div className="space-y-3">
                                 {(() => {
                                     const std = getStandardizedStatus(doc.status);
+                                    // Mayor actions unlock only once the document is endorsed to the Mayor (Mayor becomes current holder)
+                                    if (!isCurrentHolder(doc, auth?.user) && std !== 'Returned' && !isClosedStatus(doc.status)) {
+                                        const reachedMayor = (doc.current_step_index || 1) >= 4;
+                                        const filedByMayor = String(doc.submitted_by) === String(auth?.user?.id);
+                                        if (filedByMayor) {
+                                            return (
+                                                <HolderStatusCard
+                                                    variant="sent"
+                                                    title="Sent"
+                                                    holder={describeHolder(doc, users)}
+                                                    message={(doc.current_step_index || 1) <= 1
+                                                        ? 'Awaiting registration by the Receiving Clerk.'
+                                                        : 'Being processed by the receiving office.'}
+                                                />
+                                            );
+                                        }
+                                        return reachedMayor ? (
+                                            <HolderStatusCard
+                                                variant="forwarded"
+                                                title={(doc.status || '').toLowerCase() === 'approved' ? 'Approved — Routed to Receiving' : 'Forwarded'}
+                                                holder={describeHolder(doc, users)}
+                                                message="No further action is required from the Office of the Mayor."
+                                            />
+                                        ) : (
+                                            <HolderStatusCard
+                                                variant="waiting"
+                                                title="Waiting to be routed"
+                                                holder={describeHolder(doc, users)}
+                                                message="Actions will be available once the Department Head forwards / endorses this document to the Mayor."
+                                            />
+                                        );
+                                    }
                                     if (std === 'Sent' || doc.status === 'submitted' || doc.status === 'registered') {
                                         return (
                                             <>
@@ -571,7 +613,16 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                                     if (std === 'Received' || std === 'Ongoing' || doc.status === 'reviewed') {
                                         return (
                                             <>
-                                                <button 
+                                                {(doc.current_step_index || 0) < 6 && (
+                                                    <button
+                                                        onClick={() => requestAction('review', 'Mark as Reviewed', 'Mark this document as reviewed by the Office of the Mayor?', 'Mark Reviewed')}
+                                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-amber-700 active:scale-98"
+                                                    >
+                                                        <CheckCircle2 className="h-4 w-4" />
+                                                        Mark as Reviewed
+                                                    </button>
+                                                )}
+                                                <button
                                                     onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
                                                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
                                                 >

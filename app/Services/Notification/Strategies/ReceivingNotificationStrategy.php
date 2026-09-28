@@ -13,15 +13,16 @@ class ReceivingNotificationStrategy implements NotificationStrategyInterface
     public function getActiveDocuments(User $user): Collection
     {
         return Document::with(['type', 'department', 'currentHolderDepartment', 'submitter'])
-            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived'])
+            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'archived'])
             ->where(function ($q) use ($user) {
+                $q->where('current_holder_id', $user->id)
+                  ->orWhere('submitted_by', $user->id)
+                  ->orWhere('status', 'pending_registration')
+                  ->orWhere('status', 'approved');
                 if ($user->department_id) {
-                    $q->where('department_id', $user->department_id)
+                    $q->orWhere('department_id', $user->department_id)
                       ->orWhere('current_holder_department_id', $user->department_id);
                 }
-                $q->orWhere('status', 'pending_registration')
-                  ->orWhere('status', 'Received')
-                  ->orWhere('status', 'Ongoing');
             })
             ->get();
     }

@@ -75,6 +75,16 @@ class HandleInertiaRequests extends Middleware
                 'session_token' => $request->session()->get('tng_login_session_token') ?: (string) $request->session()->getId(),
             ],
             'notifications' => $notifications,
+            // Effective upload ceiling (PHP ini + app rule) so the client can reject oversized files before posting
+            'upload' => [
+                'max_bytes' => \App\Http\Requests\StoreDocumentRequest::maxUploadBytes(),
+                'max_label' => \App\Http\Requests\StoreDocumentRequest::maxUploadLabel(),
+            ],
+            'flash' => [
+                'success'          => fn () => $request->session()->get('success'),
+                'error'            => fn () => $request->session()->get('error'),
+                'created_document' => fn () => $request->session()->get('created_document'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

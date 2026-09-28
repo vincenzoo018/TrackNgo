@@ -1,6 +1,6 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { StepDots } from '@/components/trackngo/StepProgress';
@@ -38,6 +38,28 @@ export default function DepartmentHeadEndorsements() {
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+    // Real-time auto sync: reload dbDocuments when document is received or sent, and poll every 4s
+    useEffect(() => {
+        const handleDocUpdate = () => {
+            router.reload({ only: ['dbDocuments'], preserveScroll: true, preserveState: true });
+        };
+
+        window.addEventListener('tng:document-received', handleDocUpdate);
+        window.addEventListener('tng:document-sent', handleDocUpdate);
+        window.addEventListener('tng:fsm-refresh', handleDocUpdate);
+
+        const interval = setInterval(() => {
+            router.reload({ only: ['dbDocuments'], preserveScroll: true, preserveState: true });
+        }, 4000);
+
+        return () => {
+            window.removeEventListener('tng:document-received', handleDocUpdate);
+            window.removeEventListener('tng:document-sent', handleDocUpdate);
+            window.removeEventListener('tng:fsm-refresh', handleDocUpdate);
+            clearInterval(interval);
+        };
+    }, []);
+
     const documents = useMemo(() => {
         if (activeTab === 'completed') {
             return rawDocuments.filter((doc: any) => {
@@ -58,9 +80,10 @@ export default function DepartmentHeadEndorsements() {
 
         rawDocuments.forEach((doc: any) => {
             const s = (doc.status || '').toLowerCase();
-            if (s === 'received') {
+            if (s === 'received' || s === 'accepted' || s === 'sent' || s === 'endorsed' || s === 'pending') {
                 received++;
-            } else if (s === 'completed' || s === 'approved' || s === 'archived') {
+            }
+            if (s === 'completed' || s === 'approved' || s === 'archived') {
                 completed++;
             } else {
                 ongoing++;
@@ -97,9 +120,10 @@ export default function DepartmentHeadEndorsements() {
             
             // Department Head Tab filtering: All, Received, Ongoing, Completed
             if (activeTab === 'received') {
-                if (rawStatus !== 'received') return false;
+                const isReceivedOrSentToMe = rawStatus === 'received' || rawStatus === 'accepted' || rawStatus === 'sent' || rawStatus === 'endorsed' || rawStatus === 'pending';
+                if (!isReceivedOrSentToMe) return false;
             } else if (activeTab === 'ongoing') {
-                if (rawStatus === 'received' || rawStatus === 'completed' || rawStatus === 'approved' || rawStatus === 'archived') return false;
+                if (rawStatus === 'completed' || rawStatus === 'approved' || rawStatus === 'archived') return false;
             } else if (activeTab === 'completed') {
                 if (!(rawStatus === 'completed' || rawStatus === 'approved' || rawStatus === 'archived')) return false;
             }

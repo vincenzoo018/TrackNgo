@@ -12,9 +12,12 @@ Route::get('/track', function () {
     return Inertia::render('client/TrackDocument');
 })->name('track');
 
+Route::get('/api/track/{trackingNumber}', [\App\Http\Controllers\DocumentController::class, 'trackPublicDocument'])->name('track.public');
+
 // Authenticated Role Routes
 Route::middleware(['auth'])->group(function () {
 
+    Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store'])->name('documents.store');
     Route::post('/documents/{id}/attachments', [\App\Http\Controllers\DocumentController::class, 'addAttachment'])->name('documents.attachments');
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
     Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
@@ -77,6 +80,11 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                    ->select('users.*', 'roles.role_name', 'departments.department_name')
+                    ->where('users.is_active', true)
+                    ->get(),
             ]);
         });
         Route::get('/archived', function () {
@@ -173,19 +181,24 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $user = auth()->user();
-            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
                 ->where(function ($query) use ($user) {
+                    $query->where('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id)
+                          ->orWhere('status', 'pending_registration')
+                          ->orWhere('status', 'approved');
                     if ($user->department_id) {
-                        $query->where('current_holder_department_id', $user->department_id)
+                        $query->orWhere('current_holder_department_id', $user->department_id)
                               ->orWhereHas('routingSlips', function($q) use ($user) {
                                   $q->where('target_department_id', $user->department_id)
-                                    ->orWhere('from_department_id', $user->department_id);
+                                    ->orWhere('from_department_id', $user->department_id)
+                                    ->orWhere('to_user_id', $user->id);
                               });
                     }
-                    $query->orWhere('current_holder_id', $user->id)
-                          ->orWhere('submitted_by', $user->id)
-                          ->orWhere('status', 'pending_registration');
+                    $query->orWhereHas('routingSlips', function($q) use ($user) {
+                        $q->where('to_user_id', $user->id);
+                    });
                 })
                 ->orderBy('reference_number', 'asc')
                 ->get();
@@ -275,17 +288,22 @@ Route::middleware(['auth'])->group(function () {
             $user = auth()->user();
             
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
                 ->where(function ($query) use ($user) {
+                    $query->where('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id);
                     if ($user->department_id) {
-                        $query->where('current_holder_department_id', $user->department_id)
+                        $query->orWhere('current_holder_department_id', $user->department_id)
+                              ->orWhere('department_id', $user->department_id)
                               ->orWhereHas('routingSlips', function($q) use ($user) {
                                   $q->where('target_department_id', $user->department_id)
-                                    ->orWhere('from_department_id', $user->department_id);
+                                    ->orWhere('from_department_id', $user->department_id)
+                                    ->orWhere('to_user_id', $user->id);
                               });
                     }
-                    $query->orWhere('current_holder_id', $user->id)
-                          ->orWhere('submitted_by', $user->id);
+                    $query->orWhereHas('routingSlips', function($q) use ($user) {
+                        $q->where('to_user_id', $user->id);
+                    });
                 })
                 ->orderBy('reference_number', 'asc')
                 ->get();
@@ -303,7 +321,7 @@ Route::middleware(['auth'])->group(function () {
         });
         Route::get('/archived', function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
-                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
                 ->orderBy('completed_at', 'desc')
                 ->orderBy('updated_at', 'desc')
                 ->get();
@@ -338,6 +356,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
         Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept']);
         Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review']);
+        // Mayor-origin internal step 6: Dept Head forwards the reviewed document to the Receiving Clerk
+        Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving']);
         Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate']);
         Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link']);
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
@@ -354,18 +374,23 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
             $user = auth()->user();
-            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
                 ->where(function ($query) use ($user) {
+                    $query->where('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id)
+                          ->orWhereIn('current_step_index', [4, 5, 6]);
                     if ($user->department_id) {
-                        $query->where('current_holder_department_id', $user->department_id)
+                        $query->orWhere('current_holder_department_id', $user->department_id)
                               ->orWhereHas('routingSlips', function($q) use ($user) {
                                   $q->where('target_department_id', $user->department_id)
-                                    ->orWhere('from_department_id', $user->department_id);
+                                    ->orWhere('from_department_id', $user->department_id)
+                                    ->orWhere('to_user_id', $user->id);
                               });
                     }
-                    $query->orWhere('current_holder_id', $user->id)
-                          ->orWhere('submitted_by', $user->id);
+                    $query->orWhereHas('routingSlips', function($q) use ($user) {
+                        $q->where('to_user_id', $user->id);
+                    });
                 })
                 ->orderBy('reference_number', 'asc')
                 ->get();
@@ -440,6 +465,11 @@ Route::middleware(['auth'])->group(function () {
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                    ->select('users.*', 'roles.role_name', 'departments.department_name')
+                    ->where('users.is_active', true)
+                    ->get(),
             ]);
         });
         Route::get('/archived', function () {
@@ -494,14 +524,36 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('hr')->middleware('role:HR')->group(function () {
         Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
-            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
+            $user = auth()->user();
+            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
+                ->where(function ($query) use ($user) {
+                    $query->where('current_holder_id', $user->id)
+                          ->orWhere('submitted_by', $user->id);
+                    if ($user->department_id) {
+                        $query->orWhere('current_holder_department_id', $user->department_id)
+                              ->orWhere('department_id', $user->department_id)
+                              ->orWhereHas('routingSlips', function($q) use ($user) {
+                                  $q->where('target_department_id', $user->department_id)
+                                    ->orWhere('from_department_id', $user->department_id)
+                                    ->orWhere('to_user_id', $user->id);
+                              });
+                    }
+                    $query->orWhereHas('routingSlips', function($q) use ($user) {
+                        $q->where('to_user_id', $user->id);
+                    });
+                })
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('hr/documents/Documents', [
                 'dbDocuments'     => $documents,
                 'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
                 'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
+                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                    ->select('users.*', 'roles.role_name', 'departments.department_name')
+                    ->where('users.is_active', true)
+                    ->get(),
             ]);
         });
         Route::get('/archived', function () {

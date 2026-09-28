@@ -8,27 +8,29 @@ export default function TrackDocument() {
     const [isSearching, setIsSearching] = useState(false);
     const [result, setResult] = useState<any>(null); // Mock result for frontend demo
 
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSearching(true);
+        const trimmed = trackingNo.trim();
+        if (!trimmed) return;
 
-        setTimeout(() => {
-            setIsSearching(false);
-            if (trackingNo.includes('TRK')) {
-                setResult({
-                    trackingNo: 'TRK-20260702-001',
-                    refNo: 'TNG-2026-0004',
-                    title: 'Executive Order No. 12',
-                    status: 'Endorsed',
-                    currentLocation: 'City Engineering Office',
-                    dateFiled: 'July 2, 2026',
-                    stepProgress: 2,
-                    totalSteps: 5,
-                });
+        setIsSearching(true);
+        setResult(null);
+
+        try {
+            const res = await fetch(`/api/track/${encodeURIComponent(trimmed)}`, {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setResult(data);
             } else {
-                setResult(false); // not found
+                setResult(false);
             }
-        }, 800);
+        } catch (err) {
+            setResult(false);
+        } finally {
+            setIsSearching(false);
+        }
     };
 
     return (
@@ -86,43 +88,54 @@ export default function TrackDocument() {
                         </div>
                     )}
 
-                    {result && typeof result === 'object' && (
-                        <div className="tng-slide-in-up mx-auto w-full rounded-2xl border border-[var(--tng-slate-200)] bg-white p-8 shadow-xl shadow-slate-200/50">
-                            <div className="mb-6 flex items-start justify-between border-b border-[var(--tng-slate-100)] pb-6">
+                    {result && typeof result === 'object' && result.document && (
+                        <div className="tng-slide-in-up mx-auto w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
+                            <div className="mb-6 flex items-start justify-between border-b border-slate-100 pb-6">
                                 <div>
-                                    <p className="text-sm font-semibold uppercase tracking-wider text-[var(--tng-slate-500)]">
+                                    <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">
                                         Tracking Number
                                     </p>
-                                    <h3 className="mt-1 text-2xl font-bold text-[var(--tng-blue-600)]">{result.trackingNo}</h3>
-                                    <p className="mt-1 font-medium text-[var(--tng-slate-800)]">{result.title}</p>
+                                    <h3 className="mt-1 text-2xl font-bold text-[#0066cc]">
+                                        {result.document.tracking_number || result.document.reference_number}
+                                    </h3>
+                                    <p className="mt-1 font-medium text-slate-800">
+                                        {result.document.title}
+                                    </p>
                                 </div>
-                                <div className="rounded-full bg-blue-50 px-4 py-1.5 text-sm font-bold text-blue-700">
-                                    {result.status.toUpperCase()}
+                                <div className="rounded-full bg-blue-50 px-4 py-1.5 text-sm font-bold text-[#0066cc] border border-blue-200">
+                                    {(result.document.status || 'SUBMITTED').toUpperCase()}
                                 </div>
                             </div>
 
                             <div className="mb-8 grid grid-cols-2 gap-6">
                                 <div>
-                                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--tng-slate-500)]">
-                                        <MapPin className="h-4 w-4" /> Current Location
+                                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500">
+                                        <MapPin className="h-4 w-4 text-[#0066cc]" /> Current Office / Handler
                                     </p>
-                                    <p className="mt-1.5 font-medium text-[var(--tng-slate-900)]">{result.currentLocation}</p>
+                                    <p className="mt-1.5 font-medium text-slate-900">
+                                        {result.document.current_holder_department || result.document.department_name || 'Receiving Office'}
+                                    </p>
                                 </div>
                                 <div>
-                                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--tng-slate-500)]">
-                                        <Clock className="h-4 w-4" /> Date Filed
+                                    <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500">
+                                        <Clock className="h-4 w-4 text-[#0066cc]" /> Date Filed
                                     </p>
-                                    <p className="mt-1.5 font-medium text-[var(--tng-slate-900)]">{result.dateFiled}</p>
+                                    <p className="mt-1.5 font-medium text-slate-900">
+                                        {result.document.date_filed || result.document.created_at}
+                                    </p>
                                 </div>
                             </div>
 
                             <div>
-                                <p className="mb-4 text-xs font-semibold uppercase text-[var(--tng-slate-500)]">FSM Lifecycle Progress (External 7 Steps)</p>
+                                <p className="mb-4 text-xs font-semibold uppercase text-slate-500">
+                                    FSM Lifecycle Progress
+                                </p>
                                 <StepProgress
-                                    processType="external"
-                                    currentStep={result.stepProgress}
-                                    totalSteps={7}
-                                    submitterName="Public Submitter"
+                                    document={result.document}
+                                    auditTrails={result.auditTrail}
+                                    processType={result.document.is_internal ? 'internal_dept' : 'external'}
+                                    submitterName={result.document.submitter_name}
+                                    enableLiveSync={true}
                                 />
                             </div>
                         </div>

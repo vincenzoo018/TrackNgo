@@ -12,25 +12,47 @@ use Carbon\Carbon;
 class NotificationService
 {
     /**
-     * Trigger a document receipt notification immediately upon receiving/accepting.
+     * Trigger a document receipt notification immediately for receiver, role, or department.
      */
-    public static function triggerDocumentReceiptNotification(Document $document, User $receiver): SystemNotification
-    {
-        $doc = $document->loadMissing(['type', 'department', 'submitter', 'currentHolderDepartment']);
+    public static function triggerDocumentReceiptNotification(
+        Document $document, 
+        ?User $receiver = null, 
+        ?int $targetUserId = null, 
+        ?int $targetDeptId = null, 
+        ?string $targetRole = null, 
+        ?User $sender = null
+    ): SystemNotification {
+        $doc = $document->loadMissing(['type', 'department', 'submitter', 'currentHolderDepartment', 'currentHolder']);
 
         $refNo = $doc->reference_number ?: ('TNG-' . date('Y') . '-' . str_pad($doc->document_id, 4, '0', STR_PAD_LEFT));
         $docType = $doc->type->type_name ?? 'General Document';
-        $originatingDept = $doc->department->department_name ?? 'LGU Mati';
+        $originatingDept = $sender?->department?->department_name 
+            ?? $doc->department?->department_name 
+            ?? 'LGU Mati';
         $actionUrl = "/documents/{$doc->document_id}";
+
+        if ($targetUserId !== null || $receiver !== null) {
+            $userId = $targetUserId ?? $receiver?->id;
+            $role = null; // Targeted specifically to this user
+        } elseif (!empty($targetRole)) {
+            $userId = null; // Broadcast to all users in this role
+            $role = $targetRole;
+        } else {
+            $userId = $doc->current_holder_id;
+            $role = null;
+        }
+        $deptId = $targetDeptId ?? $receiver?->department_id ?? $doc->current_holder_department_id;
+
+        $senderName = $sender?->name ?? 'System';
 
         return SystemNotification::create([
             'document_id'            => $doc->document_id,
-            'user_id'                => $receiver->id,
-            'target_role'            => null,
-            'target_department_id'   => $receiver->department_id,
+            'user_id'                => $userId,
+            'target_role'            => $role,
+            'target_department_id'   => $deptId,
             'type'                   => 'receipt',
             'severity'               => 'normal',
-            'title'                  => 'New Document Received',
+            'title'                  => "New Document Received from {$senderName}",
             'reference_number'       => $refNo,
             'document_type'          => $docType,
             'originating_department' => $originatingDept,
@@ -122,12 +144,20 @@ class NotificationService
             ->limit(25);
 
         if (!in_array($userRole, ['admin', 'cart'])) {
-            $receiptQuery->where(function ($q) use ($user) {
-                if ($user->department_id) {
-                    $q->where('target_department_id', $user->department_id);
-                }
-                $q->orWhere('user_id', $user->id)
-                  ->orWhereNull('target_department_id');
+            $receiptQuery->where(function ($q) use ($user, $userRole) {
+                $q->where('user_id', $user->id)
+                  ->orWhere(function ($sub) use ($user) {
+                      $sub->whereNull('user_id');
+                      if ($user->department_id) {
+                          $sub->where('target_department_id', $user->department_id);
+                      }
+                  })
+                  ->orWhere(function ($sub) use ($user) {
+                      $sub->whereNull('user_id');
+                      if ($user->role?->role_name) {
+                          $sub->whereRaw('LOWER(target_role) = ?', [strtolower($user->role->role_name)]);
+                      }
+                  });
             });
         }
 
@@ -158,10 +188,16 @@ class NotificationService
             ];
         })->toArray();
 
-        // 4. Combine all items sorted by priority (escalated > overdue > warning > receipt)
-        $severityOrder = ['escalated' => 1, 'overdue' => 2, 'warning' => 3, 'normal' => 4];
-        $allItems = array_merge($deadlineItems, $receiptItems);
-        usort($allItems, function ($a, $b) use ($severityOrder) {
+        // 4. Combine all items: Unread receipts are top priority so receiver instantly sees incoming documents!
+        $allItems = array_merge($receiptItems, $deadlineItems);
+        usort($allItems, function ($a, $b) {
+            $aIsUnreadReceipt = ($a['type'] === 'receipt' && empty($a['is_read']));
+            $bIsUnreadReceipt = ($b['type'] === 'receipt' && empty($b['is_read']));
+            if ($aIsUnreadReceipt !== $bIsUnreadReceipt) {
+                return $aIsUnreadReceipt ? -1 : 1;
+            }
+
+            $severityOrder = ['escalated' => 1, 'overdue' => 2, 'warning' => 3, 'normal' => 4];
             $orderA = $severityOrder[$a['severity']] ?? 5;
             $orderB = $severityOrder[$b['severity']] ?? 5;
             if ($orderA === $orderB) {

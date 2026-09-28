@@ -15,8 +15,10 @@ class HrNotificationStrategy implements NotificationStrategyInterface
         return Document::with(['type', 'department', 'currentHolderDepartment', 'submitter'])
             ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived'])
             ->where(function ($q) use ($user) {
+                $q->where('current_holder_id', $user->id)
+                  ->orWhere('submitted_by', $user->id);
                 if ($user->department_id) {
-                    $q->where('department_id', $user->department_id)
+                    $q->orWhere('department_id', $user->department_id)
                       ->orWhere('current_holder_department_id', $user->department_id);
                 }
                 $q->orWhereHas('type', function ($tq) {

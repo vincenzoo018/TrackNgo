@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Search, Building2, User, Send } from 'lucide-react';
+import { Search, Building2, User, Send, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { BaseModal } from './BaseModal';
 
@@ -25,23 +25,37 @@ export function ForwardModal({
     defaultRemarks = ''
 }: ForwardModalProps) {
     const [search, setSearch] = useState('');
-    const [filter, setFilter] = useState<'all' | 'department' | 'user'>('all');
+    const [filter, setFilter] = useState<'all' | 'role' | 'user' | 'department'>('all');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [selectedType, setSelectedType] = useState<string | null>(null);
     const [remarks, setRemarks] = useState(defaultRemarks);
 
+    const systemRoles = [
+        { id: 'Mayor', name: 'Office of the Mayor (Mayor)', description: 'Hon. Michelle N. Rabat — Final Approval Authority' },
+        { id: 'Department Head', name: 'Department Head', description: 'Assigned Department Head — Review & Endorsement' },
+        { id: 'Receiving Clerk', name: 'Receiving Clerk', description: 'Document Receiving & Registration Desk (Juan Reyes)' },
+        { id: 'HR', name: 'Human Resource (HR)', description: 'City Human Resource Management Office (Ana Gonzales)' },
+        { id: 'CART', name: 'Anti-Red Tape Unit (CART)', description: 'Compliance & ARTA Monitoring Desk (Maria Santos)' },
+    ];
+
     const destinations = [
-        ...(departments || []).map(d => ({
-            id: d.department_id,
-            type: 'department',
-            name: d.department_name,
-            description: d.description || 'Department'
+        ...systemRoles.map(r => ({
+            id: r.id,
+            type: 'role',
+            name: r.name,
+            description: r.description
         })),
         ...(users || []).map(u => ({
             id: u.id,
             type: 'user',
             name: u.name,
-            description: `${u.role_name || 'Staff'} (${u.department_name || 'No Dept'})`
+            description: `${u.role_name || 'Staff'} • ${u.department_name || 'No Dept'}`
+        })),
+        ...(departments || []).map(d => ({
+            id: d.department_id,
+            type: 'department',
+            name: d.department_name,
+            description: d.description || 'Department Unit'
         }))
     ];
 
@@ -112,29 +126,39 @@ export function ForwardModal({
                         <button
                             type="button"
                             onClick={() => setFilter('all')}
-                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors", filter === 'all' ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors", filter === 'all' ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)] font-semibold" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                         >
                             All
                         </button>
                         <button
                             type="button"
-                            onClick={() => setFilter('department')}
-                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors", filter === 'department' ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                            onClick={() => setFilter('role')}
+                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5", filter === 'role' ? "bg-blue-100 text-blue-700 font-semibold" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                         >
-                            Departments
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Roles
                         </button>
                         <button
                             type="button"
                             onClick={() => setFilter('user')}
-                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors", filter === 'user' ? "bg-[var(--tng-blue-100)] text-[var(--tng-blue-700)]" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5", filter === 'user' ? "bg-purple-100 text-purple-700 font-semibold" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
                         >
+                            <User className="h-3.5 w-3.5" />
                             Personnel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFilter('department')}
+                            className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5", filter === 'department' ? "bg-emerald-100 text-emerald-700 font-semibold" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                        >
+                            <Building2 className="h-3.5 w-3.5" />
+                            Departments
                         </button>
                     </div>
                 </div>
 
                 {/* Destination List */}
-                <div className="space-y-2 border border-slate-200 rounded-xl overflow-hidden max-h-60 overflow-y-auto bg-slate-50 p-2">
+                <div className="space-y-2 border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto bg-slate-50 p-2">
                     {filteredDestinations.length === 0 ? (
                         <div className="p-8 text-center text-sm text-slate-500">
                             No recipients found.
@@ -146,7 +170,7 @@ export function ForwardModal({
                                 className={cn(
                                     "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
                                     selectedId === dest.id
-                                        ? "border-[var(--tng-blue-500)] bg-[var(--tng-blue-50)]"
+                                        ? "border-[var(--tng-blue-500)] bg-[var(--tng-blue-50)] shadow-sm"
                                         : "border-transparent bg-white hover:border-slate-200 hover:bg-slate-100"
                                 )}
                                 onClick={() => { setSelectedId(dest.id); setSelectedType(dest.type); }}
@@ -159,9 +183,25 @@ export function ForwardModal({
                                     className="mt-1 h-4 w-4 border-gray-300 text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
                                 />
                                 <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        {dest.type === 'department' ? <Building2 className="h-4 w-4 text-emerald-500" /> : <User className="h-4 w-4 text-purple-500" />}
-                                        <p className="text-sm font-semibold text-slate-900">{dest.name}</p>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            {dest.type === 'role' ? (
+                                                <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0" />
+                                            ) : dest.type === 'department' ? (
+                                                <Building2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                            ) : (
+                                                <User className="h-4 w-4 text-purple-600 shrink-0" />
+                                            )}
+                                            <p className="text-sm font-semibold text-slate-900">{dest.name}</p>
+                                        </div>
+                                        <span className={cn(
+                                            "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                                            dest.type === 'role' ? "bg-blue-100 text-blue-700" :
+                                            dest.type === 'department' ? "bg-emerald-100 text-emerald-700" :
+                                            "bg-purple-100 text-purple-700"
+                                        )}>
+                                            {dest.type}
+                                        </span>
                                     </div>
                                     <p className="mt-0.5 text-xs text-slate-500">{dest.description}</p>
                                 </div>

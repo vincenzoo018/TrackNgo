@@ -14,6 +14,74 @@ class DocumentWorkflowService
         protected AuditTrailServiceInterface $auditTrailService
     ) {}
 
+    /**
+     * Resolve target user, department, and role name based on destination type and id.
+     */
+    public function resolveRecipient(string $type, string|int $id, ?Document $document = null): array
+    {
+        $targetUserId = null;
+        $targetDeptId = null;
+        $targetRole = null;
+        $recipientName = 'Recipient';
+
+        if ($type === 'user') {
+            $user = User::with(['department', 'role'])->find($id);
+            if ($user) {
+                $targetUserId = $user->id;
+                $targetDeptId = $user->department_id;
+                $roleName = $user->role?->role_name;
+                $recipientName = $user->name . ($roleName ? " ({$roleName})" : '');
+                // For direct user dispatch, targetRole is left null so the notification is 1:1 and not broadcast to the whole role
+                $targetRole = null;
+            }
+        } elseif ($type === 'role') {
+            $role = is_numeric($id)
+                ? \App\Models\Role::find($id)
+                : \App\Models\Role::where('role_name', 'like', "%{$id}%")->first();
+
+            $targetRole = $role?->role_name ?? (string) $id;
+            
+            // Check if document has an associated department with a user matching this role (e.g. Dept Head of specific office)
+            $user = null;
+            if ($document && ($document->destination_department_id || $document->department_id)) {
+                $deptId = $document->destination_department_id ?? $document->department_id;
+                $user = User::where('department_id', $deptId)->where('role_id', $role?->role_id)->first();
+            }
+            if (!$user) {
+                $user = User::where('role_id', $role?->role_id)->first();
+            }
+
+            if ($user) {
+                $targetUserId = $user->id;
+                $targetDeptId = $user->department_id;
+                $recipientName = "Role: {$targetRole} ({$user->name})";
+            } else {
+                $recipientName = "Role: {$targetRole}";
+            }
+        } elseif ($type === 'department') {
+            $dept = Department::find($id);
+            if ($dept) {
+                $targetDeptId = $dept->department_id;
+                $recipientName = $dept->department_name;
+                
+                $deptUser = User::where('department_id', $dept->department_id)
+                    ->whereHas('role', fn($q) => $q->whereIn('role_name', ['Department Head', 'Mayor', 'Receiving Clerk', 'HR']))
+                    ->first() ?? User::where('department_id', $dept->department_id)->first();
+                    
+                if ($deptUser) {
+                    $targetUserId = $deptUser->id;
+                }
+            }
+        }
+
+        return [
+            'user_id'         => $targetUserId,
+            'department_id'   => $targetDeptId,
+            'role_name'       => $targetRole,
+            'display_name'    => $recipientName,
+        ];
+    }
+
     public function register(Document $document, array $params, User $actor, ?string $ip = null): Document
     {
         $trackingNumber = $document->tracking_number;
@@ -27,6 +95,14 @@ class DocumentWorkflowService
             $targetDeptId = (int) $params['target_department_id'];
         }
 
+        $targetUserId = !empty($params['to_user_id']) ? (int) $params['to_user_id'] : null;
+        if (!$targetUserId && $targetDeptId) {
+            $deptHead = User::where('department_id', $targetDeptId)
+                ->whereHas('role', fn($q) => $q->where('role_name', 'Department Head'))
+                ->first();
+            $targetUserId = $deptHead?->id;
+        }
+
         $stepIndex = 2;
         $newStatus = 'registered';
 
@@ -35,7 +111,7 @@ class DocumentWorkflowService
             'tracking_number'      => $trackingNumber,
             'from_user_id'         => $actor->id,
             'from_department_id'   => $actor->department_id ?? $document->current_holder_department_id,
-            'to_user_id'           => $params['to_user_id'] ?? null,
+            'to_user_id'           => $targetUserId,
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'register',
@@ -48,7 +124,7 @@ class DocumentWorkflowService
             'tracking_number'              => $trackingNumber,
             'status'                       => $newStatus,
             'current_holder_department_id' => $targetDeptId,
-            'current_holder_id'            => $params['to_user_id'] ?? null,
+            'current_holder_id'            => $targetUserId,
             'current_step_index'           => $stepIndex,
         ]);
 
@@ -62,21 +138,44 @@ class DocumentWorkflowService
             ipAddress: $ip
         );
 
-        \App\Services\NotificationService::triggerDocumentReceiptNotification($document, $actor);
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: $targetUserId,
+            targetDeptId: $targetDeptId,
+            targetRole: 'Department Head',
+            sender: $actor
+        );
 
         return $document;
     }
 
+    /**
+     * FSM step map (current_step_index is the source of truth rendered by StepProgress):
+     *  External (7):        1 Submitted (Clerk) → 2 Accepted (Dept Head) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → Mayor)
+     *                       → 5 Accepted (Mayor) → 6 Reviewed (Mayor) → 7 Forwarded to Receiving Clerk → Released
+     *  Internal Dept (6):   1 Submitted (Dept Head) → 2 Registered (Clerk) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → Mayor)
+     *                       → 5 Accepted (Mayor) → 6 Reviewed (Mayor) → Forward to Receiving Clerk → Released
+     *  Internal Mayor (6):  1 Submitted (Mayor) → 2 Registered (Clerk) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → next)
+     *                       → 5 Accepted (Dept Head) → 6 Reviewed (Dept) → Forward to Receiving Clerk → Released
+     */
     public function accept(Document $document, User $actor, ?string $ip = null): Document
     {
-        $stepIndex = $document->is_internal ? 5 : 2;
-        if (!$document->is_internal && $document->current_step_index >= 4) {
-            $stepIndex = 5;
+        $current = (int) $document->current_step_index;
+        if ($current >= 4) {
+            // Second-stage receiver (Mayor, or next Dept Head for mayor-origin) accepts the forwarded document
+            $stepIndex = max($current, 5);
+        } elseif ($document->is_internal) {
+            // Internal docs are already at "Registered"; acceptance by the Dept Head does not skip Review
+            $stepIndex = max($current, 2);
+        } else {
+            $stepIndex = 2;
         }
 
         $document->update([
-            'status'             => 'Accepted',
-            'current_step_index' => $stepIndex,
+            'status'                       => 'Accepted',
+            'current_holder_id'            => $actor->id,
+            'current_holder_department_id' => $actor->department_id ?? $document->current_holder_department_id,
+            'current_step_index'           => $stepIndex,
         ]);
 
         $this->auditTrailService->logDocumentAction(
@@ -87,17 +186,20 @@ class DocumentWorkflowService
             ipAddress: $ip
         );
 
-        \App\Services\NotificationService::triggerDocumentReceiptNotification($document, $actor);
+        if ($document->submitted_by && $document->submitted_by !== $actor->id) {
+            \App\Services\NotificationService::triggerDocumentReceiptNotification(
+                document: $document,
+                targetUserId: $document->submitted_by,
+                sender: $actor
+            );
+        }
 
         return $document;
     }
 
     public function review(Document $document, User $actor, ?string $ip = null): Document
     {
-        $stepIndex = 3;
-        if ($document->current_step_index >= 4) {
-            $stepIndex = 6;
-        }
+        $stepIndex = (int) $document->current_step_index >= 4 ? 6 : 3;
 
         $document->update([
             'status'             => 'Ongoing',
@@ -117,18 +219,21 @@ class DocumentWorkflowService
 
     public function endorse(Document $document, array $params, User $actor, ?string $ip = null): Document
     {
-        $isDept = ($params['destination_type'] ?? '') === 'department';
+        $destType = $params['destination_type'] ?? 'department';
         $destinationId = $params['destination_id'];
         $remarks = $params['remarks'] ?? null;
 
-        $targetDeptId = $isDept ? $destinationId : User::find($destinationId)?->department_id;
-        $targetUserId = $isDept ? null : $destinationId;
+        $recipient = $this->resolveRecipient($destType, $destinationId, $document);
+        $targetUserId = $recipient['user_id'];
+        $targetDeptId = $recipient['department_id'];
+        $targetRole = $recipient['role_name'];
+        $destName = $recipient['display_name'];
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
             'tracking_number'      => $document->tracking_number,
             'from_user_id'         => $actor->id,
-            'from_department_id'   => $document->current_holder_department_id,
+            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
             'to_user_id'           => $targetUserId,
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
@@ -138,16 +243,15 @@ class DocumentWorkflowService
             'date_received'        => now(),
         ]);
 
+        // Forwarding moves the doc to step 4; a later re-endorsement never rewinds the FSM
+        $stepIndex = max((int) $document->current_step_index, 4);
+
         $document->update([
             'status'                       => 'Sent',
             'current_holder_department_id' => $targetDeptId,
             'current_holder_id'            => $targetUserId,
-            'current_step_index'           => 4,
+            'current_step_index'           => $stepIndex,
         ]);
-
-        $destName = $isDept
-            ? Department::find($destinationId)?->department_name
-            : User::find($destinationId)?->name;
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
@@ -155,6 +259,14 @@ class DocumentWorkflowService
             description: "Document endorsed to {$destName}" . ($remarks ? ": {$remarks}" : ''),
             actor: $actor,
             ipAddress: $ip
+        );
+
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: ($destType === 'role' ? null : $targetUserId),
+            targetDeptId: $targetDeptId,
+            targetRole: $targetRole,
+            sender: $actor
         );
 
         return $document;
@@ -198,15 +310,16 @@ class DocumentWorkflowService
 
     public function approveAndRouteToReceiving(Document $document, User $actor, ?string $ip = null): Document
     {
-        $receivingDept = Department::where('department_name', 'like', '%Receiving%')->orWhere('code', 'REC')->first();
-        $destDeptId = $receivingDept ? $receivingDept->department_id : 1;
+        $clerkUser = User::whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))->first();
+        $destDeptId = $clerkUser?->department_id ?? 2;
+        $destUserId = $clerkUser?->id ?? 5;
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
             'tracking_number'      => $document->tracking_number,
             'from_user_id'         => $actor->id,
-            'from_department_id'   => $document->current_holder_department_id,
-            'to_user_id'           => null,
+            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
+            'to_user_id'           => $destUserId,
             'target_department_id' => $destDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'forward',
@@ -215,11 +328,13 @@ class DocumentWorkflowService
             'date_received'        => now(),
         ]);
 
-        $stepIndex = $document->is_internal ? 5 : 6;
+        // External: step 7 "Forwarded to Receiving Clerk" (released on clerk release).
+        // Internal: stays on final step 6 until the clerk releases it.
+        $stepIndex = $document->is_internal ? 6 : 7;
         $document->update([
             'status'                       => 'approved',
             'current_holder_department_id' => $destDeptId,
-            'current_holder_id'            => null,
+            'current_holder_id'            => $destUserId,
             'current_step_index'           => $stepIndex,
         ]);
 
@@ -231,12 +346,20 @@ class DocumentWorkflowService
             ipAddress: $ip
         );
 
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: $destUserId,
+            targetDeptId: $destDeptId,
+            targetRole: 'Receiving Clerk',
+            sender: $actor
+        );
+
         return $document;
     }
 
     public function releaseToApplicant(Document $document, User $actor, ?string $ip = null): Document
     {
-        $stepIndex = $document->is_internal ? 6 : 7;
+        $stepIndex = $document->total_steps ?: ($document->is_internal ? 6 : 7);
         $document->update([
             'status'                       => 'completed',
             'completed_at'                 => now(),
@@ -277,20 +400,23 @@ class DocumentWorkflowService
     public function returnDocument(Document $document, string $reason, User $actor, ?string $ip = null): Document
     {
         $targetHolderId = $document->submitted_by ?? $document->current_holder_id;
+        $targetHolder = $targetHolderId ? User::find($targetHolderId) : null;
+        $targetDeptId = $targetHolder?->department_id ?? $document->department_id;
 
         $document->update([
-            'status'            => 'Returned',
-            'return_reason'     => $reason,
-            'current_holder_id' => $targetHolderId,
+            'status'                       => 'Returned',
+            'return_reason'                => $reason,
+            'current_holder_id'            => $targetHolderId,
+            'current_holder_department_id' => $targetDeptId,
         ]);
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
             'tracking_number'      => $document->tracking_number ?: ('RS-RET-' . $document->reference_number),
             'from_user_id'         => $actor->id,
-            'from_department_id'   => $document->current_holder_department_id,
+            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
             'to_user_id'           => $targetHolderId,
-            'target_department_id' => $document->department_id,
+            'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'return',
             'instruction'          => "Returned: {$reason}",
@@ -306,6 +432,14 @@ class DocumentWorkflowService
             ipAddress: $ip
         );
 
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: $targetHolderId,
+            targetDeptId: $targetDeptId,
+            targetRole: $targetHolder?->role?->role_name,
+            sender: $actor
+        );
+
         return $document;
     }
 
@@ -315,11 +449,18 @@ class DocumentWorkflowService
         $destUserId = $params['forward_to_user'] ?? null;
         $instruction = $params['instruction'] ?? null;
 
+        if (!$destUserId && $destDeptId) {
+            $destHead = User::where('department_id', $destDeptId)
+                ->whereHas('role', fn($q) => $q->where('role_name', 'Department Head'))
+                ->first();
+            $destUserId = $destHead?->id;
+        }
+
         RoutingSlip::create([
             'document_id'          => $document->document_id,
             'tracking_number'      => $document->tracking_number,
             'from_user_id'         => $actor->id,
-            'from_department_id'   => $document->current_holder_department_id,
+            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
             'to_user_id'           => $destUserId,
             'target_department_id' => $destDeptId,
             'sender_name'          => $actor->name,
@@ -333,6 +474,7 @@ class DocumentWorkflowService
             'current_holder_department_id' => $destDeptId,
             'current_holder_id'            => $destUserId,
             'status'                       => 'Ongoing',
+            'current_step_index'           => max((int) $document->current_step_index, 4),
         ]);
 
         $deptName = Department::find($destDeptId)?->department_name ?? 'destination';
@@ -342,6 +484,14 @@ class DocumentWorkflowService
             description: "Document forwarded to {$deptName}" . ($instruction ? ": {$instruction}" : ''),
             actor: $actor,
             ipAddress: $ip
+        );
+
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: $destUserId,
+            targetDeptId: $destDeptId,
+            targetRole: 'Department Head',
+            sender: $actor
         );
 
         return $document;

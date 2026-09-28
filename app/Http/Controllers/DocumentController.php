@@ -45,7 +45,17 @@ class DocumentController extends Controller
             ], 201);
         }
 
-        return redirect()->back()->with('success', 'Document submitted successfully. Tracking: ' . $document->tracking_number);
+        $document->loadMissing(['currentHolder', 'currentHolderDepartment']);
+
+        return redirect()->back()
+            ->with('success', 'Document submitted successfully. Tracking: ' . $document->tracking_number)
+            ->with('created_document', [
+                'document_id'      => $document->document_id,
+                'reference_number' => $document->reference_number,
+                'tracking_number'  => $document->tracking_number,
+                'recipient_name'   => $document->currentHolder?->name,
+                'recipient_office' => $document->currentHolderDepartment?->department_name,
+            ]);
     }
 
     public function register(Request $request, $id)
@@ -95,7 +105,7 @@ class DocumentController extends Controller
     public function endorse(Request $request, $id)
     {
         $request->validate([
-            'destination_type' => 'required|in:department,user',
+            'destination_type' => 'required|in:department,user,role',
             'destination_id'   => 'required',
             'remarks'          => 'nullable|string',
         ]);
@@ -211,8 +221,10 @@ class DocumentController extends Controller
     public function addAttachment(Request $request, $id)
     {
         $request->validate([
-            'file'        => 'required|file|max:10240',
+            'file'        => 'required|file|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
             'description' => 'required|string',
+        ], [
+            'file.uploaded' => 'The file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
         ]);
 
         $actor = $request->user() ?: auth()->user();
@@ -302,7 +314,13 @@ class DocumentController extends Controller
 
     public function getTimelineSync(Request $request, $id): JsonResponse
     {
-        $document = Document::findOrFail($id);
+        $document = Document::with([
+            'submitter.role',
+            'department',
+            'currentHolder.role',
+            'currentHolderDepartment',
+            'destinationDepartment'
+        ])->findOrFail($id);
 
         $auditTrail = \App\Models\AuditTrail::with(['user.role'])
             ->where('document_id', $id)
@@ -327,12 +345,84 @@ class DocumentController extends Controller
             ->get();
 
         return response()->json([
+            'document' => [
+                'document_id'                  => $document->document_id,
+                'reference_number'             => $document->reference_number,
+                'tracking_number'              => $document->tracking_number,
+                'title'                        => $document->title,
+                'status'                       => $document->status,
+                'current_step_index'           => $document->current_step_index,
+                'total_steps'                  => $document->total_steps,
+                'is_internal'                  => (bool) $document->is_internal,
+                'is_escalated'                 => (bool) $document->is_escalated,
+                'return_reason'                => $document->return_reason,
+                'submitted_by'                 => $document->submitted_by,
+                'submitted_by_name'            => $document->submitter?->name,
+                'department_id'                => $document->department_id,
+                'department_name'              => $document->department?->department_name,
+                'current_holder_id'            => $document->current_holder_id,
+                'current_holder_name'          => $document->currentHolder?->name,
+                'current_holder_role'          => $document->currentHolder?->role?->role_name,
+                'current_holder_department_id' => $document->current_holder_department_id,
+                'current_holder_department_name' => $document->currentHolderDepartment?->department_name,
+                'destination_department_id'    => $document->destination_department_id,
+                'destination_department_name'  => $document->destinationDepartment?->department_name,
+                'date_filed'                   => $document->date_filed?->toISOString(),
+                'created_at'                   => $document->created_at?->toISOString(),
+                'updated_at'                   => $document->updated_at?->toISOString(),
+                'completed_at'                 => $document->completed_at?->toISOString(),
+            ],
             'status'             => $document->status,
             'return_reason'      => $document->return_reason,
             'current_step_index' => $document->current_step_index,
             'auditTrail'         => $auditTrail,
             'comments'           => $comments,
             'attachments'        => $attachments,
+        ]);
+    }
+
+    public function trackPublicDocument(Request $request, $trackingNumber): JsonResponse
+    {
+        $trackingNumber = trim($trackingNumber);
+        $document = Document::with([
+            'submitter.role',
+            'department',
+            'destinationDepartment',
+            'currentHolderDepartment',
+            'currentHolder.role'
+        ])
+            ->where('tracking_number', $trackingNumber)
+            ->orWhere('reference_number', $trackingNumber)
+            ->first();
+
+        if (!$document) {
+            return response()->json(['message' => 'Document not found'], 404);
+        }
+
+        $auditTrail = \App\Models\AuditTrail::with(['user.role'])
+            ->where('document_id', $document->document_id)
+            ->orderBy('timestamp', 'desc')
+            ->get();
+
+        return response()->json([
+            'document' => [
+                'document_id'                  => $document->document_id,
+                'reference_number'             => $document->reference_number,
+                'tracking_number'              => $document->tracking_number,
+                'title'                        => $document->title,
+                'status'                       => $document->status,
+                'current_step_index'           => $document->current_step_index,
+                'total_steps'                  => $document->total_steps,
+                'is_internal'                  => (bool) $document->is_internal,
+                'is_escalated'                 => (bool) $document->is_escalated,
+                'date_filed'                   => $document->date_filed?->format('F d, Y'),
+                'created_at'                   => $document->created_at?->format('F d, Y h:i A'),
+                'submitter_name'               => $document->submitter?->name ?? $document->sender ?? 'Public Submitter',
+                'department_name'              => $document->department?->department_name,
+                'current_holder_department'    => $document->currentHolderDepartment?->department_name ?? 'Receiving Office',
+                'current_holder_name'          => $document->currentHolder?->name,
+            ],
+            'auditTrail' => $auditTrail,
         ]);
     }
 }

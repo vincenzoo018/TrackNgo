@@ -1,6 +1,6 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, ArrowUp, ArrowDown, X, FileText, Inbox, Clock, Send, RotateCcw, Archive } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
@@ -12,6 +12,7 @@ import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import { StatCard } from '@/components/trackngo/StatCard';
 import { cn } from '@/lib/utils';
+import CreateDocumentModal from '@/components/trackngo/CreateDocumentModal';
 
 export default function AdminDocumentsIndex() {
     const { props } = usePage();
@@ -28,7 +29,30 @@ export default function AdminDocumentsIndex() {
     const [filterStatus, setFilterStatus] = useState('');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    // Real-time auto sync: reload dbDocuments when document is received or sent, and poll every 4s
+    useEffect(() => {
+        const handleDocUpdate = () => {
+            router.reload({ only: ['dbDocuments'], preserveScroll: true, preserveState: true });
+        };
+
+        window.addEventListener('tng:document-received', handleDocUpdate);
+        window.addEventListener('tng:document-sent', handleDocUpdate);
+        window.addEventListener('tng:fsm-refresh', handleDocUpdate);
+
+        const interval = setInterval(() => {
+            router.reload({ only: ['dbDocuments'], preserveScroll: true, preserveState: true });
+        }, 4000);
+
+        return () => {
+            window.removeEventListener('tng:document-received', handleDocUpdate);
+            window.removeEventListener('tng:document-sent', handleDocUpdate);
+            window.removeEventListener('tng:fsm-refresh', handleDocUpdate);
+            clearInterval(interval);
+        };
+    }, []);
 
     // Pagination state (default: 20 per page, expandable to 50, 100)
     const [currentPage, setCurrentPage] = useState(1);
@@ -143,13 +167,14 @@ export default function AdminDocumentsIndex() {
                             <ScanLine className="h-4 w-4 text-slate-600" />
                             OCR Scan
                         </button>
-                        <Link
-                            href="/admin/documents/create"
-                            className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] hover:shadow-sm"
+                        <button
+                            type="button"
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] hover:shadow-sm active:scale-98"
                         >
                             <Plus className="h-4 w-4 text-white" />
                             Submit New Document
-                        </Link>
+                        </button>
                     </div>
                 </div>
 
@@ -437,6 +462,14 @@ export default function AdminDocumentsIndex() {
                 onClose={() => setExportModalOpen(false)}
                 documentId={filteredDocs[0]?.document_id ?? 'all'}
                 onSuccess={(msg) => setToastMessage(msg)}
+            />
+
+            <CreateDocumentModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                departments={departments}
+                documentTypes={documentTypes}
+                users={(props.dbUsers || []) as any[]}
             />
         </TrackngoLayout>
     );

@@ -1,8 +1,9 @@
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { Search, ScanLine, Plus, Download, Lock, QrCode, Eye, CheckCircle2, FileSignature, CheckSquare, FileText, ArrowUp, ArrowDown, X, Inbox, Clock, Send, RotateCcw } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
+import { isCurrentHolder } from '@/lib/document-holder';
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { StepDots } from '@/components/trackngo/StepProgress';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
@@ -23,6 +24,18 @@ export default function MayorFinalApproval() {
     const users = (props.dbUsers || []) as any[];
 
     type MayorTab = 'all' | 'for_approval' | 'approved' | 'returned';
+    const authUser = (props.auth as any)?.user;
+
+    // "For Approval" = active documents actually endorsed to the Mayor (Mayor is the current holder).
+    // Anything still with a Department Head is "Waiting to be routed" and has no Mayor actions yet.
+    const isForMayorApproval = (doc: any) => {
+        const s = (doc.status || '').toLowerCase();
+        return isCurrentHolder(doc, authUser) && !['approved', 'completed', 'archived', 'returned'].includes(s);
+    };
+    const isWaitingToBeRouted = (doc: any) =>
+        !isCurrentHolder(doc, authUser) && (doc.current_step_index || 1) < 4 &&
+        String(doc.submitted_by) !== String(authUser?.id) &&
+        !['approved', 'completed', 'archived', 'returned'].includes((doc.status || '').toLowerCase());
     const [activeTab, setActiveTab] = useState<MayorTab>('all');
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +52,28 @@ export default function MayorFinalApproval() {
     const [filterStatus, setFilterStatus] = useState('');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [exportModalOpen, setExportModalOpen] = useState(false);
+
+    // Real-time auto sync: reload dbDocuments when document is received or sent, and poll every 4s
+    useEffect(() => {
+        const handleDocUpdate = () => {
+            router.reload({ only: ['dbDocuments'] });
+        };
+
+        window.addEventListener('tng:document-received', handleDocUpdate);
+        window.addEventListener('tng:document-sent', handleDocUpdate);
+        window.addEventListener('tng:fsm-refresh', handleDocUpdate);
+
+        const interval = setInterval(() => {
+            router.reload({ only: ['dbDocuments'] });
+        }, 4000);
+
+        return () => {
+            window.removeEventListener('tng:document-received', handleDocUpdate);
+            window.removeEventListener('tng:document-sent', handleDocUpdate);
+            window.removeEventListener('tng:fsm-refresh', handleDocUpdate);
+            clearInterval(interval);
+        };
+    }, []);
 
     // Dynamic document list based on active tab
     const documents = useMemo(() => {
@@ -60,7 +95,7 @@ export default function MayorFinalApproval() {
         let returned = 0;
         rawDocuments.forEach((doc: any) => {
             const s = (doc.status || '').toLowerCase();
-            if (s === 'endorsed' || s === 'in_review' || s === 'pending_approval' || s === 'pending' || s === 'ongoing') {
+            if (isForMayorApproval(doc)) {
                 forApproval++;
             } else if (s === 'approved' || s === 'completed') {
                 approved++;
@@ -98,7 +133,7 @@ export default function MayorFinalApproval() {
             
             // Mayor Tab filtering logic: All, For Approval, Approved, Returned
             if (activeTab === 'for_approval') {
-                if (!(rawStatus === 'endorsed' || rawStatus === 'in_review' || rawStatus === 'pending_approval' || rawStatus === 'pending' || rawStatus === 'ongoing')) {
+                if (!isForMayorApproval(doc)) {
                     return false;
                 }
             } else if (activeTab === 'approved') {
@@ -159,11 +194,48 @@ export default function MayorFinalApproval() {
         setSelectedDocs(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
     };
 
-    const handleBulkEndorse = (destinationId: string, remarks: string) => {
-        setToastMessage(`Successfully endorsed ${selectedDocs.length} documents!`);
+    const handleBulkEndorse = async (destTypeOrId: string, destIdOrRem: string, possibleRem?: string) => {
+        let destType = 'department';
+        let destId = destTypeOrId;
+        let remarks = destIdOrRem;
+
+        if (possibleRem !== undefined) {
+            destType = destTypeOrId;
+            destId = destIdOrRem;
+            remarks = possibleRem;
+        }
+
+        if (selectedDocs.length === 0) return;
         setForwardModalOpen(false);
-        setSelectedDocs([]);
-        setTimeout(() => setToastMessage(null), 3000);
+        setToastMessage(`Endorsing ${selectedDocs.length} documents...`);
+
+        try {
+            await Promise.all(
+                selectedDocs.map(id => 
+                    fetch(`/mayor/documents/${id}/endorse`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            destination_type: destType,
+                            destination_id: destId,
+                            remarks: remarks,
+                        }),
+                    })
+                )
+            );
+            setToastMessage(`Successfully endorsed ${selectedDocs.length} documents!`);
+            setSelectedDocs([]);
+            router.reload({ only: ['dbDocuments'] });
+            window.dispatchEvent(new CustomEvent('tng:document-sent'));
+            window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+        } catch (e) {
+            setToastMessage('Error endorsing documents.');
+        }
+        setTimeout(() => setToastMessage(null), 3500);
     };
 
     const clearFilters = () => {
@@ -435,6 +507,9 @@ export default function MayorFinalApproval() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <SeverityPill status={doc.status} />
+                                            {isWaitingToBeRouted(doc) && (
+                                                <span className="mt-1 block text-[11px] font-medium text-amber-700">Waiting to be routed</span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3">
                                             <ArtaBadge daysLeft={doc.arta_days_left ?? 3} threshold={doc.type?.arta_processing_days ?? 3} />
@@ -501,8 +576,8 @@ export default function MayorFinalApproval() {
             <ForwardModal
                 open={forwardModalOpen}
                 onClose={() => setForwardModalOpen(false)}
-                onForward={handleBulkEndorse}
-                onConfirm={(_type, destId, rem) => handleBulkEndorse(destId, rem)}
+                onForward={(destId, rem) => handleBulkEndorse('department', destId, rem)}
+                onConfirm={(type, destId, rem) => handleBulkEndorse(type, destId, rem)}
                 departments={departments}
                 users={users}
                 defaultRemarks="Digitally signed and approved by the Mayor's Office."

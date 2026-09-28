@@ -19,6 +19,8 @@ import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
 import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
 import { getStandardizedStatus } from '@/lib/status-helper';
+import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
+import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
 import { cn } from '@/lib/utils';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
@@ -107,6 +109,8 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
             onSuccess: () => {
                 setForwardModalOpen(false);
                 setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document endorsed successfully.' });
+                window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                window.dispatchEvent(new CustomEvent('tng:document-sent'));
             }
         });
     };
@@ -181,6 +185,7 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
             preserveState: true,
             preserveScroll: true,
             onSuccess: () => {
+                window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
                 setIsActionLoading(false);
                 setSuccessState({ isOpen: true, title: 'Review Active', message: 'Document marked as Ongoing review.' });
             },
@@ -199,14 +204,33 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document received and accepted successfully.' });
                 },
                 onError: () => setIsActionLoading(false)
             });
+        } else if (confirmState.action === 'route_to_receiving') {
+            router.post(`/department-head/documents/${doc.document_id}/approve-route`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document forwarded to the Receiving Clerk for release.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
         }
     };
+
+    // Only the current holder (or their office when unassigned) can act; once forwarded, the panel is read-only
+    const isHolder = isCurrentHolder(doc, auth?.user);
+    // Mayor-origin internal docs end with the Dept Head forwarding to the Receiving Clerk (step 6)
+    const canRouteToReceiving = Boolean(doc.is_internal) && (doc.current_step_index || 0) >= 6;
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -521,6 +545,17 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                             <div className="space-y-3">
                                 {(() => {
                                     const std = getStandardizedStatus(doc.status);
+                                    if (std !== 'Returned' && !isClosedStatus(doc.status) && !isHolder) {
+                                        const awaitingRegistration = Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1;
+                                        return (
+                                            <HolderStatusCard
+                                                variant={awaitingRegistration ? 'sent' : 'forwarded'}
+                                                title={awaitingRegistration ? 'Sent' : 'Forwarded'}
+                                                holder={describeHolder(doc, users)}
+                                                message={awaitingRegistration ? 'Awaiting registration by the Receiving Clerk.' : undefined}
+                                            />
+                                        );
+                                    }
                                     if (std === 'Sent' || doc.status === 'submitted' || doc.status === 'registered') {
                                         return (
                                             <>
@@ -562,10 +597,20 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                                     if (std === 'Ongoing' || doc.status === 'reviewed') {
                                         return (
                                             <>
-                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]">
-                                                    <Forward className="h-4 w-4" />
-                                                    Endorse to Mayor
-                                                </button>
+                                                {canRouteToReceiving ? (
+                                                    <button
+                                                        onClick={() => requestAction('route_to_receiving', 'Forward to Receiving Clerk', 'Forward this reviewed document to the Receiving Clerk for release?', 'Forward')}
+                                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]"
+                                                    >
+                                                        <Send className="h-4 w-4" />
+                                                        Forward to Receiving Clerk
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]">
+                                                        <Forward className="h-4 w-4" />
+                                                        {(doc.current_step_index || 0) >= 4 ? 'Forward / Endorse' : 'Endorse to Mayor'}
+                                                    </button>
+                                                )}
                                                 <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document

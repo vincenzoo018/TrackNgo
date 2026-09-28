@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, AlertTriangle, AlertCircle, User, ShieldAlert } from 'lucide-react';
+import { Check, AlertTriangle, AlertCircle, User, ShieldAlert, Radio } from 'lucide-react';
 import {
     EXTERNAL_7_STEPS,
     INTERNAL_DEPT_6_STEPS,
@@ -22,6 +22,8 @@ export type StepProgressProps = {
     className?: string;
     showProcessBadge?: boolean;
     allowProcessSwitch?: boolean;
+    enableLiveSync?: boolean;
+    onDocumentUpdate?: (updatedDoc: any) => void;
 };
 
 /**
@@ -48,6 +50,13 @@ function resolveCurrentStep(doc: any, processType: FsmProcessType, fallbackStep?
     }
 
     const rawStatus = (doc?.status || '').toLowerCase().trim();
+
+    // The backend FSM (DocumentWorkflowService) owns current_step_index; status strings are ambiguous
+    // (e.g. "Sent" is used both at Submitted and Forwarded), so only fall back to them when no index exists.
+    const dbStep = Number(doc?.current_step_index);
+    if (Number.isFinite(dbStep) && dbStep > 0) {
+        return dbStep;
+    }
 
     if (processType === 'external') {
         // 7 Steps: 1. Submitted -> 2. Accepted (Dept) -> 3. Reviewed (Dept) -> 4. Forwarded -> 5. Accepted (Mayor) -> 6. Reviewed (Mayor) -> 7. Released
@@ -94,8 +103,27 @@ function resolveCurrentStep(doc: any, processType: FsmProcessType, fallbackStep?
     }
 }
 
+/**
+ * Cleanly format database timestamp into readable string
+ */
+function formatDbTimestamp(ts?: string | null): string | null {
+    if (!ts) return null;
+    try {
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return null;
+        return d.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch {
+        return null;
+    }
+}
+
 export function StepProgress({
-    document: doc,
+    document: initialDoc,
     currentStep,
     totalSteps,
     processType: propProcessType,
@@ -103,11 +131,105 @@ export function StepProgress({
     submitterName,
     currentHolderName,
     isSlaBreached: propIsSlaBreached,
-    auditTrails = [],
+    auditTrails: initialAuditTrails = [],
     className,
     showProcessBadge = true,
     allowProcessSwitch = false,
+    enableLiveSync = true,
+    onDocumentUpdate,
 }: StepProgressProps) {
+    // ── Live Real-Time Integration State ──────────────────────────────
+    const [doc, setDoc] = useState<any>(initialDoc);
+    const [auditTrails, setAuditTrails] = useState<any[]>(initialAuditTrails);
+    const [isLiveActive, setIsLiveActive] = useState(false);
+    const lastSyncRef = useRef<number>(Date.now());
+
+    useEffect(() => {
+        setDoc(initialDoc);
+    }, [initialDoc]);
+
+    useEffect(() => {
+        setAuditTrails(initialAuditTrails);
+    }, [initialAuditTrails]);
+
+    // Live background polling & custom action event listener
+    useEffect(() => {
+        const docId = doc?.document_id || initialDoc?.document_id;
+        if (!docId || !enableLiveSync) return;
+
+        let isMounted = true;
+
+        const syncFromDatabase = async () => {
+            try {
+                const res = await fetch(`/documents/${docId}/timeline-sync`, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!res.ok || !isMounted) return;
+
+                const data = await res.json();
+                if (!data || !isMounted) return;
+
+                setIsLiveActive(true);
+                lastSyncRef.current = Date.now();
+
+                // Check for live updates
+                if (data.document) {
+                    setDoc((prev: any) => {
+                        const hasChanged =
+                            !prev ||
+                            prev.status !== data.document.status ||
+                            prev.current_step_index !== data.document.current_step_index ||
+                            prev.updated_at !== data.document.updated_at ||
+                            prev.current_holder_id !== data.document.current_holder_id;
+
+                        if (hasChanged) {
+                            onDocumentUpdate?.(data.document);
+                            return { ...prev, ...data.document };
+                        }
+                        return prev;
+                    });
+                } else if (data.status) {
+                    setDoc((prev: any) => {
+                        if (!prev || prev.status !== data.status || prev.current_step_index !== data.current_step_index) {
+                            const updated = {
+                                ...prev,
+                                status: data.status,
+                                current_step_index: data.current_step_index,
+                                return_reason: data.return_reason,
+                            };
+                            onDocumentUpdate?.(updated);
+                            return updated;
+                        }
+                        return prev;
+                    });
+                }
+
+                if (Array.isArray(data.auditTrail)) {
+                    setAuditTrails(data.auditTrail);
+                }
+            } catch (err) {
+                // Background network error, continue silently
+            }
+        };
+
+        // Real-time polling every 3 seconds for instant updates without page refresh
+        const interval = setInterval(syncFromDatabase, 3000);
+
+        // Immediate sync listener for custom frontend events (triggered immediately upon action submit)
+        const handleCustomRefresh = () => {
+            syncFromDatabase();
+        };
+        window.addEventListener('tng:fsm-refresh', handleCustomRefresh);
+        window.addEventListener('tng:document-updated', handleCustomRefresh);
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+            window.removeEventListener('tng:fsm-refresh', handleCustomRefresh);
+            window.removeEventListener('tng:document-updated', handleCustomRefresh);
+        };
+    }, [doc?.document_id, initialDoc?.document_id, enableLiveSync, onDocumentUpdate]);
+
     // 1. Determine whether internal or external
     const isInternal = propIsInternal !== undefined
         ? propIsInternal
@@ -132,9 +254,13 @@ export function StepProgress({
 
     // 4. Resolve current step
     const effectiveStep = resolveCurrentStep(doc, activeProcessType, currentStep);
-    const clampedStep = Math.max(1, Math.min(effectiveStep, steps.length));
+    // Released documents show every stage as completed (clampedStep past the last step)
+    const isReleased = ['completed', 'released', 'archived'].includes((doc?.status || '').toLowerCase());
+    const clampedStep = isReleased
+        ? steps.length + 1
+        : Math.max(1, Math.min(effectiveStep, steps.length));
 
-    // 5. Determine SLA breach
+    // 5. Determine SLA breach (red indicator)
     const isSlaBreached = propIsSlaBreached !== undefined
         ? propIsSlaBreached
         : Boolean(
@@ -145,7 +271,9 @@ export function StepProgress({
         );
 
     // 6. Submitter / Uploader name for Step 1
+    // GENERAL RULE: Always display the authenticated user who uploaded the document directly below the “Submitted” label.
     const uploaderName = submitterName ??
+        doc?.submitter_name ??
         doc?.submitter?.name ??
         doc?.submitted_by_name ??
         doc?.sender ??
@@ -154,11 +282,16 @@ export function StepProgress({
             : null) ??
         'Authenticated User';
 
-    const currentHolder = currentHolderName ?? doc?.current_holder?.name ?? doc?.currentHolder?.name;
+    const currentHolder = currentHolderName ??
+        doc?.current_holder_name ??
+        doc?.current_holder?.name ??
+        doc?.currentHolder?.name ??
+        doc?.current_holder_department_name ??
+        doc?.current_holder_department?.department_name;
 
     return (
         <div className={cn('w-full flex flex-col gap-3', className)}>
-            {/* Header with Process Badge & Optional Process Switcher */}
+            {/* Header with Process Badge & Live Real-Time Integration Indicator */}
             {showProcessBadge && (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-2">
@@ -180,6 +313,17 @@ export function StepProgress({
                                 </>
                             )}
                         </span>
+
+                        {/* Live Database Sync Indicator */}
+                        {enableLiveSync && doc?.document_id && (
+                            <span
+                                className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-medium text-emerald-700 select-none"
+                                title="Live Integration: Real-time database sync active without page refresh"
+                            >
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                <span>Live DB Sync</span>
+                            </span>
+                        )}
 
                         {isSlaBreached && (
                             <span className="inline-flex items-center gap-1 rounded-md bg-red-50 border border-red-200 px-2.5 py-1 text-[12px] font-semibold text-red-700 animate-pulse">
@@ -235,30 +379,69 @@ export function StepProgress({
 
             {/* FSM Visualizer Pipeline */}
             <div className="w-full overflow-x-auto py-2">
-                <div className="flex items-start min-w-[720px] sm:min-w-full px-2">
+                <div className="flex items-start min-w-[760px] sm:min-w-full px-2">
                     {steps.map((step, idx) => {
                         const stepNum = idx + 1;
                         const isCompleted = stepNum < clampedStep;
                         const isCurrent = stepNum === clampedStep;
                         const isPending = stepNum > clampedStep;
 
-                        // Match actor name from audit trail if available
+                        // ⚙️ Database Binding: Match database action, handler user_id, handler_role, timestamp
                         const matchingAudit = auditTrails
                             .slice()
                             .reverse()
                             .find(
                                 (a) =>
                                     (a.action || '').toLowerCase().includes(step.label.toLowerCase()) ||
-                                    (a.action || '').toLowerCase().includes((step.role || '').toLowerCase())
+                                    (a.action || '').toLowerCase().includes((step.role || '').toLowerCase()) ||
+                                    (stepNum === 1 && (a.action || '').toLowerCase() === 'submit') ||
+                                    (stepNum === 2 && ((a.action || '').toLowerCase() === 'register' || (a.action || '').toLowerCase() === 'accepted')) ||
+                                    (stepNum === 3 && (a.action || '').toLowerCase() === 'review') ||
+                                    (stepNum === 4 && ((a.action || '').toLowerCase() === 'forward' || (a.action || '').toLowerCase() === 'endorse')) ||
+                                    (stepNum === 5 && (a.action || '').toLowerCase() === 'accepted') ||
+                                    (stepNum === 6 && ((a.action || '').toLowerCase() === 'approve' || (a.action || '').toLowerCase() === 'review')) ||
+                                    (stepNum === steps.length && (a.action || '').toLowerCase() === 'release')
                             );
+
                         const auditActor =
                             matchingAudit?.user?.name || matchingAudit?.user_name || matchingAudit?.user;
+                        const auditUserId = matchingAudit?.user_id;
+                        const auditRole = matchingAudit?.user_role || step.role;
+
+                        // Database bound timestamp
+                        const stageTimestamp =
+                            stepNum === 1
+                                ? doc?.date_filed || doc?.created_at || matchingAudit?.timestamp
+                                : isCompleted
+                                ? matchingAudit?.timestamp || (stepNum === steps.length ? doc?.completed_at : null)
+                                : null;
+                        const formattedTime = formatDbTimestamp(stageTimestamp);
+
+                        // Tooltip text for explicit database binding inspection
+                        const dbTooltip = [
+                            `Stage ${stepNum}: ${step.label}`,
+                            `Handler Role: ${step.role}`,
+                            stepNum === 1
+                                ? `Uploaded By: ${uploaderName} (User ID: ${doc?.submitted_by ?? 'Auth'})`
+                                : isCompleted && auditActor
+                                ? `Handled By: ${auditActor}${auditUserId ? ` (User ID: ${auditUserId})` : ''}`
+                                : isCurrent
+                                ? `Current Holder: ${currentHolder || step.role}`
+                                : `Pending Action: ${step.role}`,
+                            stageTimestamp ? `Timestamp: ${formattedTime}` : null,
+                            `DB Status: ${doc?.status || 'N/A'}`,
+                        ]
+                            .filter(Boolean)
+                            .join(' • ');
 
                         return (
                             <div key={`${step.step}-${step.label}`} className="flex flex-1 items-start">
                                 {/* Step Node + Labels */}
-                                <div className="flex flex-col items-center relative flex-1 text-center">
-                                    {/* Circle Indicator */}
+                                <div
+                                    className="flex flex-col items-center relative flex-1 text-center group cursor-default"
+                                    title={dbTooltip}
+                                >
+                                    {/* Circle Indicator: Blue active, Gray pending, Red SLA breach */}
                                     <div
                                         className={cn(
                                             'flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 select-none shrink-0',
@@ -300,7 +483,7 @@ export function StepProgress({
                                     {/* Role / Office Subtitle */}
                                     <span
                                         className={cn(
-                                            'mt-0.5 text-[11px] whitespace-nowrap leading-tight',
+                                            'mt-0.5 text-[11px] whitespace-nowrap leading-tight max-w-[130px] truncate',
                                             isCurrent && isSlaBreached
                                                 ? 'text-red-600 font-medium'
                                                 : isCurrent
@@ -313,14 +496,21 @@ export function StepProgress({
                                         {step.role}
                                     </span>
 
-                                    {/* RULE: Submitted Stage (Step 1) -> ALWAYS display authenticated uploader */}
+                                    {/* GENERAL RULE: Submitted Stage (Step 1) -> ALWAYS display authenticated user directly below Submitted */}
                                     {idx === 0 && (
-                                        <div
-                                            className="mt-1.5 flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200/80 px-2 py-0.5 text-[10.5px] font-semibold text-[#0066cc] shadow-2xs max-w-[130px]"
-                                            title={`Uploaded by: ${uploaderName}`}
-                                        >
-                                            <User className="h-3 w-3 shrink-0 text-[#0066cc]" />
-                                            <span className="truncate">{uploaderName}</span>
+                                        <div className="flex flex-col items-center mt-1.5">
+                                            <div
+                                                className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200/90 px-2 py-0.5 text-[10.5px] font-semibold text-[#0066cc] shadow-2xs max-w-[135px]"
+                                                title={`Authenticated Uploader: ${uploaderName} (User ID: ${doc?.submitted_by || 'Auth'})`}
+                                            >
+                                                <User className="h-3 w-3 shrink-0 text-[#0066cc]" />
+                                                <span className="truncate">{uploaderName}</span>
+                                            </div>
+                                            {formattedTime && (
+                                                <span className="mt-0.5 text-[9.5px] text-slate-400 tracking-tight">
+                                                    {formattedTime}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 
@@ -332,22 +522,35 @@ export function StepProgress({
                                                     <AlertCircle className="h-3 w-3" /> Overdue
                                                 </span>
                                             ) : currentHolder ? (
-                                                <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-[#0066cc] border border-blue-100 max-w-[120px] truncate">
+                                                <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-[#0066cc] border border-blue-100 max-w-[125px] truncate">
                                                     {currentHolder}
                                                 </span>
                                             ) : auditActor ? (
                                                 <span className="text-[10px] text-slate-500 max-w-[100px] truncate">
                                                     {auditActor}
                                                 </span>
-                                            ) : null}
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                                    In Progress
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 
-                                    {/* Completed Stage Actor info (if available) */}
-                                    {idx > 0 && isCompleted && auditActor && (
-                                        <span className="mt-1 text-[10px] text-slate-500 max-w-[100px] truncate">
-                                            {auditActor}
-                                        </span>
+                                    {/* Completed Stage Actor & Timestamp Info */}
+                                    {idx > 0 && isCompleted && (
+                                        <div className="mt-1 flex flex-col items-center">
+                                            {auditActor && (
+                                                <span className="text-[10px] text-slate-600 font-medium max-w-[110px] truncate">
+                                                    {auditActor}
+                                                </span>
+                                            )}
+                                            {formattedTime && (
+                                                <span className="text-[9.5px] text-slate-400 tracking-tight">
+                                                    {formattedTime}
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 

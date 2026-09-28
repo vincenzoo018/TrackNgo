@@ -18,6 +18,8 @@ import { DocumentCorrectionModal } from '@/components/trackngo/DocumentCorrectio
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
 import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
 import { getStandardizedStatus } from '@/lib/status-helper';
+import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
+import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
 import { cn } from '@/lib/utils';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
@@ -106,6 +108,8 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             onSuccess: () => {
                 setForwardModalOpen(false);
                 setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document endorsed successfully.' });
+                window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                window.dispatchEvent(new CustomEvent('tng:document-sent'));
             }
         });
     };
@@ -134,6 +138,8 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document registered! A tracking number has been assigned and the document has been forwarded to the destination department.' });
@@ -145,9 +151,25 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document successfully released to applicant.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        } else if (confirmState.action === 'accept' || confirmState.action === 'receive') {
+            router.post(`/documents/${doc.document_id}/accept`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
+                    window.dispatchEvent(new CustomEvent('tng:document-received'));
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document received and accepted successfully.' });
                 },
                 onError: () => setIsActionLoading(false)
             });
@@ -554,7 +576,27 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                             <div className="space-y-3">
                                 {(() => {
                                     const std = getStandardizedStatus(doc.status);
-                                    if (doc.status === 'submitted' || doc.status === 'pending_registration') {
+                                    // This page is shared with Admin/CART/HR; Admin keeps override rights (see DocumentService)
+                                    const isHolder = isCurrentHolder(doc, auth?.user) || auth?.user?.role === 'admin';
+                                    // Internal docs arrive at the clerk as step 1 (status "Ongoing") and must be registered (step 2)
+                                    const needsRegistration = doc.status === 'submitted' || doc.status === 'pending_registration' ||
+                                        (Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1 && isHolder);
+
+                                    // Once the clerk has sent/forwarded the document, it is read-only here until it comes back for release
+                                    if (!isHolder && !needsRegistration && std !== 'Returned' && !isClosedStatus(doc.status)) {
+                                        const sentByMe = String(doc.submitted_by) === String(auth?.user?.id);
+                                        return (
+                                            <HolderStatusCard
+                                                variant={sentByMe ? 'sent' : 'forwarded'}
+                                                title={sentByMe ? 'Sent' : 'Forwarded'}
+                                                holder={describeHolder(doc, users)}
+                                                message={(doc.current_step_index || 1) <= 1
+                                                    ? 'Awaiting acceptance by the Department Head.'
+                                                    : 'You will be notified when it is routed back to Receiving for release.'}
+                                            />
+                                        );
+                                    }
+                                    if (needsRegistration) {
                                         return (
                                             <>
                                                 <button onClick={handleRegister} className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#0066cc] px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98">
@@ -562,6 +604,27 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                                     Register &amp; Route Document
                                                 </button>
                                                 <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Return Document
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    if (std === 'Sent' || doc.status === 'sent' || doc.status === 'forwarded' || doc.status === 'endorsed') {
+                                        return (
+                                            <>
+                                                <button 
+                                                    onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document?', 'Receive')}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#0066cc] px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4" />
+                                                    Receive / Accept Document
+                                                </button>
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                                                    <Forward className="h-4 w-4" />
+                                                    Forward / Endorse
+                                                </button>
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />
                                                     Return Document
                                                 </button>
