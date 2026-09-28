@@ -30,6 +30,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate'])->name('documents.escalate');
     Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link'])->name('documents.link');
     Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant'])->name('documents.release');
+    // Final internal step: current holder forwards the reviewed document to the Receiving Clerk (holder-guarded in DocumentService)
+    Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving'])->name('documents.approveRoute');
     Route::post('/documents/{id}/archive', [\App\Http\Controllers\DocumentController::class, 'archiveDocument'])->name('documents.archive');
     Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
     Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
@@ -288,6 +290,8 @@ Route::middleware(['auth'])->group(function () {
             $user = auth()->user();
             
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
+                // Powers the "Sent" tab: documents this Dept Head filed or forwarded that are now with someone else
+                ->withExists(['routingSlips as forwarded_by_me' => fn ($q) => $q->where('from_user_id', $user->id)])
                 ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
                 ->where(function ($query) use ($user) {
                     $query->where('current_holder_id', $user->id)

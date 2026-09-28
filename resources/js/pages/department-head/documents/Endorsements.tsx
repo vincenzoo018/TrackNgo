@@ -13,6 +13,7 @@ import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import { StatCard } from '@/components/trackngo/StatCard';
+import { isCurrentHolder } from '@/lib/document-holder';
 
 export default function DepartmentHeadEndorsements() {
     const { props } = usePage();
@@ -21,8 +22,19 @@ export default function DepartmentHeadEndorsements() {
     const documentTypes = (props.dbDocumentTypes || []) as any[];
     const users = (props.dbUsers || []) as any[];
     
-    type DeptHeadTab = 'all' | 'received' | 'ongoing' | 'completed';
+    const authUser = (props.auth as any)?.user;
+
+    type DeptHeadTab = 'all' | 'received' | 'sent' | 'ongoing' | 'completed';
     const [activeTab, setActiveTab] = useState<DeptHeadTab>('all');
+
+    const isFinished = (doc: any) => ['completed', 'approved', 'archived'].includes((doc.status || '').toLowerCase());
+    // Received: waiting with / accepted by this Dept Head (they are the current holder)
+    const isReceivedByMe = (doc: any) => isCurrentHolder(doc, authUser) &&
+        ['received', 'accepted', 'sent', 'endorsed', 'pending', 'registered'].includes((doc.status || '').toLowerCase());
+    // Sent: filed or forwarded by this Dept Head and now with someone else (forwarded_by_me comes from the route query)
+    const isSentByMe = (doc: any) => !isCurrentHolder(doc, authUser) && !isFinished(doc) &&
+        (doc.status || '').toLowerCase() !== 'returned' &&
+        (String(doc.submitted_by) === String(authUser?.id) || Boolean(doc.forwarded_by_me));
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -41,7 +53,7 @@ export default function DepartmentHeadEndorsements() {
     // Real-time auto sync: reload dbDocuments when document is received or sent, and poll every 4s
     useEffect(() => {
         const handleDocUpdate = () => {
-            router.reload({ only: ['dbDocuments'], preserveScroll: true, preserveState: true });
+            router.reload({ only: ['dbDocuments'] });
         };
 
         window.addEventListener('tng:document-received', handleDocUpdate);
@@ -49,7 +61,7 @@ export default function DepartmentHeadEndorsements() {
         window.addEventListener('tng:fsm-refresh', handleDocUpdate);
 
         const interval = setInterval(() => {
-            router.reload({ only: ['dbDocuments'], preserveScroll: true, preserveState: true });
+            router.reload({ only: ['dbDocuments'] });
         }, 4000);
 
         return () => {
@@ -58,6 +70,17 @@ export default function DepartmentHeadEndorsements() {
             window.removeEventListener('tng:fsm-refresh', handleDocUpdate);
             clearInterval(interval);
         };
+    }, []);
+
+    // After "Generate & Submit" in the create modal, show the new document under Sent
+    useEffect(() => {
+        const handleSent = (e: Event) => {
+            if (!(e as CustomEvent).detail?.document_id) return;
+            setActiveTab('sent');
+            setCurrentPage(1);
+        };
+        window.addEventListener('tng:document-sent', handleSent);
+        return () => window.removeEventListener('tng:document-sent', handleSent);
     }, []);
 
     const documents = useMemo(() => {
@@ -75,15 +98,14 @@ export default function DepartmentHeadEndorsements() {
 
     const tabCounts = useMemo(() => {
         let received = 0;
+        let sent = 0;
         let ongoing = 0;
         let completed = 0;
 
         rawDocuments.forEach((doc: any) => {
-            const s = (doc.status || '').toLowerCase();
-            if (s === 'received' || s === 'accepted' || s === 'sent' || s === 'endorsed' || s === 'pending') {
-                received++;
-            }
-            if (s === 'completed' || s === 'approved' || s === 'archived') {
+            if (isReceivedByMe(doc)) received++;
+            if (isSentByMe(doc)) sent++;
+            if (isFinished(doc)) {
                 completed++;
             } else {
                 ongoing++;
@@ -93,6 +115,7 @@ export default function DepartmentHeadEndorsements() {
         return {
             all: rawDocuments.length,
             received,
+            sent,
             ongoing,
             completed,
         };
@@ -118,10 +141,11 @@ export default function DepartmentHeadEndorsements() {
             const stdStatus = getStandardizedStatus(doc.status);
             const rawStatus = (doc.status || '').toLowerCase();
             
-            // Department Head Tab filtering: All, Received, Ongoing, Completed
+            // Department Head Tab filtering: All, Received, Sent, Ongoing, Completed
             if (activeTab === 'received') {
-                const isReceivedOrSentToMe = rawStatus === 'received' || rawStatus === 'accepted' || rawStatus === 'sent' || rawStatus === 'endorsed' || rawStatus === 'pending';
-                if (!isReceivedOrSentToMe) return false;
+                if (!isReceivedByMe(doc)) return false;
+            } else if (activeTab === 'sent') {
+                if (!isSentByMe(doc)) return false;
             } else if (activeTab === 'ongoing') {
                 if (rawStatus === 'completed' || rawStatus === 'approved' || rawStatus === 'archived') return false;
             } else if (activeTab === 'completed') {
@@ -214,7 +238,7 @@ export default function DepartmentHeadEndorsements() {
                 </div>
 
                 {/* ── Summary Metric Cards (Standardized System Blue) ────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-5">
                     <StatCard
                         title="Total Documents"
                         value={tabCounts.all}
@@ -235,6 +259,18 @@ export default function DepartmentHeadEndorsements() {
                         active={activeTab === 'received'}
                         onClick={() => {
                             setActiveTab('received');
+                            setCurrentPage(1);
+                        }}
+                    />
+
+                    <StatCard
+                        title="Sent"
+                        value={tabCounts.sent}
+                        sublabel="Forwarded to other offices"
+                        icon={Send}
+                        active={activeTab === 'sent'}
+                        onClick={() => {
+                            setActiveTab('sent');
                             setCurrentPage(1);
                         }}
                     />
@@ -264,11 +300,12 @@ export default function DepartmentHeadEndorsements() {
                     />
                 </div>
 
-                {/* ── Standardized Tabbed Navigation (Dept Head: All, Received, Ongoing, Completed) ── */}
+                {/* ── Standardized Tabbed Navigation (Dept Head: All, Received, Sent, Ongoing, Completed) ── */}
                 <TabNavigation
                     tabs={[
                         { id: 'all', label: 'All Documents', icon: <FileText className="h-4 w-4" />, count: tabCounts.all },
                         { id: 'received', label: 'Received', icon: <Inbox className="h-4 w-4 text-blue-600" />, count: tabCounts.received },
+                        { id: 'sent', label: 'Sent', icon: <Send className="h-4 w-4 text-emerald-600" />, count: tabCounts.sent },
                         { id: 'ongoing', label: 'Ongoing', icon: <Clock className="h-4 w-4 text-amber-600" />, count: tabCounts.ongoing },
                         { id: 'completed', label: 'Completed', icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />, count: tabCounts.completed },
                     ]}

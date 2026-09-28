@@ -97,11 +97,10 @@ class DocumentWorkflowService
 
         $targetUserId = !empty($params['to_user_id']) ? (int) $params['to_user_id'] : null;
         if (!$targetUserId && $targetDeptId) {
-            $deptHead = User::where('department_id', $targetDeptId)
-                ->whereHas('role', fn($q) => $q->where('role_name', 'Department Head'))
-                ->first();
-            $targetUserId = $deptHead?->id;
+            // e.g. the HR office has an HR Manager but no "Department Head"
+            $targetUserId = $this->resolveOfficeHead((int) $targetDeptId)?->id;
         }
+        $targetUser = $targetUserId ? User::with('role')->find($targetUserId) : null;
 
         $stepIndex = 2;
         $newStatus = 'registered';
@@ -138,15 +137,36 @@ class DocumentWorkflowService
             ipAddress: $ip
         );
 
+        // Notify the assigned holder directly; with no assignee, notify the destination office (never every Dept Head)
         \App\Services\NotificationService::triggerDocumentReceiptNotification(
             document: $document,
             targetUserId: $targetUserId,
             targetDeptId: $targetDeptId,
-            targetRole: 'Department Head',
+            targetRole: $targetUser?->role?->role_name,
             sender: $actor
         );
 
         return $document;
+    }
+
+    /**
+     * The person who receives documents for an office: its Department Head, or the equivalent
+     * head for offices without one (HR Manager, Mayor), otherwise any active non-clerk staff.
+     */
+    public function resolveOfficeHead(int $departmentId): ?User
+    {
+        $staff = User::with('role')
+            ->where('department_id', $departmentId)
+            ->where('is_active', true)
+            ->get();
+
+        foreach (['Department Head', 'HR', 'Mayor'] as $roleName) {
+            if ($head = $staff->first(fn (User $u) => $u->role?->role_name === $roleName)) {
+                return $head;
+            }
+        }
+
+        return $staff->first(fn (User $u) => !in_array($u->role?->role_name, ['Receiving Clerk', 'Admin'], true));
     }
 
     /**
@@ -450,10 +470,7 @@ class DocumentWorkflowService
         $instruction = $params['instruction'] ?? null;
 
         if (!$destUserId && $destDeptId) {
-            $destHead = User::where('department_id', $destDeptId)
-                ->whereHas('role', fn($q) => $q->where('role_name', 'Department Head'))
-                ->first();
-            $destUserId = $destHead?->id;
+            $destUserId = $this->resolveOfficeHead((int) $destDeptId)?->id;
         }
 
         RoutingSlip::create([

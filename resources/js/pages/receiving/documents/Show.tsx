@@ -98,7 +98,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     };
 
     const handleEndorse = (destType: string, destId: string, rem: string) => {
-        router.post(`/receiving/documents/${doc.document_id}/endorse`, {
+        router.post(`/documents/${doc.document_id}/endorse`, {
             destination_type: destType,
             destination_id: destId,
             remarks: rem
@@ -117,7 +117,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const handleEscalate = () => {
         const just = (document.getElementById('escalateJustification') as HTMLTextAreaElement)?.value;
         if (!just) return alert('Justification required');
-        router.post(`/receiving/documents/${doc.document_id}/escalate`, {
+        router.post(`/documents/${doc.document_id}/escalate`, {
             justification: just
         }, {
             onSuccess: () => {
@@ -134,7 +134,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const handleConfirmAction = () => {
         setIsActionLoading(true);
         if (confirmState.action === 'register') {
-            router.post(`/receiving/documents/${doc.document_id}/register`, {}, {
+            router.post(`/documents/${doc.document_id}/register`, {}, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -147,7 +147,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 onError: () => setIsActionLoading(false)
             });
         } else if (confirmState.action === 'release') {
-            router.post(`/receiving/documents/${doc.document_id}/release`, {}, {
+            router.post(`/documents/${doc.document_id}/release`, {}, {
                 preserveState: true,
                 preserveScroll: true,
                 onSuccess: () => {
@@ -170,6 +170,31 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
                     setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document received and accepted successfully.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        } else if (confirmState.action === 'review') {
+            router.post(`/documents/${doc.document_id}/review`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document marked as reviewed. You can now forward / endorse it.' });
+                },
+                onError: () => setIsActionLoading(false)
+            });
+        } else if (confirmState.action === 'route_to_receiving') {
+            router.post(`/documents/${doc.document_id}/approve-route`, {}, {
+                preserveState: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
+                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    setIsActionLoading(false);
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document forwarded to the Receiving Clerk for release.' });
                 },
                 onError: () => setIsActionLoading(false)
             });
@@ -199,7 +224,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const handleLink = () => {
         const tk = (document.getElementById('linkTrackingNo') as HTMLInputElement)?.value;
         if (!tk) return alert('Tracking No required');
-        router.post(`/receiving/documents/${doc.document_id}/link`, {
+        router.post(`/documents/${doc.document_id}/link`, {
             tracking_number: tk
         }, {
             onSuccess: () => {
@@ -214,7 +239,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
         const text = isAnchored ? anchorCommentText : normalCommentText;
         if (!text) return;
         
-        router.post(`/receiving/documents/${doc.document_id}/comments`, {
+        router.post(`/documents/${doc.document_id}/comments`, {
             comment: text,
             quoted_text: isAnchored ? selectedOcrText : null
         }, {
@@ -610,19 +635,57 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                                             </>
                                         );
                                     }
-                                    if (std === 'Sent' || doc.status === 'sent' || doc.status === 'forwarded' || doc.status === 'endorsed') {
+                                    const rawStatus = (doc.status || '').toLowerCase();
+                                    // Holder must accept first — incl. an internal doc just registered by the clerk and routed here (step 2)
+                                    if (std === 'Sent' || ['sent', 'forwarded', 'endorsed', 'registered'].includes(rawStatus)) {
                                         return (
                                             <>
-                                                <button 
+                                                <button
                                                     onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document?', 'Receive')}
                                                     className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#0066cc] px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
                                                 >
                                                     <CheckCircle2 className="h-4 w-4" />
                                                     Receive / Accept Document
                                                 </button>
-                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Return Document
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    // Accepted → Reviewed (FSM step 3, or step 6 for the second-stage office) → Forward
+                                    if (rawStatus === 'accepted' || rawStatus === 'received') {
+                                        return (
+                                            <>
+                                                <button
+                                                    onClick={() => requestAction('review', 'Mark as Reviewed', 'Mark this document as reviewed by your office?', 'Mark Reviewed')}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-amber-600 px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-amber-700 active:scale-98"
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4" />
+                                                    Mark as Reviewed
+                                                </button>
+                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5]">
                                                     <Forward className="h-4 w-4" />
                                                     Forward / Endorse
+                                                </button>
+                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Return Document
+                                                </button>
+                                            </>
+                                        );
+                                    }
+                                    // Mayor-origin internal: the reviewing office ends the flow by forwarding to the Receiving Clerk (step 6)
+                                    if (rawStatus === 'ongoing' && Boolean(doc.is_internal) && (doc.current_step_index || 0) >= 6 && auth?.user?.role !== 'receiving') {
+                                        return (
+                                            <>
+                                                <button
+                                                    onClick={() => requestAction('route_to_receiving', 'Forward to Receiving Clerk', 'Forward this reviewed document to the Receiving Clerk for release?', 'Forward')}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-[8px] bg-[#0066cc] px-4 py-3 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
+                                                >
+                                                    <Send className="h-4 w-4" />
+                                                    Forward to Receiving Clerk
                                                 </button>
                                                 <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-200">
                                                     <RotateCcw className="h-4 w-4" />

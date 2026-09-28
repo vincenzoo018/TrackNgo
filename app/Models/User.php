@@ -67,7 +67,8 @@ class User extends Authenticatable implements PasskeyUser
     protected function name(): \Illuminate\Database\Eloquent\Casts\Attribute
     {
         return \Illuminate\Database\Eloquent\Casts\Attribute::make(
-            get: fn (mixed $value, array $attributes) => trim(($attributes['first_name'] ?? '') . ' ' . ($attributes['middle_name'] ?? '') . ' ' . ($attributes['last_name'] ?? '')),
+            // Collapse spaces so an empty middle name doesn't produce "Ana  Gonzales"
+            get: fn (mixed $value, array $attributes) => trim(preg_replace('/\s+/', ' ', ($attributes['first_name'] ?? '') . ' ' . ($attributes['middle_name'] ?? '') . ' ' . ($attributes['last_name'] ?? ''))),
         );
     }
 
