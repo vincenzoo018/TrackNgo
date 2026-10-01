@@ -7,6 +7,7 @@ use App\Contracts\DocumentServiceInterface;
 use App\Models\Department;
 use App\Models\Document;
 use App\Models\DocumentAttachment;
+use App\Models\DocumentClient;
 use App\Models\DocumentComment;
 use App\Models\RoutingSlip;
 use App\Models\User;
@@ -24,7 +25,7 @@ class DocumentService implements DocumentServiceInterface
      */
     private const HOLDER_ONLY_ACTIONS = [
         'register', 'receive', 'accept', 'review', 'endorse', 'forward',
-        'approveAndRouteToReceiving', 'releaseToApplicant', 'return',
+        'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit',
     ];
 
     public function __construct(
@@ -71,15 +72,24 @@ class DocumentService implements DocumentServiceInterface
 
     protected function persistDocument(array $data, ?string $path, User $actor, ?string $ipAddress = null): Document
     {
-        $referenceNumber = $this->numberGenerator->generateReferenceNumber($data['department_id'] ?? null);
         $isReceivingClerk = $actor->hasRole('Receiving Clerk');
+        // The routing slip is always issued from the filer's own office
+        $slipFromDepartmentId = $data['department_id'];
 
-        // Receiving Clerks only file external documents; Confidential / Internal are Dept Head & Mayor options
+        // Receiving Clerks only file external documents; Confidential / Internal are Dept Head & Mayor options.
+        // The document originates from an external client, so it is filed under the office that will handle it
+        // (e.g. BPLO-2026-0004) instead of the clerk's own office.
+        $client = null;
         if ($isReceivingClerk) {
             $data['is_internal'] = false;
             $data['classification'] = 'normal';
+            $data['department_id'] = $data['forward_to'];
+            $slipFromDepartmentId = $actor->department_id ?? $slipFromDepartmentId;
+            $client = $data['client'] ?? null;
         }
         $isInternal = !empty($data['is_internal']);
+        $referenceNumber = $this->numberGenerator->generateReferenceNumber($data['department_id'] ?? null);
+        $clientName = $client ? (new DocumentClient($client))->full_name : null;
 
         if ($isInternal) {
             $trackingNumber = null;
@@ -133,7 +143,9 @@ class DocumentService implements DocumentServiceInterface
             'ocr_text'                     => $data['ocr_text'] ?? null,
             'current_step_index'           => 1,
             'total_steps'                  => $isInternal ? 6 : 7,
-            'sender'                       => $actor->name,
+            // External documents are "from" the client; staff-filed documents are from the filer
+            'sender'                       => $clientName ? mb_substr($clientName, 0, 100) : $actor->name,
+            'contact_number'               => $client['contact_number'] ?? null,
             'current_holder_department_id' => $currentHolderDeptId,
             'current_holder_id'            => $currentHolderId,
             'is_internal'                  => $isInternal,
@@ -141,12 +153,16 @@ class DocumentService implements DocumentServiceInterface
             'date_filed'                   => now(),
         ]);
 
+        if ($client) {
+            $document->client()->create($client);
+        }
+
         if ($isInternal) {
             RoutingSlip::create([
                 'document_id'          => $document->document_id,
                 'tracking_number'      => 'PENDING-' . $document->reference_number,
                 'from_user_id'         => $actor->id,
-                'from_department_id'   => $data['department_id'],
+                'from_department_id'   => $slipFromDepartmentId,
                 'to_user_id'           => $currentHolderId,
                 'target_department_id' => $currentHolderDeptId,
                 'sender_name'          => $actor->name,
@@ -160,7 +176,7 @@ class DocumentService implements DocumentServiceInterface
                 'document_id'          => $document->document_id,
                 'tracking_number'      => $trackingNumber,
                 'from_user_id'         => $actor->id,
-                'from_department_id'   => $data['department_id'],
+                'from_department_id'   => $slipFromDepartmentId,
                 'to_user_id'           => $currentHolderId,
                 'target_department_id' => $data['forward_to'],
                 'sender_name'          => $actor->name,
@@ -217,6 +233,7 @@ class DocumentService implements DocumentServiceInterface
             'archive'                   => $this->workflowService->archive($document, $actor, $ipAddress),
             'return'                    => $this->workflowService->returnDocument($document, $params['reason'] ?? '', $actor, $ipAddress),
             'forward'                   => $this->workflowService->forward($document, $params, $actor, $ipAddress),
+            'resubmit'                  => $this->workflowService->resubmit($document, $params['files'] ?? [], $params['note'] ?? null, $actor, $ipAddress),
             default                     => throw new \InvalidArgumentException("Unknown workflow action: {$action}"),
         };
     }
@@ -245,20 +262,26 @@ class DocumentService implements DocumentServiceInterface
         }
     }
 
-    public function addComment(int $documentId, string $comment, User $actor, ?string $ipAddress = null): DocumentComment
+    public function addComment(int $documentId, string $comment, User $actor, ?string $ipAddress = null, ?string $quotedText = null): DocumentComment
     {
         $document = Document::findOrFail($documentId);
+        $quotedText = $quotedText !== null && trim($quotedText) !== '' ? trim($quotedText) : null;
 
+        // Anchored comments keep the passage of the document they refer to
         $docComment = DocumentComment::create([
             'document_id' => $document->document_id,
             'user_id'     => $actor->id,
             'comment'     => $comment,
+            'is_anchored' => $quotedText !== null,
+            'quoted_text' => $quotedText,
         ]);
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
-            action: 'Comment',
-            description: "{$actor->name} added a discussion note: " . mb_strimwidth($comment, 0, 50, '...'),
+            action: $quotedText !== null ? 'Anchored Comment' : 'Comment',
+            description: $quotedText !== null
+                ? "{$actor->name} commented on \"" . mb_strimwidth($quotedText, 0, 40, '...') . '": ' . mb_strimwidth($comment, 0, 50, '...')
+                : "{$actor->name} added a discussion note: " . mb_strimwidth($comment, 0, 50, '...'),
             actor: $actor,
             ipAddress: $ipAddress
         );

@@ -22,6 +22,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
     Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
     Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
+    // Returned document: holder uploads the missing / corrected files and it goes back to whoever returned it
+    Route::post('/documents/{id}/resubmit', [\App\Http\Controllers\DocumentController::class, 'resubmit'])->name('documents.resubmit');
     Route::post('/documents/{id}/register', [\App\Http\Controllers\DocumentController::class, 'register'])->name('documents.register');
     Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept'])->name('documents.accept');
     Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
@@ -36,6 +38,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
     Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
     Route::get('/documents/{id}/timeline-sync', [\App\Http\Controllers\DocumentController::class, 'getTimelineSync'])->name('documents.timelineSync');
+
+    // Philippine address lookup (PSA PSGC) for the client address dropdowns
+    Route::get('/locations/provinces', [\App\Http\Controllers\LocationController::class, 'provinces'])->name('locations.provinces');
+    Route::get('/locations/provinces/{code}/cities', [\App\Http\Controllers\LocationController::class, 'cities'])->name('locations.cities');
+    Route::get('/locations/cities/{code}/barangays', [\App\Http\Controllers\LocationController::class, 'barangays'])->name('locations.barangays');
     Route::get('/documents/{id}/ocr-workspace', function($id) {
         $document = \App\Models\Document::find($id);
         return Inertia::render('receiving/documents/OcrWorkspace', [
@@ -103,7 +110,7 @@ Route::middleware(['auth'])->group(function () {
             ]);
         });
         Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
                 'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
@@ -231,7 +238,7 @@ Route::middleware(['auth'])->group(function () {
         // GET /documents/create removed - handled via modal in Index.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             
             // Hide contents if confidential
             if (strtolower($document->classification) === 'confidential') {
@@ -339,7 +346,7 @@ Route::middleware(['auth'])->group(function () {
         // GET /documents/create removed - handled via modal in Endorsements.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('department-head/documents/ReviewAndActions', [
                 'dbDocument' => $document,
                 'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
@@ -425,7 +432,7 @@ Route::middleware(['auth'])->group(function () {
         // GET /documents/create removed - handled via modal in FinalApproval.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
         Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('mayor/documents/Show', [
                 'dbDocument' => $document,
                 'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
@@ -491,7 +498,7 @@ Route::middleware(['auth'])->group(function () {
         });
         Route::get('/documents/create', fn() => Inertia::render('cart/documents/Create'));
         Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
                 'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
@@ -574,7 +581,7 @@ Route::middleware(['auth'])->group(function () {
             ]);
         });
         Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
+            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
             return Inertia::render('receiving/documents/Show', [
                 'dbDocument' => $document,
                 'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),

@@ -200,7 +200,7 @@ class DatabaseSeeder extends Seeder
             User::firstOrCreate(
                 ['email' => $userData['email']],
                 [
-                    'name'          => $userData['name'],
+                    ...$this->splitName($userData['name']),
                     'email'         => $userData['email'],
                     'password'      => Hash::make($userData['password']),
                     'role_id'       => $role->role_id,
@@ -214,7 +214,7 @@ class DatabaseSeeder extends Seeder
             User::firstOrCreate(
                 ['email' => $dhData['email']],
                 [
-                    'name'          => $dhData['name'],
+                    ...$this->splitName($dhData['name']),
                     'email'         => $dhData['email'],
                     'password'      => Hash::make('password123'),
                     'role_id'       => $deptHeadRole->role_id,
@@ -244,8 +244,24 @@ class DatabaseSeeder extends Seeder
         $this->seedDocuments();
     }
 
+    private function splitName(string $name): array
+    {
+        $parts = preg_split('/\s+/', trim($name)) ?: [];
+
+        return [
+            'first_name' => array_shift($parts) ?? '',
+            'middle_name' => count($parts) > 1 ? implode(' ', array_slice($parts, 0, -1)) : null,
+            'last_name' => array_pop($parts) ?? '',
+        ];
+    }
+
     private function seedDocuments(): void
     {
+        // Sample documents are only seeded into an empty table so db:seed can be re-run safely
+        if (Document::exists()) {
+            return;
+        }
+
         $receivingClerk = User::where('email', 'receivingclerk@mati.com')->first();
         $ceoDeptHead    = User::where('email', 'departmenthead@mati.com')->first();
         $choDeptHead    = User::where('email', 'depthead.cho@mati.com')->first();

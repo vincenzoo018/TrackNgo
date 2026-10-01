@@ -55,6 +55,7 @@
         "clsx": "^2.1.1",
         "concurrently": "^9.0.1",
         "date-fns": "^4.4.0",
+        "docx-preview": "^0.3.7",
         "globals": "^15.14.0",
         "html2pdf.js": "^0.14.0",
         "input-otp": "^1.4.2",

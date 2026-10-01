@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 
 class StoreDocumentRequest extends FormRequest
 {
@@ -51,9 +52,25 @@ class StoreDocumentRequest extends FormRequest
         return auth()->check();
     }
 
+    public const CLIENT_TYPES = ['Citizen', 'Business', 'Government'];
+    public const CLIENT_SEXES = ['Male', 'Female'];
+    public const RECEIPT_MODES = ['Walk-in', 'Mail / Courier', 'Email'];
+    /** Letters (incl. ñ / accented), spaces, periods, apostrophes and hyphens */
+    public const NAME_PATTERN = "/^[\pL\s.'-]+$/u";
+
+    /** PH mobile numbers are typed with spaces / dashes; store the plain 11 digits (09XXXXXXXXX). */
+    protected function prepareForValidation(): void
+    {
+        $client = $this->input('client');
+        if (is_array($client) && isset($client['contact_number'])) {
+            $client['contact_number'] = preg_replace('/[\s\-()]/', '', (string) $client['contact_number']);
+            $this->merge(['client' => $client]);
+        }
+    }
+
     public function rules(): array
     {
-        return [
+        $rules = [
             'title'                 => 'required|string|max:150', // documents.title is varchar(150)
             'type_id'               => 'required|exists:document_types,type_id',
             'department_id'         => 'required|exists:departments,department_id',
@@ -66,6 +83,57 @@ class StoreDocumentRequest extends FormRequest
             'is_internal'           => 'nullable|boolean',
             'urgency_justification' => 'nullable|string|max:500',
         ];
+
+        // Receiving Clerks file documents for external clients, whose details are recorded with the document
+        if ($this->user()?->hasRole('Receiving Clerk')) {
+            $rules += [
+                'client'                     => 'required|array',
+                'client.client_type'         => 'required|in:' . implode(',', self::CLIENT_TYPES),
+                'client.first_name'          => ['required', 'string', 'max:60', 'regex:' . self::NAME_PATTERN],
+                'client.middle_name'         => ['nullable', 'string', 'max:60', 'regex:' . self::NAME_PATTERN],
+                'client.last_name'           => ['required', 'string', 'max:60', 'regex:' . self::NAME_PATTERN],
+                'client.suffix'              => 'nullable|string|max:10',
+                'client.sex'                 => 'nullable|in:' . implode(',', self::CLIENT_SEXES),
+                'client.organization'        => 'nullable|string|max:150',
+                'client.house_street'        => 'nullable|string|max:150',
+                'client.barangay'            => 'required|string|max:100',
+                'client.city_municipality'   => 'required|string|max:100',
+                'client.province'            => 'required|string|max:100',
+                'client.contact_number'      => ['required', 'string', 'regex:/^09\d{9}$/'],
+                'client.email'               => 'nullable|email:rfc|max:100',
+                'client.id_type'             => 'nullable|string|max:50',
+                'client.id_number'           => 'nullable|required_with:client.id_type|string|max:50',
+                'client.receipt_mode'        => 'required|in:' . implode(',', self::RECEIPT_MODES),
+                'client.purpose'             => 'required|string|min:5|max:255',
+                'client.representative_name' => ['nullable', 'string', 'max:150', 'regex:' . self::NAME_PATTERN],
+            ];
+        }
+
+        return $rules;
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'client.client_type'         => 'client type',
+            'client.first_name'          => 'first name',
+            'client.middle_name'         => 'middle name',
+            'client.last_name'           => 'last name',
+            'client.suffix'              => 'suffix',
+            'client.sex'                 => 'sex',
+            'client.organization'        => 'organization / company',
+            'client.house_street'        => 'house no. / street',
+            'client.barangay'            => 'barangay',
+            'client.city_municipality'   => 'city / municipality',
+            'client.province'            => 'province',
+            'client.contact_number'      => 'contact number',
+            'client.email'               => 'email address',
+            'client.purpose'             => 'purpose',
+            'client.id_type'             => 'ID presented',
+            'client.id_number'           => 'ID number',
+            'client.receipt_mode'        => 'mode of receipt',
+            'client.representative_name' => 'authorized representative',
+        ];
     }
 
     public function messages(): array
@@ -75,6 +143,11 @@ class StoreDocumentRequest extends FormRequest
             'file.uploaded' => 'The file could not be uploaded. The server accepts files up to ' . self::maxUploadLabel() . '.',
             'file.required' => 'Please upload the document file.',
             'file.max'      => 'The file must not be larger than ' . (self::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
+            'client.contact_number.regex' => 'The contact number must be 11 digits and start with 09, e.g. 09171234567.',
+            'client.first_name.regex'          => 'The first name may only contain letters, spaces, periods, apostrophes and hyphens.',
+            'client.middle_name.regex'         => 'The middle name may only contain letters, spaces, periods, apostrophes and hyphens.',
+            'client.last_name.regex'           => 'The last name may only contain letters, spaces, periods, apostrophes and hyphens.',
+            'client.representative_name.regex' => 'The representative name may only contain letters, spaces, periods, apostrophes and hyphens.',
         ];
     }
 
@@ -86,6 +159,22 @@ class StoreDocumentRequest extends FormRequest
         $validator->after(function ($validator) {
             $actor = $this->user();
             if (!$actor || !$actor->hasRole('Receiving Clerk') || $validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            // The address must come from the PSA list, with each level inside the one above it
+            $province = DB::table('ph_provinces')->where('name', $this->input('client.province'))->first();
+            $city = $province
+                ? DB::table('ph_cities')->where('province_code', $province->code)->where('name', $this->input('client.city_municipality'))->first()
+                : null;
+            if (!$province) {
+                $validator->errors()->add('client.province', 'Select a province from the list.');
+            } elseif (!$city) {
+                $validator->errors()->add('client.city_municipality', 'Select a city / municipality of ' . $province->name . '.');
+            } elseif (!DB::table('ph_barangays')->where('city_code', $city->code)->where('name', $this->input('client.barangay'))->exists()) {
+                $validator->errors()->add('client.barangay', 'Select a barangay of ' . $city->name . '.');
+            }
+            if ($validator->errors()->isNotEmpty()) {
                 return;
             }
 

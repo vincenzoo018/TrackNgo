@@ -37,7 +37,7 @@ interface DocumentServiceInterface
     /**
      * Add a discussion comment to the document.
      */
-    public function addComment(int $documentId, string $comment, User $actor, ?string $ipAddress = null);
+    public function addComment(int $documentId, string $comment, User $actor, ?string $ipAddress = null, ?string $quotedText = null);
 
     /**
      * Add an attachment to the document.

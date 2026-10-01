@@ -7,16 +7,19 @@ import {
     ModalPrimaryButton,
     ModalSecondaryButton,
 } from './BaseModal';
+import { csrfHeaders } from '@/lib/csrf';
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
     documentId: number | string;
+    /** Download one of the document's attached files instead of the main document */
+    attachmentId?: number | null;
     onSuccess: (message: string) => void;
     identifier?: string;
 };
 
-export function ExportPasswordModal({ isOpen, onClose, documentId, onSuccess, identifier }: Props) {
+export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId, onSuccess, identifier }: Props) {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -33,26 +36,40 @@ export function ExportPasswordModal({ isOpen, onClose, documentId, onSuccess, id
         setIsLoading(true);
 
         try {
-            const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
             const response = await fetch(`/documents/${documentId}/export`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
+                    ...csrfHeaders(),
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ password }),
+                body: JSON.stringify(attachmentId ? { password, attachment_id: attachmentId } : { password }),
             });
 
-            const data = await response.json();
+            const isJson = (response.headers.get('content-type') || '').includes('application/json');
+            const data = isJson ? await response.json() : null;
 
             if (!response.ok) {
-                setError(data.message || 'Security verification failed. Please check your password.');
+                setError(data?.message || (response.status === 419
+                    ? 'Your session expired. Please refresh the page and try again.'
+                    : 'Security verification failed. Please check your password.'));
                 return;
             }
 
-            // On success, trigger the download if a URL is provided
-            if (data.url) {
+            if (!isJson) {
+                // The server streamed the original file: save it with the name it suggested
+                const blob = await response.blob();
+                const disposition = response.headers.get('content-disposition') || '';
+                const fileName = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1] || `Document_${identifier || documentId}`;
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = decodeURIComponent(fileName);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } else if (data?.url) {
                 const link = document.createElement('a');
                 link.href = data.url;
                 link.target = '_blank';
@@ -62,7 +79,9 @@ export function ExportPasswordModal({ isOpen, onClose, documentId, onSuccess, id
                 document.body.removeChild(link);
             }
 
-            onSuccess('Document exported successfully and logged in Audit Trail.');
+            onSuccess(Number(documentId) === 0
+                ? 'Export verified. Your list has been downloaded.'
+                : 'Document exported successfully and logged in Audit Trail.');
             onClose();
             setPassword('');
         } catch (err: any) {

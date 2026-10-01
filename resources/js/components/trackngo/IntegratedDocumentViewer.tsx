@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import {
     ScanText,
     Highlighter,
@@ -20,16 +21,32 @@ import {
     FileDown,
     MessageSquareQuote,
     RefreshCw,
+    FileX,
     PanelTop,
     PanelBottom,
-    CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
+import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 
-// Configure PDF.js worker
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Bundle the PDF.js worker with the app (same-origin); a CDN worker breaks offline and on version mismatch
+if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+}
+
+// Only needed for PDFs with CJK / non-embedded standard fonts; jsDelivr mirrors the exact npm version
+const PDFJS_ASSETS = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}`;
+const DEFAULT_SCALE = 1.15;
+
+type FileKind = 'pdf' | 'image' | 'docx' | 'unsupported' | 'none';
+
+function detectFileKind(url?: string | null): FileKind {
+    if (!url) return 'none';
+    const ext = url.split(/[?#]/)[0].split('.').pop()?.toLowerCase() || '';
+    if (ext === 'pdf') return 'pdf';
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext)) return 'image';
+    if (ext === 'docx') return 'docx';
+    return 'unsupported';
 }
 
 export interface TextItemBounds {
@@ -42,10 +59,15 @@ export interface TextItemBounds {
 }
 
 export interface IntegratedDocumentViewerProps {
+    /** URL of the stored file (PDF, image or DOCX). */
+    fileUrl?: string | null;
+    /** @deprecated use fileUrl — kept for existing callers; accepts any supported file type. */
     pdfUrl?: string | null;
     ocrText?: string | null;
     fileName?: string;
     documentId?: number | string;
+    /** Set when the shown file is one of the document's attachments (password-gated download of that file) */
+    attachmentId?: number | null;
     isConfidential?: boolean;
     selectedText?: string;
     onTextSelect?: (text: string) => void;
@@ -54,11 +76,15 @@ export interface IntegratedDocumentViewerProps {
     className?: string;
 }
 
+const toolButton = 'inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-100 active:scale-[0.98]';
+
 export default function IntegratedDocumentViewer({
+    fileUrl,
     pdfUrl,
     ocrText,
     fileName = 'Document Preview',
     documentId,
+    attachmentId = null,
     isConfidential = false,
     selectedText = '',
     onTextSelect,
@@ -66,12 +92,22 @@ export default function IntegratedDocumentViewer({
     defaultToolbarPosition = 'top',
     className
 }: IntegratedDocumentViewerProps) {
-    // PDF State
+    const url = fileUrl ?? pdfUrl ?? null;
+    const kind = detectFileKind(url);
+    const isPdf = kind === 'pdf';
+    const canZoom = kind === 'pdf' || kind === 'image' || kind === 'docx';
+    const hasOcrText = Boolean(ocrText && ocrText.trim());
+
+    // File State
     const [numPages, setNumPages] = useState<number>(1);
     const [pageNumber, setPageNumber] = useState<number>(1);
-    const [scale, setScale] = useState<number>(1.15);
-    const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(true);
-    const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
+    const [scale, setScale] = useState<number>(DEFAULT_SCALE);
+    // Load result is keyed by URL so a stale result (or a cached image firing onLoad early) can never leak across files
+    const [loadState, setLoadState] = useState<{ url: string; error: string | null } | null>(null);
+    const loadedCurrent = Boolean(url) && loadState?.url === url;
+    const isLoading = canZoom && !isConfidential && !loadedCurrent;
+    const loadError = loadedCurrent ? loadState!.error : null;
+    const markLoaded = (forUrl: string, error: string | null = null) => setLoadState({ url: forUrl, error });
     const [pageTextItems, setPageTextItems] = useState<TextItemBounds[]>([]);
     const [pageViewport, setPageViewPort] = useState<{ width: number; height: number }>({ width: 640, height: 850 });
 
@@ -83,6 +119,9 @@ export default function IntegratedDocumentViewer({
     const [copiedText, setCopiedText] = useState<boolean>(false);
     const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
     const [toolbarPosition, setToolbarPosition] = useState<'top' | 'bottom'>(defaultToolbarPosition);
+    // "OCR Text" shows the extracted text for any file type (images and Word files have no PDF text layer)
+    const [viewMode, setViewMode] = useState<'document' | 'text'>('document');
+    const [downloadGateOpen, setDownloadGateOpen] = useState<boolean>(false);
 
     // Active Inline Selection Floating Pill State
     const [activeInlineSelection, setActiveInlineSelection] = useState<{
@@ -100,10 +139,11 @@ export default function IntegratedDocumentViewer({
     const [isAreaScanning, setIsAreaScanning] = useState<boolean>(false);
 
     // References
-    const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
+    const docxContainerRef = useRef<HTMLDivElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+    const renderTaskRef = useRef<ReturnType<pdfjsLib.PDFPageProxy['render']> | null>(null);
 
     // Sync external selectedText
     useEffect(() => {
@@ -112,58 +152,94 @@ export default function IntegratedDocumentViewer({
         }
     }, [selectedText]);
 
+    // Reset view state whenever a different file is shown
+    useEffect(() => {
+        setPageNumber(1);
+        setNumPages(1);
+        setScale(DEFAULT_SCALE);
+        setPageTextItems([]);
+        setViewMode('document');
+    }, [url]);
+
     // Load PDF Document
     useEffect(() => {
-        if (!pdfUrl || isConfidential) {
-            setIsLoadingPdf(false);
-            return;
-        }
+        if (!isPdf || !url || isConfidential) return;
 
         let isMounted = true;
-        setIsLoadingPdf(true);
-        setPdfLoadError(null);
+        const loadingTask = pdfjsLib.getDocument({
+            url,
+            cMapUrl: `${PDFJS_ASSETS}/cmaps/`,
+            cMapPacked: true,
+            standardFontDataUrl: `${PDFJS_ASSETS}/standard_fonts/`,
+        });
 
-        const loadPdf = async () => {
-            try {
-                const loadingTask = pdfjsLib.getDocument({
-                    url: pdfUrl,
-                    cMapUrl: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/cmaps/`,
-                    cMapPacked: true,
-                });
-
-                const pdf = await loadingTask.promise;
+        loadingTask.promise
+            .then((pdf) => {
                 if (!isMounted) return;
-
                 pdfDocRef.current = pdf;
                 setNumPages(pdf.numPages);
-                setIsLoadingPdf(false);
-            } catch (err: any) {
+                markLoaded(url);
+            })
+            .catch((err: any) => {
                 if (!isMounted) return;
                 console.warn('PDF.js load notice:', err);
-                setPdfLoadError(err.message || 'Could not load PDF document.');
-                setIsLoadingPdf(false);
-            }
-        };
-
-        loadPdf();
+                markLoaded(url, err?.status === 404 || err?.name === 'MissingPDFException'
+                    ? 'The file is missing from storage.'
+                    : 'The PDF could not be opened in the browser.');
+            });
 
         return () => {
             isMounted = false;
+            pdfDocRef.current = null;
+            loadingTask.destroy();
         };
-    }, [pdfUrl, isConfidential]);
+    }, [isPdf, url, isConfidential]);
+
+    // Render DOCX files to HTML in the browser (docx-preview is loaded only when needed)
+    useEffect(() => {
+        if (kind !== 'docx' || !url || isConfidential) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(res.status === 404 ? 'The file is missing from storage.' : `The file could not be downloaded (HTTP ${res.status}).`);
+                const blob = await res.blob();
+                const { renderAsync } = await import('docx-preview');
+                if (cancelled || !docxContainerRef.current) return;
+                docxContainerRef.current.innerHTML = '';
+                await renderAsync(blob, docxContainerRef.current, undefined, {
+                    inWrapper: true,
+                    breakPages: true,
+                    ignoreLastRenderedPageBreak: true,
+                });
+                if (!cancelled) markLoaded(url);
+            } catch (err: any) {
+                if (cancelled) return;
+                console.warn('DOCX preview notice:', err);
+                markLoaded(url, err?.message?.startsWith('The file') ? err.message : 'This Word document could not be displayed.');
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [kind, url, isConfidential]);
 
     // Render Page to Canvas
     const renderPage = useCallback(async () => {
         if (!pdfDocRef.current || !canvasRef.current) return;
 
         try {
+            // A new zoom/page cancels the in-flight render (one canvas cannot host two renders)
+            renderTaskRef.current?.cancel();
+
             const page = await pdfDocRef.current.getPage(pageNumber);
             const viewport = page.getViewport({ scale });
             setPageViewPort({ width: viewport.width, height: viewport.height });
 
             const canvas = canvasRef.current;
-            const context = canvas.getContext('2d');
-            if (!context) return;
+            if (!canvas) return;
 
             // Handle High-DPI screens for crisp typography
             const dpr = window.devicePixelRatio || 1;
@@ -172,14 +248,13 @@ export default function IntegratedDocumentViewer({
             canvas.style.width = `${Math.floor(viewport.width)}px`;
             canvas.style.height = `${Math.floor(viewport.height)}px`;
 
-            context.scale(dpr, dpr);
-
-            const renderContext = {
-                canvasContext: context,
-                viewport: viewport,
-            };
-
-            await page.render(renderContext as any).promise;
+            const renderTask = page.render({
+                canvas,
+                viewport,
+                transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
+            });
+            renderTaskRef.current = renderTask;
+            await renderTask.promise;
 
             // Extract text items with bounding coordinates
             const textContent = await page.getTextContent();
@@ -226,16 +301,17 @@ export default function IntegratedDocumentViewer({
             }
 
             setPageTextItems(items);
-        } catch (err) {
+        } catch (err: any) {
+            if (err?.name === 'RenderingCancelledException') return;
             console.error('Error rendering PDF page:', err);
         }
     }, [pageNumber, scale, ocrText]);
 
     useEffect(() => {
-        if (!isLoadingPdf && pdfDocRef.current) {
+        if (isPdf && !isLoading && !loadError && pdfDocRef.current) {
             renderPage();
         }
-    }, [isLoadingPdf, pageNumber, scale, renderPage]);
+    }, [isPdf, isLoading, loadError, pageNumber, scale, renderPage]);
 
     // Full Scan Text Animation & Action
     const handleScanText = () => {
@@ -246,9 +322,16 @@ export default function IntegratedDocumentViewer({
         // Animate scanning laser sweep
         setTimeout(() => {
             setIsScanning(false);
-            setHighlightsActive(true);
-            const count = pageTextItems.length || (ocrText ? ocrText.split(/\s+/).filter(Boolean).length : 0);
-            setScanSuccessMessage(`OCR scan complete! ${count > 0 ? `${count} text regions recognized & highlighted inline.` : 'Text verified successfully.'}`);
+            if (isPdf && viewMode === 'document') {
+                setHighlightsActive(true);
+                const count = pageTextItems.length || (ocrText ? ocrText.split(/\s+/).filter(Boolean).length : 0);
+                setScanSuccessMessage(count > 0 ? `OCR scan complete. ${count} text regions recognized and highlighted.` : 'OCR scan complete. Text verified successfully.');
+            } else {
+                // Images and Word files have no text layer: show the extracted text instead
+                setViewMode('text');
+                const words = ocrText ? ocrText.split(/\s+/).filter(Boolean).length : 0;
+                setScanSuccessMessage(words > 0 ? `OCR scan complete. ${words} words extracted.` : 'OCR scan complete. No readable text was found in this file.');
+            }
             setTimeout(() => setScanSuccessMessage(null), 4500);
         }, 1500);
     };
@@ -267,12 +350,12 @@ export default function IntegratedDocumentViewer({
     const handleExportTxt = () => {
         const textToExport = ocrText || pageTextItems.map(i => i.str).join('\n') || 'No OCR text available.';
         const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
+        link.href = blobUrl;
         link.download = `${fileName.replace(/[^a-z0-9]/gi, '_')}_OCR.txt`;
         link.click();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
         setIsExportOpen(false);
         logExportAction('Exported OCR as TXT');
     };
@@ -290,12 +373,12 @@ export default function IntegratedDocumentViewer({
             exportedAt: new Date().toISOString(),
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
+        link.href = blobUrl;
         link.download = `${fileName.replace(/[^a-z0-9]/gi, '_')}_OCR.json`;
         link.click();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
         setIsExportOpen(false);
         logExportAction('Exported OCR as JSON');
     };
@@ -418,7 +501,6 @@ export default function IntegratedDocumentViewer({
 
     // DOM Native Text Selection Handler
     const handleNativeTextSelection = () => {
-        if (mode !== 'text') return;
         const selection = window.getSelection();
         if (selection && selection.toString().trim().length > 0) {
             const text = selection.toString().trim();
@@ -431,276 +513,305 @@ export default function IntegratedDocumentViewer({
     // Confidentiality Shield
     if (isConfidential) {
         return (
-            <div className={cn("flex flex-col items-center justify-center rounded-[8px] border border-slate-200 bg-slate-50 p-12 text-center h-[650px] shadow-sm", className)}>
-                <div className="rounded-full bg-red-100 p-6 mb-5">
-                    <Lock className="h-10 w-10 text-red-600" />
+            <div className={cn("flex flex-col items-center justify-center rounded-[8px] border border-slate-200 bg-slate-50 p-12 text-center h-[480px]", className)}>
+                <div className="rounded-full bg-red-100 p-5 mb-4">
+                    <Lock className="h-8 w-8 text-red-600" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Confidential Document</h3>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Confidential Document</h3>
                 <p className="text-[14px] text-slate-500 max-w-md mx-auto leading-relaxed">
-                    This document is marked as confidential. Direct OCR text recognition overlays and document preview are restricted to authorized personnel.
+                    The contents of this document are restricted. You can route it, but only authorized personnel can view the file.
                 </p>
             </div>
         );
     }
 
-    // Render the Anchored Toolbar Component
-    const renderInlineToolbar = () => (
-        <div className={cn(
-            "flex flex-wrap items-center justify-between gap-3 bg-slate-50/95 px-4 py-2.5 backdrop-blur-md shrink-0 transition-all z-20",
-            toolbarPosition === 'top' ? "border-b border-slate-200" : "border-t border-slate-200 order-last"
-        )}>
-            {/* Left Controls: Page Navigation & Zoom & Mode */}
-            <div className="flex flex-wrap items-center gap-2">
-                {/* Page Navigation */}
-                <div className="flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs px-1 py-0.5">
-                    <button
-                        type="button"
-                        onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                        disabled={pageNumber <= 1}
-                        className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="Previous Page"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="text-[13px] font-medium text-slate-700 px-2 select-none">
-                        {pageNumber} <span className="text-slate-400">/</span> {numPages}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-                        disabled={pageNumber >= numPages}
-                        className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="Next Page"
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                    </button>
-                </div>
+    // Downloading the original is password-gated (ExportPasswordModal → /documents/{id}/export); without a
+    // document id (e.g. a standalone preview) there is nothing to verify against, so no download is offered
+    const canDownload = Boolean(url && documentId);
+    const fileActions = canDownload ? (
+        <button type="button" onClick={() => setDownloadGateOpen(true)} className={toolButton} title="Password required">
+            <Download className="h-3.5 w-3.5 text-slate-500" />
+            <span>Download</span>
+        </button>
+    ) : null;
 
-                {/* Zoom Controls */}
-                <div className="hidden sm:flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs px-1 py-0.5">
-                    <button
-                        type="button"
-                        onClick={() => setScale(s => Math.max(0.6, Number((s - 0.15).toFixed(2))))}
-                        className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                        title="Zoom Out"
-                    >
-                        <ZoomOut className="h-4 w-4" />
-                    </button>
-                    <span className="text-[12px] font-medium text-slate-600 px-1.5 w-12 text-center select-none">
-                        {Math.round(scale * 100)}%
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))))}
-                        className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                        title="Zoom In"
-                    >
-                        <ZoomIn className="h-4 w-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setScale(1.15)}
-                        className="p-1 ml-0.5 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors text-[11px] font-semibold"
-                        title="Fit Document"
-                    >
-                        Fit
-                    </button>
-                </div>
-
-                {/* Selection Mode Switcher */}
-                <div className="flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs p-0.5">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setMode('text');
-                            setSelectionBox(null);
-                            setAreaOcrResult(null);
-                        }}
-                        className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[13px] font-medium transition-all",
-                            mode === 'text'
-                                ? "bg-[var(--tng-blue-600)] text-white shadow-2xs"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
-                        title="Highlight and click recognized text directly"
-                    >
-                        <MousePointer className="h-3.5 w-3.5" />
-                        <span className="hidden md:inline">Text Select</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setMode('area');
-                            setActiveInlineSelection(null);
-                        }}
-                        className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[13px] font-medium transition-all",
-                            mode === 'area'
-                                ? "bg-[var(--tng-blue-600)] text-white shadow-2xs"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
-                        title="Drag marquee box to extract specific region OCR"
-                    >
-                        <Crop className="h-3.5 w-3.5" />
-                        <span className="hidden md:inline">Area OCR</span>
-                    </button>
+    // Shown instead of the file when there is nothing the browser can display
+    const renderFallback = (title: string, message: string) => (
+        <div className="w-full max-w-3xl self-start rounded-[8px] border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+            <div className="flex items-start gap-3">
+                <FileX className="h-5 w-5 shrink-0 text-slate-400 mt-0.5" />
+                <div className="flex-1">
+                    <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
+                    <p className="text-[13px] text-slate-500 mt-0.5">{message}</p>
+                    {fileActions && <div className="mt-4 flex flex-wrap gap-2">{fileActions}</div>}
                 </div>
             </div>
+            {ocrText && (
+                <div className="mt-6 border-t border-slate-200 pt-5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Extracted Text</p>
+                    <div
+                        className="max-h-[420px] overflow-y-auto tng-scrollbar text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap select-text"
+                        onMouseUp={handleNativeTextSelection}
+                    >
+                        {ocrText}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
-            {/* Right Core Actions: Scan Text, Highlight OCR Toggle, Copy, Export */}
+    const zoomPercent = Math.round((scale / DEFAULT_SCALE) * 100);
+
+    const segmentButton = (active: boolean) => cn(
+        "flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-[13px] font-medium transition-all",
+        active ? "bg-[var(--tng-blue-600)] text-white shadow-2xs" : "text-slate-600 hover:bg-slate-100"
+    );
+    const showDocumentTools = viewMode === 'document';
+    const hasFileStage = canZoom;
+
+    const renderInlineToolbar = () => (
+        <div className={cn(
+            "flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-4 py-2.5 shrink-0 z-20",
+            toolbarPosition === 'top' ? "border-b border-slate-200" : "border-t border-slate-200 order-last"
+        )}>
+            {/* Left Controls: View, Page Navigation, Zoom & Selection Mode */}
             <div className="flex flex-wrap items-center gap-2">
-                {/* 1. Scan Text Action Button */}
-                <button
-                    type="button"
-                    onClick={handleScanText}
-                    disabled={isScanning}
-                    className="inline-flex items-center gap-1.5 rounded-[8px] bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-white shadow-xs transition-all hover:bg-[var(--tng-blue-700)] active:scale-[0.98] disabled:opacity-60"
-                    title="Run interactive OCR scan on this document"
-                >
-                    {isScanning ? (
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-white" />
-                    ) : (
-                        <ScanText className="h-3.5 w-3.5 text-white" />
-                    )}
-                    <span>{isScanning ? 'Scanning...' : 'Scan Text'}</span>
-                </button>
+                {hasFileStage && hasOcrText && (
+                    <div className="flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs p-0.5">
+                        <button type="button" onClick={() => setViewMode('document')} className={segmentButton(viewMode === 'document')} title="Show the original file">
+                            Document
+                        </button>
+                        <button type="button" onClick={() => setViewMode('text')} className={segmentButton(viewMode === 'text')} title="Show the text extracted by OCR">
+                            OCR Text
+                        </button>
+                    </div>
+                )}
 
-                {/* 2. Highlight OCR Toggle Button (Yellow highlight indicator) */}
-                <button
-                    type="button"
-                    onClick={() => setHighlightsActive(!highlightsActive)}
-                    className={cn(
-                        "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-xs sm:text-[13px] font-semibold transition-all shadow-xs active:scale-[0.98]",
-                        highlightsActive
-                            ? "border-amber-300 bg-amber-50/90 text-amber-900 hover:bg-amber-100"
-                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                    )}
-                    title={highlightsActive ? "Hide yellow OCR text highlights" : "Show yellow OCR text highlights"}
-                >
-                    <span className={cn(
-                        "h-2 w-2 rounded-full transition-all",
-                        highlightsActive ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" : "bg-slate-300"
-                    )} />
-                    <Highlighter className="h-3.5 w-3.5 text-amber-600" />
-                    <span className="hidden sm:inline">Highlights</span>
-                </button>
+                {isPdf && showDocumentTools && (
+                    <div className="flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs px-1 py-0.5">
+                        <button
+                            type="button"
+                            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                            disabled={pageNumber <= 1}
+                            className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            title="Previous Page"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="text-[13px] font-medium text-slate-700 px-2 select-none">
+                            {pageNumber} <span className="text-slate-400">/</span> {numPages}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                            disabled={pageNumber >= numPages}
+                            className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            title="Next Page"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
 
-                {/* 3. Copy Button (Copies selection or all recognized OCR text) */}
-                <button
-                    type="button"
-                    onClick={handleCopyAction}
-                    className="inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-100 active:scale-[0.98]"
-                    title={activeInlineSelection ? `Copy selected: "${activeInlineSelection.text}"` : "Copy all recognized OCR text"}
-                >
-                    {copiedText ? (
-                        <>
-                            <Check className="h-3.5 w-3.5 text-emerald-600" />
-                            <span className="text-emerald-700">Copied!</span>
-                        </>
-                    ) : (
-                        <>
-                            <Copy className="h-3.5 w-3.5 text-slate-600" />
-                            <span>Copy</span>
-                        </>
-                    )}
-                </button>
+                {hasFileStage && showDocumentTools && (
+                    <div className="flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs px-1 py-0.5">
+                        <button
+                            type="button"
+                            onClick={() => setScale(s => Math.max(0.6, Number((s - 0.15).toFixed(2))))}
+                            className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Zoom Out"
+                        >
+                            <ZoomOut className="h-4 w-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setScale(DEFAULT_SCALE)}
+                            className="text-[12px] font-medium text-slate-600 px-1.5 w-12 text-center hover:text-slate-900"
+                            title="Fit Document"
+                        >
+                            {zoomPercent}%
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))))}
+                            className="p-1 rounded-[4px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Zoom In"
+                        >
+                            <ZoomIn className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
 
-                {/* 4. Export Dropdown */}
-                <div className="relative">
+                {isPdf && showDocumentTools && (
+                    <div className="flex items-center bg-white border border-slate-200 rounded-[6px] shadow-2xs p-0.5">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setMode('text');
+                                setSelectionBox(null);
+                                setAreaOcrResult(null);
+                            }}
+                            className={segmentButton(mode === 'text')}
+                            title="Highlight and click recognized text directly"
+                        >
+                            <MousePointer className="h-3.5 w-3.5" />
+                            <span className="hidden md:inline">Text Select</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setMode('area');
+                                setActiveInlineSelection(null);
+                            }}
+                            className={segmentButton(mode === 'area')}
+                            title="Drag a box to extract text from an area"
+                        >
+                            <Crop className="h-3.5 w-3.5" />
+                            <span className="hidden md:inline">Area OCR</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Right Actions: Scan Text, Highlights, Copy, Export, Open / Download, Dock */}
+            <div className="flex flex-wrap items-center gap-2">
+                {hasFileStage && (
                     <button
                         type="button"
-                        onClick={() => setIsExportOpen(!isExportOpen)}
-                        className="inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                        title="Export recognized document text"
+                        onClick={handleScanText}
+                        disabled={isScanning || isLoading || Boolean(loadError)}
+                        className="inline-flex items-center gap-1.5 rounded-[8px] bg-[var(--tng-blue-600)] px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-white shadow-xs transition-all hover:bg-[var(--tng-blue-700)] active:scale-[0.98] disabled:opacity-60"
+                        title="Run OCR scan on this document"
                     >
-                        <Download className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Export</span>
-                        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                        {isScanning ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ScanText className="h-3.5 w-3.5" />}
+                        <span>{isScanning ? 'Scanning...' : 'Scan Text'}</span>
                     </button>
+                )}
 
-                    {isExportOpen && (
-                        <>
-                            {/* Semi-transparent Modal Overlay Backdrop (rgba(0,0,0,0.5)) */}
-                            <div
-                                className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.5)] backdrop-blur-2xs transition-opacity"
-                                onClick={() => setIsExportOpen(false)}
-                            />
-                            <div className="absolute right-0 top-full mt-1.5 z-50 w-56 rounded-[8px] border border-slate-200 bg-white p-1.5 shadow-xl text-[14px] animate-in fade-in zoom-in-95 duration-150">
-                                <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
-                                    Export Options
+                {isPdf && showDocumentTools && (
+                    <button
+                        type="button"
+                        onClick={() => setHighlightsActive(!highlightsActive)}
+                        className={cn(
+                            "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-xs sm:text-[13px] font-semibold transition-all shadow-xs active:scale-[0.98]",
+                            highlightsActive
+                                ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        )}
+                        title={highlightsActive ? "Hide yellow OCR text highlights" : "Show yellow OCR text highlights"}
+                    >
+                        <Highlighter className={cn("h-3.5 w-3.5", highlightsActive ? "text-amber-600" : "text-slate-500")} />
+                        <span className="hidden sm:inline">Highlights</span>
+                    </button>
+                )}
+
+                {(isPdf || hasOcrText) && (
+                    <button
+                        type="button"
+                        onClick={handleCopyAction}
+                        className={toolButton}
+                        title={activeInlineSelection ? `Copy selected: "${activeInlineSelection.text}"` : "Copy all recognized OCR text"}
+                    >
+                        {copiedText ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                        <span className={copiedText ? 'text-emerald-700' : undefined}>{copiedText ? 'Copied' : 'Copy'}</span>
+                    </button>
+                )}
+
+                {(isPdf || hasOcrText || canDownload) && (
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setIsExportOpen(!isExportOpen)}
+                            className={toolButton}
+                            title="Export recognized text or download the original file"
+                        >
+                            <FileDown className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Export</span>
+                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                        </button>
+
+                        {isExportOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsExportOpen(false)} />
+                                <div className="absolute right-0 top-full mt-1.5 z-50 w-56 rounded-[8px] border border-slate-200 bg-white p-1.5 shadow-xl text-[14px]">
+                                    {(isPdf || hasOcrText) && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={handleExportTxt}
+                                                className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors font-medium text-[13px]"
+                                            >
+                                                <FileText className="h-4 w-4 text-slate-500" />
+                                                Export as Text (.txt)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleExportJson}
+                                                className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors font-medium text-[13px]"
+                                            >
+                                                <FileDown className="h-4 w-4 text-slate-500" />
+                                                Export as JSON (.json)
+                                            </button>
+                                        </>
+                                    )}
+                                    {canDownload && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsExportOpen(false);
+                                                setDownloadGateOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors font-medium text-[13px]"
+                                        >
+                                            <Download className="h-4 w-4 text-slate-500" />
+                                            Download Original File (password)
+                                        </button>
+                                    )}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleExportTxt}
-                                    className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors font-medium text-[14px]"
-                                >
-                                    <FileText className="h-4 w-4 text-blue-600" />
-                                    <span>Export as Text (.txt)</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleExportJson}
-                                    className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors font-medium text-[14px]"
-                                >
-                                    <FileDown className="h-4 w-4 text-purple-600" />
-                                    <span>Export as JSON (.json)</span>
-                                </button>
-                                {pdfUrl && (
-                                    <a
-                                        href={pdfUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        download
-                                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left text-slate-700 hover:bg-slate-100 border-t border-slate-100 mt-1 pt-2 transition-colors font-medium text-[14px]"
-                                        onClick={() => {
-                                            setIsExportOpen(false);
-                                            logExportAction('Downloaded original PDF document');
-                                        }}
-                                    >
-                                        <Download className="h-4 w-4 text-emerald-600" />
-                                        <span>Download Original PDF</span>
-                                    </a>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
-                {/* 5. Anchor Position Switcher (Top / Bottom) */}
+                {hasFileStage && fileActions}
+
                 <button
                     type="button"
                     onClick={() => setToolbarPosition(p => p === 'top' ? 'bottom' : 'top')}
                     className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                     title={toolbarPosition === 'top' ? "Dock toolbar to bottom" : "Dock toolbar to top"}
                 >
-                    {toolbarPosition === 'top' ? (
-                        <PanelBottom className="h-4 w-4" />
-                    ) : (
-                        <PanelTop className="h-4 w-4" />
-                    )}
+                    {toolbarPosition === 'top' ? <PanelBottom className="h-4 w-4" /> : <PanelTop className="h-4 w-4" />}
                 </button>
             </div>
         </div>
     );
 
-    return (
-        <div 
-            ref={containerRef}
-            className={cn(
-                "flex flex-col w-full rounded-[8px] border border-slate-200 bg-white shadow-sm overflow-hidden",
-                className
-            )}
-        >
-            {/* Inline Toolbar Anchored at Top or Bottom */}
-            {renderInlineToolbar()}
+    // Extracted OCR text as a readable page; selecting text feeds anchored comments
+    const renderOcrTextPage = () => (
+        <div className="w-full max-w-3xl self-start rounded-[4px] border border-slate-300 bg-white p-8 shadow-xl">
+            <p className="mb-4 border-b border-slate-200 pb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                OCR Extracted Text — select text to comment on it
+            </p>
+            <div
+                className="text-[14px] text-slate-800 leading-relaxed whitespace-pre-wrap select-text"
+                onMouseUp={handleNativeTextSelection}
+            >
+                {ocrText}
+            </div>
+        </div>
+    );
 
-            {/* Scan Success Toast Banner */}
+    const showFile = !isLoading && !loadError;
+
+    return (
+        <div className={cn("flex flex-col w-full rounded-[8px] border border-slate-200 bg-white overflow-hidden", className)}>
+            {(canZoom || hasOcrText) && renderInlineToolbar()}
+
+            {/* Scan Success Banner */}
             {scanSuccessMessage && (
-                <div className="flex items-center justify-between bg-emerald-50 border-b border-emerald-200 px-4 py-2 text-[13px] font-medium text-emerald-800 animate-in fade-in duration-200 shrink-0">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-emerald-600" />
-                        <span>{scanSuccessMessage}</span>
-                    </div>
+                <div className="flex items-center justify-between bg-emerald-50 border-b border-emerald-200 px-4 py-2 text-[13px] font-medium text-emerald-800 shrink-0">
+                    <span>{scanSuccessMessage}</span>
                     <button
                         type="button"
                         onClick={() => setScanSuccessMessage(null)}
@@ -711,43 +822,62 @@ export default function IntegratedDocumentViewer({
                 </div>
             )}
 
-            {/* Main Interactive Document Stage */}
-            <div className="relative flex-1 bg-slate-100/90 overflow-auto flex justify-center p-4 sm:p-6 min-h-[580px] max-h-[780px] tng-scrollbar select-text">
-                {isLoadingPdf ? (
-                    <div className="flex flex-col items-center justify-center space-y-4 py-24 text-slate-500">
-                        <RefreshCw className="h-8 w-8 animate-spin text-[var(--tng-blue-600)]" />
-                        <p className="text-[14px] font-medium">Loading document and preparing OCR layers...</p>
+            {/* Document Stage */}
+            <div className={cn("relative flex-1 bg-slate-100 overflow-auto flex justify-center p-4 sm:p-6 max-h-[780px] tng-scrollbar", canZoom && "min-h-[520px]")}>
+                {isLoading && viewMode === 'document' && (
+                    <div className="flex flex-col items-center justify-center space-y-3 py-24 text-slate-500">
+                        <RefreshCw className="h-7 w-7 animate-spin text-[var(--tng-blue-600)]" />
+                        <p className="text-[14px] font-medium">Loading document...</p>
                     </div>
-                ) : pdfLoadError && !pdfUrl ? (
-                    /* Fallback when no PDF file is attached, showing readable digital text preview */
-                    <div className="w-full max-w-3xl bg-white rounded-[8px] shadow-sm border border-slate-200 p-8 flex flex-col justify-start">
-                        <div className="border-b border-slate-200 pb-4 mb-6 flex items-center justify-between">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900">{fileName}</h3>
-                                <p className="text-[13px] text-slate-500">Physical document scanned into digital database</p>
-                            </div>
-                            <span className="inline-flex items-center gap-1.5 rounded-[6px] bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
-                                Digital OCR Document
-                            </span>
-                        </div>
-                        <div 
-                            className="prose prose-slate max-w-none text-[14px] text-slate-700 leading-relaxed whitespace-pre-wrap select-text"
+                )}
+
+                {kind === 'none' && renderFallback('No file attached', 'This record has no uploaded file.')}
+
+                {kind === 'unsupported' && renderFallback(
+                    'Preview not available',
+                    'This file type cannot be shown in the browser. Open or download it to view the original.'
+                )}
+
+                {!isLoading && loadError && viewMode === 'document' && renderFallback('This file could not be displayed', loadError)}
+
+                {viewMode === 'text' && renderOcrTextPage()}
+
+                {/* Image */}
+                {kind === 'image' && url && !loadError && (
+                    <div className={cn('w-full self-start', (!showFile || viewMode === 'text') && 'hidden')}>
+                        <img
+                            src={url}
+                            alt={fileName}
+                            onLoad={() => markLoaded(url)}
+                            onError={() => markLoaded(url, 'The image is missing from storage or could not be loaded.')}
+                            style={{ width: `${zoomPercent}%`, maxWidth: 'none' }}
+                            className="mx-auto block bg-white shadow-xl rounded-[4px] border border-slate-300"
+                        />
+                    </div>
+                )}
+
+                {/* Word document (rendered by docx-preview) */}
+                {kind === 'docx' && (
+                    <div className={cn('w-full self-start', (!showFile || viewMode === 'text') && 'hidden')}>
+                        <div
+                            ref={docxContainerRef}
+                            style={{ zoom: scale / DEFAULT_SCALE }}
+                            className="tng-docx select-text"
                             onMouseUp={handleNativeTextSelection}
-                        >
-                            {ocrText || "No digitized text is registered for this record yet."}
-                        </div>
+                        />
                     </div>
-                ) : (
-                    /* Interactive Canvas + Color-Coded Inline OCR Highlights Layer */
-                    <div 
-                        className="relative bg-white shadow-xl rounded-[4px] border border-slate-300 transition-all self-start"
+                )}
+
+                {/* PDF: Canvas + OCR overlay */}
+                {isPdf && showFile && (
+                    <div
+                        className={cn("relative bg-white shadow-xl rounded-[4px] border border-slate-300 transition-all self-start", viewMode === 'text' && "hidden")}
                         style={{
                             width: pageViewport.width ? `${pageViewport.width}px` : 'auto',
                             height: pageViewport.height ? `${pageViewport.height}px` : 'auto',
                             minHeight: '400px'
                         }}
                     >
-                        {/* Canvas Layer */}
                         <canvas ref={canvasRef} className="block select-none" />
 
                         {/* Interactive Overlay Layer for Highlight & Marquee Area Selection */}
@@ -764,7 +894,7 @@ export default function IntegratedDocumentViewer({
                         >
                             {/* Scanning Laser Animation Beam */}
                             {isScanning && (
-                                <div 
+                                <div
                                     className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_18px_rgba(59,130,246,0.95)] z-30 pointer-events-none"
                                     style={{
                                         animation: 'scanLaser 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite',
@@ -772,7 +902,7 @@ export default function IntegratedDocumentViewer({
                                 />
                             )}
 
-                            {/* Color-Coded Inline OCR Highlights (Yellow for recognized text) */}
+                            {/* Inline OCR Highlights */}
                             {highlightsActive && pageTextItems.map((item) => {
                                 const isSelected = activeInlineSelection?.text === item.str || selectedText === item.str;
 
@@ -792,32 +922,25 @@ export default function IntegratedDocumentViewer({
                                                 ? "bg-yellow-400/80 border-2 border-yellow-600 shadow-sm z-20"
                                                 : "bg-amber-300/40 hover:bg-amber-300/75 border border-amber-400/70"
                                         )}
-                                        title={`OCR Recognized: "${item.str}" — Click to select`}
-                                    >
-                                        {/* Hover Tooltip showing recognized text */}
-                                        <span className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 rounded-[6px] bg-slate-900 text-white text-[12px] whitespace-nowrap z-40 pointer-events-none shadow-lg font-medium">
-                                            {item.str}
-                                        </span>
-                                    </div>
+                                        title={`Click to select: "${item.str}"`}
+                                    />
                                 );
                             })}
 
                             {/* Floating Contextual Action Pill (Anchored directly over/under selected text) */}
                             {activeInlineSelection && (
-                                <div 
+                                <div
                                     style={{
                                         left: `${Math.max(10, Math.min(activeInlineSelection.x, (pageViewport.width || 600) - 260))}px`,
                                         top: `${Math.max(10, activeInlineSelection.y - 42)}px`,
                                     }}
-                                    className="absolute z-30 flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-sm text-white rounded-[8px] p-1.5 shadow-2xl animate-in zoom-in-95 duration-150 whitespace-nowrap text-[13px]"
+                                    className="absolute z-30 flex items-center gap-1.5 bg-slate-900/95 text-white rounded-[8px] p-1.5 shadow-2xl whitespace-nowrap text-[13px]"
                                     onMouseDown={(e) => e.stopPropagation()}
                                 >
-                                    <div className="flex items-center gap-1 pl-1.5 pr-2 border-r border-slate-700 text-amber-300 font-semibold text-[12px]">
-                                        <Sparkles className="h-3.5 w-3.5" />
-                                        <span className="max-w-[120px] truncate">{activeInlineSelection.text}</span>
-                                    </div>
+                                    <span className="max-w-[140px] truncate pl-1.5 pr-2 border-r border-slate-700 text-amber-300 font-semibold text-[12px]">
+                                        {activeInlineSelection.text}
+                                    </span>
 
-                                    {/* Copy Selected Text */}
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -832,7 +955,6 @@ export default function IntegratedDocumentViewer({
                                         <span>{copiedText ? 'Copied' : 'Copy'}</span>
                                     </button>
 
-                                    {/* Anchor Comment */}
                                     {onAddAnchoredComment && (
                                         <button
                                             type="button"
@@ -840,14 +962,13 @@ export default function IntegratedDocumentViewer({
                                                 onAddAnchoredComment(activeInlineSelection.text);
                                             }}
                                             className="flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[12px] font-medium bg-[var(--tng-blue-600)] hover:bg-[var(--tng-blue-700)] text-white transition-colors"
-                                            title="Add anchored discussion comment for this text"
+                                            title="Comment on this text"
                                         >
                                             <MessageSquareQuote className="h-3 w-3" />
                                             <span>Comment</span>
                                         </button>
                                     )}
 
-                                    {/* Dismiss Selection */}
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -876,9 +997,8 @@ export default function IntegratedDocumentViewer({
                                         isAreaScanning && "animate-pulse"
                                     )}
                                 >
-                                    {/* Floating Action Pill above/below Selection Box */}
-                                    <div 
-                                        className="absolute -top-10 left-0 flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-sm text-white rounded-[8px] p-1 shadow-xl z-30 whitespace-nowrap text-[12px]"
+                                    <div
+                                        className="absolute -top-10 left-0 flex items-center gap-1.5 bg-slate-900/95 text-white rounded-[8px] p-1 shadow-xl z-30 whitespace-nowrap text-[12px]"
                                         onMouseDown={(e) => e.stopPropagation()}
                                     >
                                         <button
@@ -898,7 +1018,7 @@ export default function IntegratedDocumentViewer({
                                                 className="flex items-center gap-1.5 rounded-[6px] px-2.5 py-1 hover:bg-slate-800 text-slate-200 transition-colors"
                                             >
                                                 <MessageSquareQuote className="h-3.5 w-3.5 text-blue-400" />
-                                                <span>Anchor Comment</span>
+                                                <span>Comment</span>
                                             </button>
                                         )}
 
@@ -917,18 +1037,13 @@ export default function IntegratedDocumentViewer({
 
                                     {/* Popover showing extracted area OCR text */}
                                     {areaOcrResult && (
-                                        <div 
-                                            className="absolute top-full left-0 mt-2 w-72 rounded-[8px] border border-slate-200 bg-white p-3 shadow-2xl z-30 text-slate-800 text-[13px] animate-in fade-in duration-150"
+                                        <div
+                                            className="absolute top-full left-0 mt-2 w-72 rounded-[8px] border border-slate-200 bg-white p-3 shadow-2xl z-30 text-slate-800 text-[13px]"
                                             onMouseDown={(e) => e.stopPropagation()}
                                         >
-                                            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2 font-semibold text-slate-900 text-[12px]">
-                                                <span className="flex items-center gap-1.5 text-[var(--tng-blue-700)]">
-                                                    <ScanText className="h-3.5 w-3.5" />
-                                                    OCR Extracted from Selection
-                                                </span>
-                                            </div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Extracted Text</p>
                                             <p className="text-[13px] text-slate-700 bg-slate-50 p-2.5 rounded-[6px] border border-slate-100 mb-2 leading-relaxed max-h-28 overflow-y-auto">
-                                                "{areaOcrResult}"
+                                                {areaOcrResult}
                                             </p>
                                             <div className="flex items-center justify-end gap-2 text-[12px]">
                                                 <button
@@ -940,7 +1055,7 @@ export default function IntegratedDocumentViewer({
                                                     }}
                                                     className="px-2.5 py-1 rounded-[6px] border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
                                                 >
-                                                    {copiedText ? 'Copied!' : 'Copy'}
+                                                    {copiedText ? 'Copied' : 'Copy'}
                                                 </button>
                                                 {onAddAnchoredComment && (
                                                     <button
@@ -961,14 +1076,29 @@ export default function IntegratedDocumentViewer({
                 )}
             </div>
 
-            {/* Custom Scan Beam CSS Keyframes */}
             <style>{`
                 @keyframes scanLaser {
                     0% { top: 0%; opacity: 0.8; }
                     50% { opacity: 1; }
                     100% { top: 100%; opacity: 0.8; }
                 }
+                .tng-docx .docx-wrapper { background: transparent; padding: 0; }
+                .tng-docx .docx-wrapper > section.docx { margin: 0 auto 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); border: 1px solid rgb(203 213 225); }
             `}</style>
+
+            {canDownload && (
+                <ExportPasswordModal
+                    isOpen={downloadGateOpen}
+                    onClose={() => setDownloadGateOpen(false)}
+                    documentId={documentId!}
+                    attachmentId={attachmentId}
+                    identifier={fileName}
+                    onSuccess={(msg) => {
+                        setScanSuccessMessage(msg);
+                        setTimeout(() => setScanSuccessMessage(null), 4500);
+                    }}
+                />
+            )}
         </div>
     );
 }

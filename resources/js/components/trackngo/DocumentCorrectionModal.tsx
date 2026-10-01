@@ -1,280 +1,197 @@
-import React, { useState, useRef } from 'react';
-import { BaseModal } from './BaseModal';
-import { 
-    AlertCircle, 
-    UploadCloud, 
-    FileText, 
-    X, 
-    CheckCircle2, 
-    Paperclip,
-    ArrowRight
-} from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { AlertCircle, UploadCloud, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { BaseModal } from './BaseModal';
 
 type DocumentCorrectionModalProps = {
     open: boolean;
     onClose: () => void;
     document: any;
     returnReason?: string;
-    onSuccess?: (newAttachment?: any, newAudit?: any) => void;
+    onSuccess?: () => void;
 };
 
+const MAX_FILES = 5;
+const ACCEPT = '.pdf,.doc,.docx,.png,.jpg,.jpeg';
+
 function formatBytes(bytes?: number): string {
-    if (!bytes || bytes === 0) return '0 B';
+    if (!bytes) {
+        return '0 B';
+    }
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-export function DocumentCorrectionModal({
-    open,
-    onClose,
-    document: doc,
-    returnReason,
-    onSuccess,
-}: DocumentCorrectionModalProps) {
+/** Who returned the document: the latest "return" routing slip (falls back to the holder's office). */
+export function findReturner(doc: any): string {
+    const slip = [...(doc?.routing_slips || [])].reverse().find((s: any) => s.action === 'return');
+    return slip?.from_user?.name || slip?.sender_name || 'the office that returned it';
+}
+
+/**
+ * Returned document → the holder attaches the missing / corrected files (kept alongside the original)
+ * and the document is sent back to whoever returned it (POST /documents/{id}/resubmit).
+ */
+export function DocumentCorrectionModal({ open, onClose, document: doc, returnReason, onSuccess }: DocumentCorrectionModalProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-    const [remediationNote, setRemediationNote] = useState('');
+    const [files, setFiles] = useState<File[]>([]);
+    const [note, setNote] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [dragActive, setDragActive] = useState(false);
 
-    const docId = doc?.document_id;
     const docRef = doc?.reference_number ?? doc?.tracking_number ?? 'Document';
     const reasonText = returnReason || doc?.return_reason || 'Document requires remediation or missing files.';
+    const returner = findReturner(doc);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFileToUpload(e.target.files[0]);
-            setErrorMessage(null);
+    const addFiles = (list: FileList | null) => {
+        if (!list) {
+            return;
+        }
+        setErrorMessage(null);
+        setFiles(prev => {
+            const merged = [...prev, ...Array.from(list)];
+            if (merged.length > MAX_FILES) {
+                setErrorMessage(`Attach up to ${MAX_FILES} files at a time.`);
+            }
+            return merged.slice(0, MAX_FILES);
+        });
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     };
 
-    const handleDrag = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.type === 'dragenter' || e.type === 'dragover') {
-            setDragActive(true);
-        } else if (e.type === 'dragleave') {
-            setDragActive(false);
-        }
+    const reset = () => {
+        setFiles([]);
+        setNote('');
+        setErrorMessage(null);
     };
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragActive(false);
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            setFileToUpload(e.dataTransfer.files[0]);
-            setErrorMessage(null);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!fileToUpload) {
-            setErrorMessage('Please select a corrected document file to upload.');
+    const handleSubmit = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (files.length === 0) {
+            setErrorMessage('Attach at least one corrected or missing file.');
             return;
         }
 
         setIsUploading(true);
         setErrorMessage(null);
-
-        const formData = new FormData();
-        formData.append('file', fileToUpload);
-        if (remediationNote.trim()) {
-            formData.append('reason', remediationNote.trim());
-        }
-
-        try {
-            const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
-            const res = await fetch(`/documents/${docId}/attachments`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                },
-                body: formData,
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-                setErrorMessage(data.message || 'Failed to upload corrected file.');
-                return;
-            }
-
-            // Reset and close
-            setFileToUpload(null);
-            setRemediationNote('');
-            if (fileInputRef.current) fileInputRef.current.value = '';
-            
-            if (onSuccess) {
-                onSuccess(data.attachment, data.audit);
-            }
-            onClose();
-        } catch (err: any) {
-            setErrorMessage('Network error while uploading corrected document.');
-        } finally {
-            setIsUploading(false);
-        }
+        router.post(`/documents/${doc.document_id}/resubmit`, { files, note }, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                onSuccess?.();
+                onClose();
+            },
+            onError: (errors) => {
+                setErrorMessage(Object.values(errors)[0] || 'The correction could not be submitted.');
+            },
+            onFinish: () => setIsUploading(false),
+        });
     };
 
     return (
         <BaseModal
             isOpen={open}
-            onClose={onClose}
-            title="Document Correction & Remediation"
+            onClose={isUploading ? () => {} : onClose}
+            title="Upload Document Correction"
             identifier={docRef}
-            description={`Submit corrected file and remediation notes for ${docRef}.`}
+            description={`Attach the missing or corrected files. ${docRef} will be sent back to ${returner}.`}
             icon={<AlertCircle className="h-5 w-5 text-rose-600" />}
             maxWidth="max-w-xl"
             headerClassName="bg-rose-50/70 rounded-t-[8px]"
             iconContainerClassName="bg-rose-100 text-rose-600"
+            formProps={{ onSubmit: handleSubmit }}
             footer={
-                <div className="flex items-center justify-between w-full">
+                <>
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={isUploading}
-                        className="rounded-[8px] px-4 py-2 text-[14px] font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                        className="rounded-lg px-4 py-2 text-[14px] font-medium text-slate-600 transition-colors hover:bg-slate-100"
                     >
                         Cancel
                     </button>
                     <button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={!fileToUpload || isUploading}
-                        className={cn(
-                            "flex items-center gap-2 rounded-[8px] px-5 py-2.5 text-[14px] font-semibold text-white transition-all shadow-[0_4px_12px_rgba(0,0,0,0.2)]",
-                            fileToUpload && !isUploading
-                                ? "bg-rose-600 hover:bg-rose-700 active:scale-98"
-                                : "bg-slate-300 cursor-not-allowed shadow-none"
-                        )}
+                        type="submit"
+                        disabled={files.length === 0 || isUploading}
+                        className="rounded-lg bg-rose-600 px-5 py-2 text-[14px] font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60"
                     >
-                        {isUploading ? (
-                            <>
-                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                Uploading Correction...
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle2 className="h-4 w-4" />
-                                Submit Document Correction
-                            </>
-                        )}
+                        {isUploading ? 'Submitting...' : `Submit & Send Back to ${returner}`}
                     </button>
-                </div>
+                </>
             }
         >
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Official Return Reason Quote Box */}
-                <div className="rounded-[8px] border border-rose-200 bg-rose-50/60 p-3.5 shadow-xs">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="inline-flex items-center gap-1 rounded-[6px] bg-rose-200 px-2 py-0.5 text-[11px] font-bold text-rose-800 uppercase tracking-wide">
-                            Reason for Return
-                        </span>
-                        <span className="text-[12px] text-slate-500">• Official Reviewer Remarks</span>
-                    </div>
-                    <p className="text-[14px] font-medium text-slate-900 leading-relaxed pl-1 border-l-2 border-rose-400">
-                        "{reasonText}"
-                    </p>
+            <div className="space-y-4">
+                <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-3.5">
+                    <p className="text-[12px] font-medium text-rose-700">Reason for return</p>
+                    <p className="mt-0.5 text-[14px] text-slate-900">{reasonText}</p>
                 </div>
 
                 {errorMessage && (
-                    <div className="rounded-[8px] border border-red-200 bg-red-50 p-3 text-[14px] text-red-700 flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
-                        <span>{errorMessage}</span>
-                    </div>
+                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">{errorMessage}</div>
                 )}
 
-                {/* File Upload Dropzone */}
                 <div>
-                    <label className="block text-[14px] font-semibold text-slate-800 mb-1.5">
-                        Upload Corrected / Missing File <span className="text-rose-500">*</span>
+                    <label className="mb-1.5 block text-[13px] font-medium text-slate-800">
+                        Corrected / Missing Files <span className="text-rose-500">*</span>
                     </label>
+                    <input ref={fileInputRef} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                        onDragLeave={() => setDragActive(false)}
+                        onDrop={(e) => { e.preventDefault(); setDragActive(false); addFiles(e.dataTransfer.files); }}
+                        className={cn(
+                            'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors',
+                            dragActive ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-slate-50 hover:border-rose-300 hover:bg-rose-50/40'
+                        )}
+                    >
+                        <UploadCloud className="mb-2 h-6 w-6 text-rose-500" />
+                        <p className="text-[14px] font-medium text-slate-800">Click to choose files or drag them here</p>
+                        <p className="mt-1 text-[12px] text-slate-500">PDF, DOC, DOCX, PNG or JPG · up to {MAX_FILES} files</p>
+                    </div>
 
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                        onChange={handleFileChange}
-                    />
-
-                    {!fileToUpload ? (
-                        <div
-                            onDragEnter={handleDrag}
-                            onDragLeave={handleDrag}
-                            onDragOver={handleDrag}
-                            onDrop={handleDrop}
-                            onClick={() => fileInputRef.current?.click()}
-                            className={cn(
-                                "flex flex-col items-center justify-center rounded-[8px] border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200",
-                                dragActive
-                                    ? "border-rose-500 bg-rose-50/80 scale-[0.99]"
-                                    : "border-slate-300 bg-slate-50/70 hover:border-rose-400 hover:bg-rose-50/30"
-                            )}
-                        >
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-2">
-                                <UploadCloud className="h-6 w-6" />
-                            </div>
-                            <p className="text-[14px] font-semibold text-slate-800">
-                                Click to select or drag & drop corrected document
-                            </p>
-                            <p className="text-[12px] text-slate-500 mt-1">
-                                Supported formats: PDF, Word (.docx), Excel (.xlsx), JPG, PNG (Max: 25MB)
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-between rounded-[8px] border border-slate-200 bg-slate-50 p-3 shadow-xs">
-                            <div className="flex items-center gap-3 truncate">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-rose-100 text-rose-700 shrink-0">
-                                    <FileText className="h-5 w-5" />
-                                </div>
-                                <div className="truncate">
-                                    <p className="text-[14px] font-semibold text-slate-800 truncate">
-                                        {fileToUpload.name}
-                                    </p>
-                                    <p className="text-[12px] text-slate-500">
-                                        {formatBytes(fileToUpload.size)}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setFileToUpload(null);
-                                    if (fileInputRef.current) fileInputRef.current.value = '';
-                                }}
-                                className="rounded-[6px] p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
+                    {files.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                            {files.map((file, idx) => (
+                                <li key={`${file.name}-${idx}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-[13px] font-medium text-slate-800">{file.name}</p>
+                                        <p className="text-[12px] text-slate-500">{formatBytes(file.size)}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
+                                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                        aria-label={`Remove ${file.name}`}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
                     )}
                 </div>
 
-                {/* Remediation Notes Textarea */}
                 <div>
-                    <label className="block text-[14px] font-semibold text-slate-800 mb-1.5">
-                        Remediation Explanation / Correction Notes <span className="text-slate-400 font-normal">(Optional)</span>
+                    <label className="mb-1.5 block text-[13px] font-medium text-slate-800">
+                        Correction Notes <span className="font-normal text-slate-400">(Optional)</span>
                     </label>
                     <textarea
-                        value={remediationNote}
-                        onChange={(e) => setRemediationNote(e.target.value)}
-                        placeholder="Detail the corrections, signatures added, or missing requirements attached..."
-                        rows={4}
-                        className="w-full rounded-[8px] border border-slate-200 bg-white p-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 shadow-xs"
+                        rows={3}
+                        maxLength={500}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="e.g. Attached the missing barangay clearance and updated application form."
+                        className="w-full rounded-lg border border-slate-200 p-3 text-[14px] focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
                     />
-                    <p className="mt-1 text-[12px] text-slate-500">
-                        This explanation will be permanently recorded in the official Audit Trail alongside your upload.
-                    </p>
                 </div>
-            </form>
+            </div>
         </BaseModal>
     );
 }
-
-export default DocumentCorrectionModal;

@@ -24,6 +24,10 @@ export type RoutingSlipModalData = {
     formatted_datetime?: string;
     stop_number?: string;
     qr_data?: string;
+    /** External client the document was filed for (Receiving Clerk intake). */
+    client_name?: string;
+    client_contact?: string;
+    purpose?: string;
 };
 
 export type RoutingSlipModalProps = {
@@ -189,6 +193,25 @@ export function RoutingSlipModal({
                                 </p>
                             </div>
                         </div>
+
+                        {/* Client (external documents only) */}
+                        {slip.client_name && (
+                            <div className="flex justify-between py-4 sm:py-5 border-b border-slate-200">
+                                <div className="w-1/2 pr-3 sm:pr-4">
+                                    <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">
+                                        CLIENT:
+                                    </p>
+                                    <p className="text-sm sm:text-base font-bold text-slate-950">{slip.client_name}</p>
+                                    {slip.client_contact && <p className="text-xs text-slate-700 mt-0.5">{slip.client_contact}</p>}
+                                </div>
+                                <div className="w-1/2 pl-3 sm:pl-4 border-l border-slate-100">
+                                    <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">
+                                        PURPOSE:
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-slate-800 leading-snug">{slip.purpose || '—'}</p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Instructions Section */}
                         <div className="pt-4 sm:pt-5">

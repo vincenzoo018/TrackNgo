@@ -72,13 +72,12 @@ Section 1. Implementation. All departments must immediately adopt and utilize Tr
                 {/* Full-width 100% Integrated Document Viewer & OCR Surface (No separate right-side panel) */}
                 <div className="w-full rounded-[8px] border border-slate-200 bg-white overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
                     <IntegratedDocumentViewer
-                        pdfUrl={pdfPath}
+                        fileUrl={pdfPath}
                         ocrText={ocrContent}
                         fileName={docTitle}
                         documentId={documentId}
                         selectedText={selectedOcrText}
                         onTextSelect={(text) => setSelectedOcrText(text)}
-                        defaultToolbarPosition="top"
                     />
                 </div>
             </div>

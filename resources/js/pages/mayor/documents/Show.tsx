@@ -1,27 +1,14 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Forward, RotateCcw, Printer, Download, MessageSquare, QrCode, Link as LinkIcon, ShieldAlert, History, BellRing, Ban, FileClock, Lock, Map, ScanText, Users, Bot, GitMerge, Sparkles, Send, CheckCircle2, Paperclip, FileText, Eye } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
-
+import { Head, router, usePage } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
-import { StepProgress } from '@/components/trackngo/StepProgress';
-import { CollapsiblePanel } from '@/components/trackngo/CollapsiblePanel';
-import { BaseModal } from '@/components/trackngo/BaseModal';
-import { RoutingSlipModal, RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
-
 import { ForwardModal } from '@/components/trackngo/ForwardModal';
 import { ReturnModal } from '@/components/trackngo/ReturnModal';
-import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
-import { UrgentBadge, SpClearedBadge } from '@/components/trackngo/SeverityPill';
 import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
 import { SuccessModal } from '@/components/trackngo/SuccessModal';
-import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
-import { DocumentCorrectionModal } from '@/components/trackngo/DocumentCorrectionModal';
-import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
-import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
+import { DocumentDetailView, actionButton } from '@/components/trackngo/DocumentDetailView';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
 import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
-import { cn } from '@/lib/utils';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
 
 export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers, dbAttachments }: any) {
@@ -33,52 +20,10 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
     const users = dbUsers || [];
     const attachments = dbAttachments || doc.attachments || [];
 
-    // Unified Timeline
-    const unifiedTimeline = [
-        ...trail.map((t: any) => ({ ...t, _type: 'audit', _date: new Date(t.timestamp || t.created_at) })),
-        ...comments.map((c: any) => ({ ...c, _type: 'comment', _date: new Date(c.created_at) }))
-    ].sort((a, b) => a._date.getTime() - b._date.getTime());
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [returnModalOpen, setReturnModalOpen] = useState(false);
     const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
-    
-    // Feature Modals
-    const [qrModalOpen, setQrModalOpen] = useState(false);
-    const [linkModalOpen, setLinkModalOpen] = useState(false);
-    const [escalateModalOpen, setEscalateModalOpen] = useState(false);
-    const [parallelRoutingOpen, setParallelRoutingOpen] = useState(false);
-    const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
-    const [reminderModalOpen, setReminderModalOpen] = useState(false);
-    const [delegateModalOpen, setDelegateModalOpen] = useState(false);
-    const [aiTemplateOpen, setAiTemplateOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const [exportModalOpen, setExportModalOpen] = useState(false);
-    const initialSlip = doc.routing_slips && doc.routing_slips.length > 0 ? doc.routing_slips[0] : null;
-    const routingSlipModalData: RoutingSlipModalData = {
-        slip_id: initialSlip?.slip_id || doc.document_id,
-        formatted_slip_id: initialSlip?.tracking_number || doc.tracking_number || doc.reference_number,
-        tracking_number: doc.tracking_number || doc.reference_number,
-        document_id: doc.document_id,
-        document_ref: doc.reference_number,
-        document_title: doc.title,
-        from_name: initialSlip?.sender_name || initialSlip?.from_user?.name || doc.sender || doc.submitter?.name || 'Authorized Submitter',
-        from_department: initialSlip?.from_department?.department_name || doc.department?.department_name || 'Origin Department',
-        to_name: initialSlip?.to_user?.name || 'Department Pool',
-        to_department: initialSlip?.target_department?.department_name || initialSlip?.to_department?.department_name || 'Destination Department',
-        action: initialSlip?.action || 'Review & Forward',
-        instruction: initialSlip?.instruction || 'For review and appropriate action.',
-        status: initialSlip?.status || (doc.status === 'completed' ? 'Completed' : doc.status === 'returned' ? 'Returned' : 'Active'),
-        date: initialSlip?.created_at || doc.created_at,
-        formatted_date: initialSlip?.created_at ? new Date(initialSlip.created_at).toISOString().split('T')[0] : (doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : '2026-07-27'),
-        stop_number: 'Stop #1',
-        qr_data: doc.tracking_number || doc.reference_number,
-    };
-
-    // Anchored Comments State
-    const [selectedOcrText, setSelectedOcrText] = useState('');
-    const [anchorModalOpen, setAnchorModalOpen] = useState(false);
-    const [anchorCommentText, setAnchorCommentText] = useState('');
-    const [normalCommentText, setNormalCommentText] = useState('');
 
     const [confirmState, setConfirmState] = useState({ isOpen: false, action: '', title: '', message: '', btnText: '' });
     const [successState, setSuccessState] = useState({ isOpen: false, title: '', message: '' });
@@ -91,11 +36,9 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
         return () => clearInterval(interval);
     }, []);
 
-    const handleTextSelection = () => {
-        const selection = window.getSelection();
-        if (selection && selection.toString().trim().length > 0) {
-            setSelectedOcrText(selection.toString().trim());
-        }
+    const showToast = (msg: string) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 3000);
     };
 
     const handleEndorse = (destType: string, destId: string, rem: string) => {
@@ -111,54 +54,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 setForwardModalOpen(false);
                 window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
                 window.dispatchEvent(new CustomEvent('tng:document-sent'));
-            }
-        });
-    };
-
-    const handleEscalate = () => {
-        const just = (document.getElementById('escalateJustification') as HTMLTextAreaElement)?.value;
-        if (!just) return alert('Justification required');
-        router.post(`/mayor/documents/${doc.document_id}/escalate`, {
-            justification: just
-        }, {
-            onSuccess: () => {
-                showToast('Document successfully escalated to CART!');
-                setEscalateModalOpen(false);
-            }
-        });
-    };
-
-    const handleLink = () => {
-        const tk = (document.getElementById('linkTrackingNo') as HTMLInputElement)?.value;
-        if (!tk) return alert('Tracking No required');
-        router.post(`/mayor/documents/${doc.document_id}/link`, {
-            tracking_number: tk
-        }, {
-            onSuccess: () => {
-                showToast('Document linked successfully!');
-                setLinkModalOpen(false);
-            }
-        });
-    };
-
-    const handleAddComment = (e?: React.FormEvent, isAnchored = false) => {
-        if (e) e.preventDefault();
-        const text = isAnchored ? anchorCommentText : normalCommentText;
-        if (!text) return;
-        
-        router.post(`/mayor/documents/${doc.document_id}/comments`, {
-            comment: text,
-            quoted_text: isAnchored ? selectedOcrText : null
-        }, {
-            onSuccess: () => {
-                showToast('Comment added!');
-                if (isAnchored) {
-                    setAnchorModalOpen(false);
-                    setAnchorCommentText('');
-                    setSelectedOcrText('');
-                } else {
-                    setNormalCommentText('');
-                }
             }
         });
     };
@@ -225,9 +120,114 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
         }
     };
 
-    const showToast = (msg: string) => {
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(null), 3000);
+    const approveButton = (
+        <button
+            onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
+            className={actionButton.primary}
+        >
+            Sign &amp; Approve Document
+        </button>
+    );
+    const returnButton = (
+        <button onClick={() => setReturnModalOpen(true)} className={actionButton.secondary}>
+            Return to Sender
+        </button>
+    );
+
+    const renderActions = () => {
+        const std = getStandardizedStatus(doc.status);
+        // Mayor actions unlock only once the document is endorsed to the Mayor (Mayor becomes current holder)
+        if (!isCurrentHolder(doc, auth?.user) && std !== 'Returned' && !isClosedStatus(doc.status)) {
+            const reachedMayor = (doc.current_step_index || 1) >= 4;
+            const filedByMayor = String(doc.submitted_by) === String(auth?.user?.id);
+            if (filedByMayor) {
+                return (
+                    <HolderStatusCard
+                        variant="sent"
+                        title="Sent"
+                        holder={describeHolder(doc, users)}
+                        message={(doc.current_step_index || 1) <= 1
+                            ? 'Awaiting registration by the Receiving Clerk.'
+                            : 'Being processed by the receiving office.'}
+                    />
+                );
+            }
+            return reachedMayor ? (
+                <HolderStatusCard
+                    variant="forwarded"
+                    title={(doc.status || '').toLowerCase() === 'approved' ? 'Approved — Routed to Receiving' : 'Forwarded'}
+                    holder={describeHolder(doc, users)}
+                    message="No further action is required from the Office of the Mayor."
+                />
+            ) : (
+                <HolderStatusCard
+                    variant="waiting"
+                    title="Waiting to be routed"
+                    holder={describeHolder(doc, users)}
+                    message="Actions will be available once the Department Head forwards / endorses this document to the Mayor."
+                />
+            );
+        }
+        if (std === 'Sent' || doc.status === 'submitted' || doc.status === 'registered') {
+            return (
+                <>
+                    <button
+                        onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document?', 'Receive')}
+                        className={actionButton.primary}
+                    >
+                        Receive / Accept Document
+                    </button>
+                    {approveButton}
+                    {returnButton}
+                </>
+            );
+        }
+        if (std === 'Received' || std === 'Ongoing' || doc.status === 'reviewed') {
+            return (
+                <>
+                    {(doc.current_step_index || 0) < 6 && (
+                        <button
+                            onClick={() => requestAction('review', 'Mark as Reviewed', 'Mark this document as reviewed by the Office of the Mayor?', 'Mark Reviewed')}
+                            className={actionButton.secondary}
+                        >
+                            Mark as Reviewed
+                        </button>
+                    )}
+                    {approveButton}
+                    <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
+                        Forward / Endorse
+                    </button>
+                    {returnButton}
+                </>
+            );
+        }
+        if (std === 'Returned' && !isCurrentHolder(doc, auth?.user)) {
+            return (
+                <HolderStatusCard
+                    variant="waiting"
+                    title="Returned for Correction"
+                    holder={describeHolder(doc, users)}
+                    message="Waiting for the missing / corrected files to be uploaded."
+                />
+            );
+        }
+        if (std === 'Returned') {
+            return (
+                <>
+                    <button type="button" onClick={() => setCorrectionModalOpen(true)} className={actionButton.danger}>
+                        Upload Correction
+                    </button>
+                    <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
+                        Re-route / Endorse
+                    </button>
+                </>
+            );
+        }
+        return (
+            <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center text-sm font-medium text-slate-500">
+                No actions available
+            </p>
+        );
     };
 
     return (
@@ -240,477 +240,26 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
         >
             <Head title={`${doc.reference_number} — TrackNGo Mati`} />
 
-            {/* Toast Notification */}
             {toastMessage && (
-                <div className="fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2">
-                        <BellRing className="h-4 w-4" />
-                        {toastMessage}
-                    </div>
+                <div className="fixed top-4 right-4 z-50 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
+                    {toastMessage}
                 </div>
             )}
 
-            <div className="w-full max-w-none space-y-6 pb-12">
-                {/* 1. Standardized Header Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-[8px] border border-slate-200 bg-white p-5 shadow-xs">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <span className={cn(
-                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-[6px] text-[13px] font-semibold tracking-wide uppercase shadow-2xs",
-                            getStandardizedStatus(doc.status) === 'Received' && "bg-blue-100 text-blue-800 border border-blue-200",
-                            getStandardizedStatus(doc.status) === 'Ongoing' && "bg-amber-100 text-amber-800 border border-amber-200",
-                            getStandardizedStatus(doc.status) === 'Sent' && "bg-purple-100 text-purple-800 border border-purple-200",
-                            getStandardizedStatus(doc.status) === 'Returned' && "bg-rose-100 text-rose-800 border border-rose-200"
-                        )}>
-                            <span className="h-2 w-2 rounded-full bg-current animate-pulse" />
-                            {getStandardizedStatus(doc.status)}
-                        </span>
-
-                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                            {doc.reference_number || doc.tracking_number}
-                        </h1>
-
-                        <UrgentBadge />
-                        <SpClearedBadge />
-
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-600 border border-slate-200">
-                            {doc.classification ? doc.classification.toUpperCase() : 'NORMAL'}
-                        </span>
-
-                        <p className="text-[14px] text-slate-500 font-medium hidden sm:inline">
-                            {doc.title} — {doc.sender ?? doc.submitter?.name ?? 'Unknown'}
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                        {getStandardizedStatus(doc.status) === 'Returned' && (
-                            <button
-                                type="button"
-                                onClick={() => setCorrectionModalOpen(true)}
-                                className="flex items-center gap-1.5 rounded-[8px] bg-rose-600 px-3.5 py-2 text-[14px] font-semibold text-white shadow-xs hover:bg-rose-700 transition-colors"
-                            >
-                                <Paperclip className="h-4 w-4" />
-                                Correct Document
-                            </button>
-                        )}
-                        <Link
-                            href="/mayor/documents"
-                            className="flex items-center gap-1.5 rounded-[8px] border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 shadow-2xs"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            Back to List
-                        </Link>
-                    </div>
-                </div>
-
-                {/* 2. Returned Document Notification (if status is Returned) */}
-                {getStandardizedStatus(doc.status) === 'Returned' && (
-                    <div className="rounded-[8px] border border-rose-200 bg-rose-50/80 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="rounded-[6px] bg-rose-100 p-2 text-rose-600 shrink-0">
-                                <RotateCcw className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-rose-950">Document Returned for Correction</h3>
-                                <p className="text-xs sm:text-[13px] text-slate-700 mt-0.5 leading-relaxed">
-                                    <strong>Official Reason for return:</strong> "{doc.return_reason || 'Missing files or corrections required.'}"
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setCorrectionModalOpen(true)}
-                            className="flex items-center gap-2 rounded-[8px] bg-rose-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.2)] hover:bg-rose-700 transition-all shrink-0 active:scale-98"
-                        >
-                            <Paperclip className="h-4 w-4" />
-                            Upload Document Correction
-                        </button>
-                    </div>
-                )}
-
-                {/* 3. Document Details, Routing History & SLA (Always visible, not a dropdown) */}
-                <div className="rounded-[8px] border border-slate-200 bg-white p-6 shadow-xs space-y-6">
-                    {/* Heading: Document Details, Routing History & SLA (20px bold) */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-                        <h2 className="text-[20px] font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                            Document Details, Routing History &amp; SLA
-                        </h2>
-                        <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-[6px] bg-slate-100 text-slate-700 border border-slate-200">
-                            Tracking #{doc.tracking_number ?? doc.reference_number}
-                        </span>
-                    </div>
-
-                    {/* Current Holder: Always visible, not a dropdown */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-[8px] border border-blue-200 bg-blue-50/70 p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0066cc] text-white shadow-xs">
-                                <Users className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-bold text-[#0066cc] uppercase tracking-wider">
-                                    Current Holder
-                                </p>
-                                <p className="text-[16px] font-bold text-slate-900 mt-0.5">
-                                    {doc.current_holder_department?.department_name ?? doc.department?.department_name ?? 'Origin Department'}
-                                    <span className="text-[14px] font-normal text-slate-600 ml-2">
-                                        — {doc.current_holder?.name ?? doc.currentHolder?.name ?? 'Assigned Officer / Pool'}
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600">
-                            <div className="rounded-[6px] bg-white px-3 py-1.5 border border-slate-200 shadow-2xs">
-                                <span className="text-slate-400 font-normal">Department: </span>
-                                <strong className="text-slate-800">{doc.department?.department_name ?? 'N/A'}</strong>
-                            </div>
-                            <div className="rounded-[6px] bg-white px-3 py-1.5 border border-slate-200 shadow-2xs">
-                                <span className="text-slate-400 font-normal">SLA Expected: </span>
-                                <strong className="text-slate-800">
-                                    {doc.arta_due_date
-                                        ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
-                                              month: 'short',
-                                              day: '2-digit',
-                                              year: 'numeric',
-                                          })
-                                        : 'Normal Processing'}
-                                </strong>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* FSM (workflow tracker): Finite State Machine Document Lifecycle Progress Tracker */}
-                    <div className="rounded-[8px] border border-slate-200 bg-slate-50/50 p-5">
-                        <div className="flex items-center justify-between mb-2 px-1">
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                FSM Document Lifecycle Tracker
-                            </p>
-                        </div>
-                        <StepProgress
-                            document={doc}
-                            currentStep={doc.current_step_index || 1}
-                            currentHolderName={doc.current_holder?.name ?? doc.currentHolder?.name}
-                            auditTrails={trail}
-                            allowProcessSwitch={true}
-                        />
-                    </div>
-
-                    {/* Metadata & Routing Slip Grid */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-1">
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5">
-                            <h3 className="mb-4 text-sm font-semibold text-slate-800">
-                                Document Metadata
-                            </h3>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                <MetaField label="Tracking Number" value={doc.tracking_number ?? doc.reference_number} />
-                                <MetaField label="Department" value={doc.department?.department_name ?? 'N/A'} />
-                                <MetaField
-                                    label="Date Filed"
-                                    value={new Date(doc.date_filed || doc.created_at).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: '2-digit',
-                                        year: 'numeric',
-                                    }) + ' - ' + new Date(doc.date_filed || doc.created_at).toLocaleTimeString('en-US', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                />
-                                <MetaField label="Document Category" value={doc.type?.type_name ?? 'N/A'} />
-                                <MetaField label="Contact Number" value={doc.contact_number ?? 'N/A'} />
-                                <MetaField
-                                    label="Expected Due Date (SLA)"
-                                    value={doc.arta_due_date
-                                        ? new Date(doc.arta_due_date).toLocaleDateString('en-US', {
-                                              month: 'short',
-                                              day: '2-digit',
-                                              year: 'numeric',
-                                          })
-                                        : 'N/A'}
-                                />
-                                <MetaField label="Sender / Submitted By" value={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
-                                <MetaField
-                                    label="Classification"
-                                    value={
-                                        <span className={doc.classification === 'urgent' ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-                                            {(doc.classification ?? 'NORMAL').toUpperCase()}
-                                        </span>
-                                    }
-                                />
-                                <MetaField label="Linked Document / Version" value={doc.linked_document ? `${doc.linked_document} / ${doc.version}` : `None / ${doc.version ?? 'v1.0'}`} />
-                            </div>
-                        </div>
-
-                        {/* Initial Routing Slip */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xs font-mono relative overflow-hidden">
-                            {doc.routing_slips && doc.routing_slips.length > 0 ? (
-                                <div className="flex flex-col gap-5 text-slate-900">
-                                    <div className="flex justify-between items-start border-b border-slate-200 pb-4">
-                                        <div>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className="text-base font-bold uppercase tracking-tight">Routing Slip</h3>
-                                                <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                                    {doc.tracking_number ?? doc.reference_number}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setQrModalOpen(true)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors shadow-2xs font-sans"
-                                                    title="View official routing slip modal"
-                                                >
-                                                    <Eye className="h-3.5 w-3.5" />
-                                                    View Official Slip
-                                                </button>
-                                            </div>
-                                            <p className="text-xs font-semibold text-slate-800 mt-1.5">{doc.department?.department_name ?? 'Origin Department'}</p>
-                                            <p className="text-xs text-slate-500">{doc.sender ?? doc.submitter?.name ?? 'Unknown Sender'}</p>
-                                        </div>
-                                        <div className="flex flex-col items-end text-right">
-                                            <img 
-                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${doc.tracking_number ?? doc.reference_number}`}
-                                                alt="QR Code"
-                                                className="w-14 h-14 mb-1 mix-blend-multiply"
-                                            />
-                                            <p className="text-xs font-bold tracking-tight">Stop #1</p>
-                                            <p className="text-[11px] text-slate-500">Submitted {new Date(doc.routing_slips[0].created_at).toISOString().split('T')[0]}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between text-xs">
-                                        <div className="w-1/2 pr-3">
-                                            <p className="text-[10px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wider">From:</p>
-                                            <p className="font-bold text-slate-800">{doc.routing_slips[0].sender_name ?? doc.routing_slips[0].from_user?.name ?? 'Unknown'}</p>
-                                            <p className="text-slate-600 mt-0.5">{doc.routing_slips[0].from_department?.department_name ?? 'N/A'}</p>
-                                        </div>
-                                        <div className="w-1/2 pl-3">
-                                            <p className="text-[10px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wider">To:</p>
-                                            <p className="font-bold text-slate-800">{doc.routing_slips[0].target_department?.department_name ?? 'N/A'}</p>
-                                            <p className="text-slate-600 mt-0.5">{doc.routing_slips[0].to_user?.name ?? 'Department Pool'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="border-t border-slate-200 pt-3">
-                                        <p className="text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Instructions:</p>
-                                        <p className="text-xs bg-slate-50 p-2 rounded border border-slate-100 text-slate-700">{doc.routing_slips[0].instruction || 'No specific instruction provided.'}</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex h-36 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-500 font-sans">
-                                    <FileClock className="mb-1.5 h-5 w-5 text-slate-400" />
-                                    <p className="text-xs font-medium">No routing slip generated yet.</p>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">Pending Registration</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. Main 100% Screen Width Work Surface */}
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 w-full items-start">
-                    {/* Primary Left Pane: Document & OCR Viewer (7 of 12 cols, ~60%-65% width) */}
-                    <div className="xl:col-span-7 2xl:col-span-8 flex flex-col gap-4">
-                        <div className="rounded-[8px] border border-slate-200 bg-white overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
-                            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-5 py-3.5">
-                                <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-blue-600" />
-                                    Integrated Document Viewer & OCR Workspace
-                                </h2>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!selectedOcrText) return alert('Please highlight text in the document preview first.');
-                                        setAnchorModalOpen(true);
-                                    }}
-                                    className={cn(
-                                        "rounded-[8px] border px-3 py-1 text-xs sm:text-[13px] font-semibold transition-colors shadow-xs",
-                                        selectedOcrText
-                                            ? "border-blue-400 bg-blue-50 text-blue-700 shadow-xs"
-                                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                                    )}
-                                >
-                                    📋 Add Anchored Comment {selectedOcrText && '(Text Selected)'}
-                                </button>
-                            </div>
-                            <div className="p-4">
-                                <IntegratedDocumentViewer
-                                    pdfUrl={doc.attachment_path ? `/storage/${doc.attachment_path}` : null}
-                                    ocrText={doc.ocr_text}
-                                    fileName={doc.title || doc.reference_number}
-                                    documentId={doc.document_id}
-                                    isConfidential={Boolean(doc.is_confidential_hidden)}
-                                    selectedText={selectedOcrText}
-                                    onTextSelect={(text) => setSelectedOcrText(text)}
-                                    onAddAnchoredComment={(text) => {
-                                        setSelectedOcrText(text);
-                                        setAnchorModalOpen(true);
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Secondary Right Pane: Actions + Discussion + Audit Trail (5 of 12 cols, ~35%-40% width) */}
-                    <div className="xl:col-span-5 2xl:col-span-4 flex flex-col gap-6">
-                        {/* Review Actions */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
-                            <h2 className="mb-4 text-[18px] font-medium text-[#0066cc]">
-                                Review Actions
-                            </h2>
-                            <div className="space-y-3">
-                                {(() => {
-                                    const std = getStandardizedStatus(doc.status);
-                                    // Mayor actions unlock only once the document is endorsed to the Mayor (Mayor becomes current holder)
-                                    if (!isCurrentHolder(doc, auth?.user) && std !== 'Returned' && !isClosedStatus(doc.status)) {
-                                        const reachedMayor = (doc.current_step_index || 1) >= 4;
-                                        const filedByMayor = String(doc.submitted_by) === String(auth?.user?.id);
-                                        if (filedByMayor) {
-                                            return (
-                                                <HolderStatusCard
-                                                    variant="sent"
-                                                    title="Sent"
-                                                    holder={describeHolder(doc, users)}
-                                                    message={(doc.current_step_index || 1) <= 1
-                                                        ? 'Awaiting registration by the Receiving Clerk.'
-                                                        : 'Being processed by the receiving office.'}
-                                                />
-                                            );
-                                        }
-                                        return reachedMayor ? (
-                                            <HolderStatusCard
-                                                variant="forwarded"
-                                                title={(doc.status || '').toLowerCase() === 'approved' ? 'Approved — Routed to Receiving' : 'Forwarded'}
-                                                holder={describeHolder(doc, users)}
-                                                message="No further action is required from the Office of the Mayor."
-                                            />
-                                        ) : (
-                                            <HolderStatusCard
-                                                variant="waiting"
-                                                title="Waiting to be routed"
-                                                holder={describeHolder(doc, users)}
-                                                message="Actions will be available once the Department Head forwards / endorses this document to the Mayor."
-                                            />
-                                        );
-                                    }
-                                    if (std === 'Sent' || doc.status === 'submitted' || doc.status === 'registered') {
-                                        return (
-                                            <>
-                                                <button 
-                                                    onClick={() => requestAction('accept', 'Accept Document', 'Are you sure you want to receive and accept this document?', 'Receive')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
-                                                >
-                                                    <CheckCircle2 className="h-4 w-4" />
-                                                    Receive / Accept Document
-                                                </button>
-                                                <button 
-                                                    onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
-                                                >
-                                                    <Sparkles className="h-4 w-4" />
-                                                    Sign & Approve Document
-                                                </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-200 transition-colors shadow-xs">
-                                                    <RotateCcw className="h-4 w-4" />
-                                                    Return to Sender
-                                                </button>
-                                            </>
-                                        );
-                                    }
-                                    if (std === 'Received' || std === 'Ongoing' || doc.status === 'reviewed') {
-                                        return (
-                                            <>
-                                                {(doc.current_step_index || 0) < 6 && (
-                                                    <button
-                                                        onClick={() => requestAction('review', 'Mark as Reviewed', 'Mark this document as reviewed by the Office of the Mayor?', 'Mark Reviewed')}
-                                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-amber-700 active:scale-98"
-                                                    >
-                                                        <CheckCircle2 className="h-4 w-4" />
-                                                        Mark as Reviewed
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98"
-                                                >
-                                                    <Sparkles className="h-4 w-4" />
-                                                    Sign & Approve Document
-                                                </button>
-                                                <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2.5 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] active:scale-98">
-                                                    <Forward className="h-4 w-4" />
-                                                    Forward / Endorse
-                                                </button>
-                                                <button onClick={() => setReturnModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-200 transition-colors shadow-xs">
-                                                    <RotateCcw className="h-4 w-4" />
-                                                    Return to Sender
-                                                </button>
-                                                <button onClick={() => setEscalateModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-[14px] font-medium text-slate-700 hover:bg-slate-200 transition-colors shadow-xs">
-                                                    <ShieldAlert className="h-4 w-4" />
-                                                    Flag / Escalate
-                                                </button>
-                                            </>
-                                        );
-                                    }
-                                    if (std === 'Returned') {
-                                        return (
-                                            <div className="rounded-[8px] bg-rose-50 border border-rose-200 p-4 text-center">
-                                                <p className="text-[14px] font-semibold text-rose-800 flex items-center justify-center gap-1.5 mb-3">
-                                                    <RotateCcw className="h-4 w-4" /> Document Returned for Correction
-                                                </p>
-                                                <div className="flex flex-col gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setCorrectionModalOpen(true)}
-                                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-rose-700 transition-colors shadow-xs"
-                                                    >
-                                                        <Paperclip className="h-3.5 w-3.5" />
-                                                        Upload Correction
-                                                    </button>
-                                                    <button onClick={() => setForwardModalOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-3 py-2 text-[13px] font-medium text-white transition-all hover:bg-[#005bb5] shadow-xs">
-                                                        <Forward className="h-3.5 w-3.5" />
-                                                        Re-route / Endorse
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return (
-                                        <div className="flex h-12 items-center justify-center rounded-[8px] border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
-                                            No actions available
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-
-                        {/* Distinct Discussion & Audit Trail Panels */}
-                        <DiscussionAuditTimeline
-                            document={doc}
-                            auditTrail={trail}
-                            comments={comments}
-                            attachments={attachments}
-                            selectedSnippet={selectedOcrText}
-                            onClearSnippet={() => setSelectedOcrText('')}
-                            onOpenCorrectionModal={() => setCorrectionModalOpen(true)}
-                        />
-
-                        {/* Signatures Section */}
-                        <div className="rounded-[8px] border border-slate-200 bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col gap-6">
-                            <h3 className="text-[18px] font-medium text-[#0066cc]">
-                                Signatories
-                            </h3>
-                            {/* Sender */}
-                            <div className="text-center relative w-full flex flex-col items-center">
-                                <DraggableSignature imagePath={doc.submitter?.signature} name={doc.sender ?? doc.submitter?.name ?? 'Unknown'} />
-                                <div className="h-14"></div>
-                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{doc.sender ?? doc.submitter?.name ?? 'Unknown'}</div>
-                                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Prepared By</div>
-                            </div>
-
-                            {/* Authenticated User */}
-                            <div className="text-center relative w-full flex flex-col items-center">
-                                <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
-                                <div className="h-14"></div>
-                                <div className="font-bold text-slate-800 underline underline-offset-4 decoration-slate-400 pb-1 mb-1">{auth?.user?.name ?? 'City Mayor'}</div>
-                                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Approved By</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <DocumentDetailView
+                doc={doc}
+                trail={trail}
+                comments={comments}
+                attachments={attachments}
+                users={users}
+                role="mayor"
+                backUrl="/mayor/documents"
+                actionsTitle="Review Actions"
+                actions={renderActions()}
+                signatoryLabel="Approved By"
+                correctionOpen={correctionModalOpen}
+                onCorrectionOpenChange={setCorrectionModalOpen}
+            />
 
             <ForwardModal
                 open={forwardModalOpen}
@@ -727,220 +276,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 onConfirm={(reason) => handleReturn(reason)}
                 identifier={doc.reference_number}
             />
-
-            {/* Official Routing Slip Modal */}
-            <RoutingSlipModal
-                isOpen={qrModalOpen}
-                onClose={() => setQrModalOpen(false)}
-                slip={routingSlipModalData}
-                currentRole="mayor"
-            />
-
-            {/* Link Related Document Modal */}
-            <BaseModal
-                isOpen={linkModalOpen}
-                onClose={() => setLinkModalOpen(false)}
-                title="Link Related Document"
-                identifier={doc.reference_number}
-                description="Attach another tracking number or routing slip as a cross-reference."
-                icon={<LinkIcon className="h-5 w-5" />}
-                maxWidth="max-w-md"
-                footer={
-                    <>
-                        <button type="button" onClick={() => setLinkModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-                        <button type="button" onClick={() => { showToast('Document linked successfully!'); setLinkModalOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Link Document</button>
-                    </>
-                }
-            >
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Document Tracking Number</label>
-                    <input type="text" placeholder="Search by Tracking No. (e.g. RS-2026-0048 or TNG-2026-...)" className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" />
-                </div>
-            </BaseModal>
-
-            {/* Escalate to CART Modal */}
-            <BaseModal
-                isOpen={escalateModalOpen}
-                onClose={() => setEscalateModalOpen(false)}
-                title="Escalate to CART"
-                identifier={doc.reference_number}
-                description="Flag for ARTA non-compliance investigation and expedited review."
-                icon={<ShieldAlert className="h-5 w-5" />}
-                headerClassName="bg-rose-50/70"
-                iconContainerClassName="bg-rose-100 text-rose-600"
-                maxWidth="max-w-md"
-                footer={
-                    <>
-                        <button type="button" onClick={() => setEscalateModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-                        <button type="button" onClick={() => { showToast('Document successfully escalated to CART!'); setEscalateModalOpen(false); }} className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 transition-colors shadow-2xs">Submit Escalation</button>
-                    </>
-                }
-            >
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Escalation Justification</label>
-                    <textarea rows={3} placeholder="Please provide justification for this escalation..." className="w-full rounded-lg border border-rose-200 bg-rose-50/30 p-2.5 text-sm text-slate-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-500" />
-                </div>
-            </BaseModal>
-
-            {/* Parallel Routing Modal */}
-            <BaseModal
-                isOpen={parallelRoutingOpen}
-                onClose={() => setParallelRoutingOpen(false)}
-                title="Parallel Routing"
-                identifier={doc.reference_number}
-                description="Route this document to multiple departments simultaneously for concurrent review."
-                icon={<GitMerge className="h-5 w-5" />}
-                maxWidth="max-w-lg"
-                footer={
-                    <>
-                        <button type="button" onClick={() => setParallelRoutingOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-                        <button type="button" onClick={() => { showToast('Document routed in parallel!'); setParallelRoutingOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Initiate Parallel Route</button>
-                    </>
-                }
-            >
-                <div className="space-y-3">
-                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600" />
-                        <div><p className="text-sm font-semibold text-slate-900">City Legal Office</p><p className="text-xs text-slate-500">Legal review and clearance</p></div>
-                    </label>
-                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600" />
-                        <div><p className="text-sm font-semibold text-slate-900">City Budget Office</p><p className="text-xs text-slate-500">Financial obligation review</p></div>
-                    </label>
-                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-blue-600" />
-                        <div><p className="text-sm font-semibold text-slate-900">Human Resources</p><p className="text-xs text-slate-500">Personnel impact review</p></div>
-                    </label>
-                </div>
-            </BaseModal>
-
-            {/* Privacy Modal */}
-            <BaseModal
-                isOpen={privacyModalOpen}
-                onClose={() => setPrivacyModalOpen(false)}
-                title="Access Control & Privacy"
-                identifier={doc.reference_number}
-                description="Configure document routing visibility and security classification."
-                icon={<Lock className="h-5 w-5" />}
-                maxWidth="max-w-md"
-                footer={
-                    <button type="button" onClick={() => { showToast('Privacy settings updated'); setPrivacyModalOpen(false); }} className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors shadow-2xs">Save Changes</button>
-                }
-            >
-                <div className="space-y-3">
-                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
-                        <input type="radio" name="privacy" defaultChecked className="text-blue-600" />
-                        <div><p className="text-sm font-semibold text-slate-900">Public Routing</p><p className="text-xs text-slate-500">Visible to all handling staff</p></div>
-                    </label>
-                    <label className="flex items-center gap-3 p-3 border border-rose-200 bg-rose-50/50 rounded-lg cursor-pointer transition-colors">
-                        <input type="radio" name="privacy" className="text-rose-600" />
-                        <div><p className="text-sm font-semibold text-rose-700">Highly Confidential</p><p className="text-xs text-rose-500">Metadata hidden, restricted access</p></div>
-                    </label>
-                </div>
-            </BaseModal>
-
-            {/* Anchored Comment Modal */}
-            <BaseModal
-                isOpen={anchorModalOpen}
-                onClose={() => setAnchorModalOpen(false)}
-                title="Add Anchored Comment"
-                identifier={doc.reference_number}
-                description="Attach feedback to the highlighted text in the document."
-                icon={<MessageSquare className="h-5 w-5" />}
-                maxWidth="max-w-lg"
-                formProps={{ onSubmit: (e) => handleAddComment(e, true) }}
-                footer={
-                    <>
-                        <button type="button" onClick={() => setAnchorModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-                        <button type="submit" className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Save Comment</button>
-                    </>
-                }
-            >
-                <div className="space-y-3">
-                    <div className="border-l-4 border-blue-400 bg-blue-50 p-3 text-sm text-slate-700 italic rounded-r-lg max-h-32 overflow-y-auto">
-                        "{selectedOcrText}"
-                    </div>
-                    <textarea 
-                        value={anchorCommentText}
-                        onChange={(e) => setAnchorCommentText(e.target.value)}
-                        rows={3} 
-                        placeholder="Type your comment here..." 
-                        className="w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-[var(--tng-blue-500)] focus:ring-1 focus:ring-[var(--tng-blue-500)]" 
-                        autoFocus
-                    />
-                </div>
-            </BaseModal>
-
-            {/* AI Template Auto-Responder Modal */}
-            <BaseModal
-                isOpen={aiTemplateOpen}
-                onClose={() => setAiTemplateOpen(false)}
-                title="AI Auto-Responder"
-                identifier={doc.reference_number}
-                description="Draft a response letter automatically based on document metadata and extracted OCR text."
-                icon={<Bot className="h-5 w-5 text-purple-600" />}
-                maxWidth="max-w-md"
-                footer={
-                    <button type="button" onClick={() => { showToast('Draft generated and saved to attachments!'); setAiTemplateOpen(false); }} className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:from-blue-700 hover:to-purple-700 transition-all">
-                        <Bot className="h-4 w-4" /> Generate Draft
-                    </button>
-                }
-            >
-                <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Response Letter Template</label>
-                    <select className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                        <option>Notice of Approval</option>
-                        <option>Request for Additional Docs</option>
-                        <option>Notice of Denial</option>
-                    </select>
-                </div>
-            </BaseModal>
-
-            {/* Delegate Modal */}
-            <BaseModal
-                isOpen={delegateModalOpen}
-                onClose={() => setDelegateModalOpen(false)}
-                title="Delegate Document"
-                identifier={doc.reference_number}
-                description="Assign this document to a staff member in your department."
-                icon={<Users className="h-5 w-5" />}
-                maxWidth="max-w-md"
-                footer={
-                    <>
-                        <button type="button" onClick={() => setDelegateModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-                        <button type="button" onClick={() => { showToast('Document delegated'); setDelegateModalOpen(false); }} className="rounded-lg bg-[var(--tng-blue-600)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--tng-blue-700)] transition-colors shadow-2xs">Delegate Now</button>
-                    </>
-                }
-            >
-                <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Assignee</label>
-                    <select className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                        <option>Select staff member...</option>
-                        <option>Staff A - Technical Reviewer</option>
-                        <option>Staff B - Finance Checker</option>
-                    </select>
-                </div>
-            </BaseModal>
-
-            {/* Reminder Modal */}
-            <BaseModal
-                isOpen={reminderModalOpen}
-                onClose={() => setReminderModalOpen(false)}
-                title="Automated Reminders"
-                identifier={doc.reference_number}
-                description="Configure notification intervals and SLA escalations."
-                icon={<BellRing className="h-5 w-5" />}
-                maxWidth="max-w-md"
-                footer={
-                    <button type="button" onClick={() => { showToast('Schedules saved'); setReminderModalOpen(false); }} className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors shadow-2xs">Save Schedule</button>
-                }
-            >
-                <div className="space-y-3 text-sm text-slate-700">
-                    <label className="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" className="rounded border-slate-300 text-blue-600" defaultChecked /> Send Daily SMS at 8:00 AM</label>
-                    <label className="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" className="rounded border-slate-300 text-blue-600" defaultChecked /> Send Daily Email at 8:00 AM</label>
-                    <label className="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" className="rounded border-slate-300 text-blue-600" /> CC Department Head if delayed 2 days</label>
-                </div>
-            </BaseModal>
 
             <ConfirmActionModal
                 isOpen={confirmState.isOpen}
@@ -960,40 +295,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 identifier={doc.reference_number}
                 message={successState.message}
             />
-
-            <ExportPasswordModal
-                isOpen={exportModalOpen}
-                onClose={() => setExportModalOpen(false)}
-                documentId={doc.document_id}
-                identifier={doc.reference_number}
-                onSuccess={(msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(null), 3500); }}
-            />
-
-            <DocumentCorrectionModal
-                open={correctionModalOpen}
-                onClose={() => setCorrectionModalOpen(false)}
-                document={doc}
-                returnReason={doc.return_reason}
-                onSuccess={() => {
-                    setToastMessage('Document correction uploaded successfully.');
-                    setTimeout(() => setToastMessage(null), 3500);
-                    router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments', 'dbAttachments'] });
-                }}
-            />
         </TrackngoLayout>
     );
 }
-
-function MetaField({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-        <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--tng-slate-400)]">
-                {label}
-            </p>
-            <p className="mt-0.5 text-sm font-medium text-[var(--tng-slate-800)]">
-                {value}
-            </p>
-        </div>
-    );
-}
-

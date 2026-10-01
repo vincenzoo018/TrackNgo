@@ -16,6 +16,7 @@ class DocumentComment extends Model
         'user_id',
         'comment',
         'is_anchored',
+        'quoted_text',
     ];
 
     protected $casts = [

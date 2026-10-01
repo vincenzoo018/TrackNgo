@@ -209,13 +209,39 @@ class DocumentController extends Controller
     public function addComment(Request $request, $id)
     {
         $request->validate([
-            'comment' => 'required|string',
+            'comment'     => 'required|string|max:2000',
+            'quoted_text' => 'nullable|string|max:2000',
         ]);
 
         $actor = $request->user() ?: auth()->user();
-        $comment = $this->documentService->addComment((int) $id, $request->comment, $actor, $request->ip());
+        $this->documentService->addComment((int) $id, $request->comment, $actor, $request->ip(), $request->input('quoted_text'));
 
         return redirect()->back()->with('success', 'Note added successfully');
+    }
+
+    public function resubmit(Request $request, $id)
+    {
+        $request->validate([
+            'files'   => 'required|array|min:1|max:5',
+            'files.*' => 'file|mimes:pdf,doc,docx,png,jpg,jpeg|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
+            'note'    => 'nullable|string|max:500',
+        ], [
+            'files.required'   => 'Attach at least one corrected or missing file.',
+            'files.max'        => 'Attach up to 5 files at a time.',
+            'files.*.mimes'    => 'Files must be PDF, Word (DOC/DOCX) or images (PNG/JPG).',
+            'files.*.max'      => 'Each file must not be larger than ' . (StoreDocumentRequest::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
+            'files.*.uploaded' => 'A file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
+        ]);
+
+        $actor = $request->user() ?: auth()->user();
+        $document = $this->documentService->executeWorkflowAction((int) $id, 'resubmit', [
+            'files' => $request->file('files', []),
+            'note'  => $request->input('note'),
+        ], $actor, $request->ip());
+
+        $document->loadMissing('currentHolder');
+
+        return redirect()->back()->with('success', 'Correction submitted and sent back to ' . ($document->currentHolder?->name ?? 'the reviewer') . '.');
     }
 
     public function addAttachment(Request $request, $id)
@@ -244,13 +270,40 @@ class DocumentController extends Controller
             return response()->json(['message' => 'Invalid password verification.'], 403);
         }
 
+        // List exports (id 0) only need the password check; the CSV itself is built in the browser
+        if ((int) $id === 0) {
+            return response()->json(['verified' => true]);
+        }
+
         $document = Document::findOrFail($id);
-        if (!$document->attachment_path || !Storage::disk('public')->exists($document->attachment_path)) {
+
+        // A correction / supporting file attached to the document, or the main document file
+        $attachment = $request->filled('attachment_id')
+            ? \App\Models\DocumentAttachment::where('document_id', $document->document_id)->findOrFail($request->input('attachment_id'))
+            : null;
+        $storedPath = $attachment?->file_path ?? $document->attachment_path;
+
+        if (!$storedPath || !Storage::disk('public')->exists($storedPath)) {
             return response()->json(['message' => 'Original document file is not found on disk.'], 404);
         }
 
-        $filePath = Storage::disk('public')->path($document->attachment_path);
-        return response()->download($filePath, "Document_{$document->reference_number}.pdf");
+        app(AuditTrailServiceInterface::class)->logDocumentAction(
+            document: $document,
+            action: 'Exported',
+            description: $attachment
+                ? "Attached file {$attachment->file_name} downloaded after password verification"
+                : 'Original document exported after password verification',
+            actor: $user,
+            ipAddress: $request->ip()
+        );
+
+        $filePath = Storage::disk('public')->path($storedPath);
+        if ($attachment) {
+            return response()->download($filePath, $attachment->file_name);
+        }
+
+        $extension = pathinfo($storedPath, PATHINFO_EXTENSION) ?: 'pdf';
+        return response()->download($filePath, "Document_{$document->reference_number}.{$extension}");
     }
 
     public function update(Request $request, $id): RedirectResponse

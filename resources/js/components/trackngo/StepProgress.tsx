@@ -23,6 +23,8 @@ export type StepProgressProps = {
     showProcessBadge?: boolean;
     allowProcessSwitch?: boolean;
     enableLiveSync?: boolean;
+    /** Plain-text step details (no pills / icons) for the cleaned-up document view. */
+    compact?: boolean;
     onDocumentUpdate?: (updatedDoc: any) => void;
 };
 
@@ -136,6 +138,7 @@ export function StepProgress({
     showProcessBadge = true,
     allowProcessSwitch = false,
     enableLiveSync = true,
+    compact = false,
     onDocumentUpdate,
 }: StepProgressProps) {
     // ── Live Real-Time Integration State ──────────────────────────────
@@ -256,6 +259,7 @@ export function StepProgress({
     const effectiveStep = resolveCurrentStep(doc, activeProcessType, currentStep);
     // Released documents show every stage as completed (clampedStep past the last step)
     const isReleased = ['completed', 'released', 'archived'].includes((doc?.status || '').toLowerCase());
+    const isReturned = (doc?.status || '').toLowerCase() === 'returned';
     const clampedStep = isReleased
         ? steps.length + 1
         : Math.max(1, Math.min(effectiveStep, steps.length));
@@ -497,7 +501,13 @@ export function StepProgress({
                                     </span>
 
                                     {/* GENERAL RULE: Submitted Stage (Step 1) -> ALWAYS display authenticated user directly below Submitted */}
-                                    {idx === 0 && (
+                                    {idx === 0 && compact && (
+                                        <div className="flex flex-col items-center mt-1">
+                                            <span className="text-[11px] text-slate-600 max-w-[130px] truncate">{uploaderName}</span>
+                                            {formattedTime && <span className="text-[10px] text-slate-400">{formattedTime}</span>}
+                                        </div>
+                                    )}
+                                    {idx === 0 && !compact && (
                                         <div className="flex flex-col items-center mt-1.5">
                                             <div
                                                 className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200/90 px-2 py-0.5 text-[10.5px] font-semibold text-[#0066cc] shadow-2xs max-w-[135px]"
@@ -515,7 +525,14 @@ export function StepProgress({
                                     )}
 
                                     {/* Active Stage Details (if not step 1) */}
-                                    {idx > 0 && isCurrent && (
+                                    {idx > 0 && isCurrent && compact && (
+                                        <span className={cn('mt-1 text-[11px] max-w-[130px] truncate', isReturned || isSlaBreached ? 'text-red-600 font-medium' : 'text-slate-600')}>
+                                            {isReturned
+                                                ? `Returned to ${currentHolder || 'sender'}`
+                                                : isSlaBreached ? 'Overdue' : (currentHolder || auditActor || 'In progress')}
+                                        </span>
+                                    )}
+                                    {idx > 0 && isCurrent && !compact && (
                                         <div className="mt-1.5 flex flex-col items-center">
                                             {isSlaBreached ? (
                                                 <span className="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 border border-red-200">

@@ -122,4 +122,10 @@ class Document extends Model
     {
         return $this->hasMany(DocumentAttachment::class, 'document_id', 'document_id');
     }
+
+    /** External client registered by the Receiving Clerk (null for internal / staff-filed documents). */
+    public function client()
+    {
+        return $this->hasOne(DocumentClient::class, 'document_id', 'document_id');
+    }
 }

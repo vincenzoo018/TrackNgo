@@ -19,8 +19,6 @@ import {
     Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getStandardizedStatus, STATUS_STYLE_CONFIG, StandardizedStatus } from '@/lib/status-helper';
-import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 
 export interface TimelineEntry {
@@ -41,6 +39,7 @@ export interface TimelineEntry {
     file_path?: string;
     file_size?: number;
     file_type?: string;
+    attachment_id?: number;
     reason?: string;
     url?: string | null;
     user?: any;
@@ -57,6 +56,8 @@ interface DiscussionAuditTimelineProps {
     className?: string;
     onActionCompleted?: () => void;
     defaultPanel?: 'discussion' | 'audit';
+    /** Show an attached file in the document viewer */
+    onViewAttachment?: (attachmentId: number) => void;
 }
 
 function formatBytes(bytes?: number): string {
@@ -78,6 +79,7 @@ export function DiscussionAuditTimeline({
     className,
     onActionCompleted,
     defaultPanel = 'audit',
+    onViewAttachment,
 }: DiscussionAuditTimelineProps) {
     const { auth } = usePage<any>().props;
     const authUser = auth?.user;
@@ -91,8 +93,6 @@ export function DiscussionAuditTimeline({
     const [localAudit, setLocalAudit] = useState<any[]>(auditTrail);
     const [localComments, setLocalComments] = useState<any[]>(comments);
     const [localAttachments, setLocalAttachments] = useState<any[]>(attachments);
-    const [localStatus, setLocalStatus] = useState<string>(doc?.status || 'Ongoing');
-    const [localReturnReason, setLocalReturnReason] = useState<string>(doc?.return_reason || '');
 
     const discussionEndRef = useRef<HTMLDivElement>(null);
     const auditEndRef = useRef<HTMLDivElement>(null);
@@ -110,15 +110,6 @@ export function DiscussionAuditTimeline({
         setLocalAttachments(attachments);
     }, [attachments]);
 
-    useEffect(() => {
-        if (doc?.status) {
-            setLocalStatus(doc.status);
-        }
-        if (doc?.return_reason) {
-            setLocalReturnReason(doc.return_reason);
-        }
-    }, [doc?.status, doc?.return_reason]);
-
     // Active real-time background sync polling every 3.5 seconds
     useEffect(() => {
         if (!doc?.document_id) return;
@@ -129,8 +120,6 @@ export function DiscussionAuditTimeline({
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data) {
-                    if (data.status) setLocalStatus(data.status);
-                    if (data.return_reason) setLocalReturnReason(data.return_reason);
                     if (data.auditTrail) setLocalAudit(data.auditTrail);
                     if (data.comments) setLocalComments(data.comments);
                     if (data.attachments) setLocalAttachments(data.attachments);
@@ -143,21 +132,6 @@ export function DiscussionAuditTimeline({
 
         return () => clearInterval(interval);
     }, [doc?.document_id]);
-
-    const standardizedStatus: StandardizedStatus = getStandardizedStatus(localStatus);
-    const isReturned = standardizedStatus === 'Returned';
-
-    // Extract return reason from local state or latest audit trail entry
-    const returnReason = useMemo(() => {
-        if (localReturnReason) return localReturnReason;
-        if (doc?.return_reason) return doc.return_reason;
-        const returnEntry = [...localAudit].reverse().find(a => (a.action || '').toLowerCase() === 'return');
-        if (returnEntry?.description) {
-            const match = returnEntry.description.match(/Reason (?:for return: |: )(.*)/i);
-            return match ? match[1] : returnEntry.description;
-        }
-        return 'Document requires remediation or missing files.';
-    }, [localReturnReason, doc?.return_reason, localAudit]);
 
     // 1. Audit Trail Entries (strictly authenticated actions & uploads)
     const auditEntries = useMemo(() => {
@@ -205,6 +179,7 @@ export function DiscussionAuditTimeline({
                 file_path: att.file_path,
                 file_size: att.file_size,
                 file_type: att.file_type,
+                attachment_id: att.attachment_id,
                 reason: att.reason,
                 url: att.url || (att.file_path ? `/storage/${att.file_path}` : null),
                 user_name: nameStr,
@@ -364,93 +339,29 @@ export function DiscussionAuditTimeline({
     };
 
     return (
-        <div className={cn("flex flex-col rounded-[8px] border border-slate-200 bg-white overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.2)]", className)}>
-            {/* Top Bar: Live indicator + Distinct Panel Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-                {/* Distinct Tabs */}
-                <div className="flex items-center gap-1.5 rounded-[8px] border border-slate-200 bg-white p-1 shadow-2xs">
+        <div className={cn("flex flex-col rounded-[8px] border border-slate-200 bg-white overflow-hidden", className)}>
+            {/* Tabs (status and the returned notice are shown once, at the top of the page) */}
+            <div className="flex items-center gap-1 border-b border-slate-200 px-3 pt-2">
+                {([
+                    ['discussion', 'Discussion', discussionEntries.length],
+                    ['audit', 'Audit Trail', auditEntries.length],
+                ] as const).map(([panel, label, count]) => (
                     <button
+                        key={panel}
                         type="button"
-                        onClick={() => setActivePanel('discussion')}
+                        onClick={() => setActivePanel(panel)}
                         className={cn(
-                            "flex items-center gap-2 rounded-[6px] px-3 py-1.5 text-[14px] font-semibold transition-all",
-                            activePanel === 'discussion'
-                                ? "bg-blue-600 text-white shadow-xs"
-                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                            "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-[14px] font-medium transition-colors",
+                            activePanel === panel
+                                ? "border-[var(--tng-blue-600)] text-[var(--tng-blue-700)]"
+                                : "border-transparent text-slate-500 hover:text-slate-800"
                         )}
                     >
-                        <MessageSquare className="h-4 w-4" />
-                        <span>Discussion</span>
-                        <span className={cn(
-                            "rounded-full px-1.5 py-0.2 text-[11px] font-bold",
-                            activePanel === 'discussion' ? "bg-blue-700 text-white" : "bg-slate-200 text-slate-700"
-                        )}>
-                            {discussionEntries.length}
-                        </span>
+                        {label}
+                        <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-600">{count}</span>
                     </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setActivePanel('audit')}
-                        className={cn(
-                            "flex items-center gap-2 rounded-[6px] px-3 py-1.5 text-[14px] font-semibold transition-all",
-                            activePanel === 'audit'
-                                ? "bg-slate-900 text-white shadow-xs"
-                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                        )}
-                    >
-                        <History className="h-4 w-4" />
-                        <span>Audit Trail</span>
-                        <span className={cn(
-                            "rounded-full px-1.5 py-0.2 text-[11px] font-bold",
-                            activePanel === 'audit' ? "bg-slate-800 text-slate-100" : "bg-slate-200 text-slate-700"
-                        )}>
-                            {auditEntries.length}
-                        </span>
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200" title="Real-time timeline synchronization active">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Live
-                    </span>
-                    <SeverityPill status={standardizedStatus} />
-                </div>
+                ))}
             </div>
-
-            {/* Returned Status Alert Banner: Prompts Document Correction Modal */}
-            {isReturned && (
-                <div className="border-b border-rose-200 bg-rose-50/70 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-2.5">
-                            <div className="mt-0.5 rounded-[6px] bg-rose-100 p-1.5 text-rose-700">
-                                <AlertCircle className="h-4 w-4" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-semibold text-rose-950">
-                                    Document Returned for Correction
-                                </h4>
-                                <p className="text-xs sm:text-[13px] font-medium text-slate-800 mt-1 leading-relaxed">
-                                    <span className="font-semibold text-rose-900">Reason for return: </span>
-                                    "{returnReason}"
-                                </p>
-                            </div>
-                        </div>
-
-                        {onOpenCorrectionModal && (
-                            <button
-                                type="button"
-                                onClick={onOpenCorrectionModal}
-                                className="inline-flex items-center gap-1.5 rounded-[8px] bg-rose-600 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.2)] hover:bg-rose-700 transition-all shrink-0 active:scale-98"
-                            >
-                                <Paperclip className="h-3.5 w-3.5" />
-                                Correct Document
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* ── PANEL 1: DISCUSSION PANEL ── */}
             {activePanel === 'discussion' && (
@@ -461,7 +372,7 @@ export function DiscussionAuditTimeline({
                             discussionEntries.map((item) => (
                                 <div
                                     key={item._id}
-                                    className="rounded-[8px] border border-slate-200/90 bg-white p-3.5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all hover:border-slate-300"
+                                    className="rounded-[8px] border border-slate-200/90 bg-white p-3.5 transition-all hover:border-slate-300"
                                 >
                                     <div className="flex items-center justify-between gap-2 mb-1.5">
                                         <div className="flex items-center gap-2">
@@ -549,7 +460,7 @@ export function DiscussionAuditTimeline({
                             type="submit"
                             disabled={!commentText.trim() || isSubmitting}
                             className={cn(
-                                "inline-flex items-center gap-1.5 rounded-[8px] px-4 py-2.5 text-[14px] font-semibold text-white transition-all shadow-[0_4px_12px_rgba(0,0,0,0.2)] shrink-0",
+                                "inline-flex items-center gap-1.5 rounded-[8px] px-4 py-2.5 text-[14px] font-semibold text-white transition-all shrink-0",
                                 commentText.trim() && !isSubmitting
                                     ? "bg-blue-600 hover:bg-blue-700 active:scale-98"
                                     : "bg-slate-300 cursor-not-allowed shadow-none"
@@ -575,6 +486,7 @@ export function DiscussionAuditTimeline({
                         <AuditTrailTimeline
                             entries={auditEntries}
                             documentRef={doc?.reference_number || doc?.tracking_number}
+                            onViewFile={onViewAttachment}
                         />
                         <div ref={auditEndRef} />
                     </div>

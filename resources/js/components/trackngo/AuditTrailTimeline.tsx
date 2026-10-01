@@ -32,6 +32,7 @@ export interface AuditActionEntry {
     _date?: Date;
     file_name?: string;
     file_size?: number;
+    attachment_id?: number;
     url?: string | null;
     reason?: string;
     _type?: 'action' | 'attachment' | 'comment';
@@ -42,6 +43,8 @@ interface AuditTrailTimelineProps {
     documentRef?: string;
     className?: string;
     emptyMessage?: string;
+    /** Open an attached file in the document viewer instead of linking to the raw file */
+    onViewFile?: (attachmentId: number) => void;
 }
 
 function formatBytes(bytes?: number): string {
@@ -107,6 +110,7 @@ export function AuditTrailTimeline({
     documentRef,
     className,
     emptyMessage = 'No audit trail actions recorded yet.',
+    onViewFile,
 }: AuditTrailTimelineProps) {
     if (!entries || entries.length === 0) {
         return (
@@ -242,7 +246,15 @@ export function AuditTrailTimeline({
                                                 <span className="text-slate-400">({formatBytes(item.file_size)})</span>
                                             )}
                                         </div>
-                                        {item.url && (
+                                        {onViewFile && item.attachment_id ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => onViewFile(item.attachment_id!)}
+                                                className="shrink-0 text-[12px] font-semibold text-[#0066cc] hover:underline"
+                                            >
+                                                View in Viewer
+                                            </button>
+                                        ) : item.url && (
                                             <a
                                                 href={item.url}
                                                 target="_blank"

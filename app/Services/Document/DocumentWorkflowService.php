@@ -3,10 +3,15 @@
 namespace App\Services\Document;
 
 use App\Contracts\AuditTrailServiceInterface;
+use App\Models\AuditTrail;
 use App\Models\Department;
 use App\Models\Document;
+use App\Models\DocumentAttachment;
 use App\Models\RoutingSlip;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class DocumentWorkflowService
 {
@@ -422,6 +427,8 @@ class DocumentWorkflowService
         $targetHolderId = $document->submitted_by ?? $document->current_holder_id;
         $targetHolder = $targetHolderId ? User::find($targetHolderId) : null;
         $targetDeptId = $targetHolder?->department_id ?? $document->department_id;
+        // The returning office, captured before the holder changes (used to route the correction back)
+        $fromDeptId = $document->current_holder_department_id ?? $actor->department_id;
 
         $document->update([
             'status'                       => 'Returned',
@@ -434,7 +441,7 @@ class DocumentWorkflowService
             'document_id'          => $document->document_id,
             'tracking_number'      => $document->tracking_number ?: ('RS-RET-' . $document->reference_number),
             'from_user_id'         => $actor->id,
-            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
+            'from_department_id'   => $fromDeptId,
             'to_user_id'           => $targetHolderId,
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
@@ -457,6 +464,111 @@ class DocumentWorkflowService
             targetUserId: $targetHolderId,
             targetDeptId: $targetDeptId,
             targetRole: $targetHolder?->role?->role_name,
+            sender: $actor
+        );
+
+        return $document;
+    }
+
+    /**
+     * A returned document is corrected by its holder: the uploaded files are kept as attachments (the
+     * original stays the main file) and the document goes back to whoever returned it, at the step where
+     * they accept it again.
+     *
+     * @param  \Illuminate\Http\UploadedFile[]  $files
+     */
+    public function resubmit(Document $document, array $files, ?string $note, User $actor, ?string $ip = null): Document
+    {
+        if (strtolower((string) $document->status) !== 'returned') {
+            throw ValidationException::withMessages(['files' => 'Only a returned document can be corrected and resubmitted.']);
+        }
+
+        $returnerId = RoutingSlip::where('document_id', $document->document_id)
+            ->where('action', 'return')
+            ->orderByDesc('slip_id')
+            ->value('from_user_id')
+            ?? AuditTrail::where('document_id', $document->document_id)
+                ->where('action', 'Return')
+                ->orderByDesc('audit_id')
+                ->value('user_id');
+        $returner = $returnerId ? User::with('role')->find($returnerId) : null;
+
+        if (!$returner) {
+            throw ValidationException::withMessages(['files' => 'The office that returned this document could not be determined.']);
+        }
+
+        $note = $note !== null && trim($note) !== '' ? trim($note) : null;
+        $returnedAt = (int) $document->current_step_index;
+        // Back to the returner's acceptance point: Mayor stage (4 → accept 5), internal registered (≤2), external submitted (1)
+        $stepIndex = $returnedAt >= 4 ? 4 : ($document->is_internal ? min(max($returnedAt, 1), 2) : 1);
+        $version = preg_match('/^v?(\d+)\.(\d+)$/', (string) ($document->version ?: 'v1.0'), $m)
+            ? 'v' . $m[1] . '.' . ((int) $m[2] + 1)
+            : 'v1.1';
+
+        $storedPaths = [];
+
+        try {
+            DB::transaction(function () use ($document, $files, $note, $actor, $ip, $returner, $stepIndex, $version, &$storedPaths) {
+                $fileNames = [];
+                foreach ($files as $file) {
+                    $path = $file->store('attachments', 'public');
+                    $storedPaths[] = $path;
+                    $fileNames[] = $file->getClientOriginalName();
+
+                    DocumentAttachment::create([
+                        'document_id' => $document->document_id,
+                        'user_id'     => $actor->id,
+                        'file_name'   => $file->getClientOriginalName(),
+                        'file_path'   => $path,
+                        'file_size'   => $file->getSize(),
+                        'file_type'   => $file->getClientMimeType(),
+                        'reason'      => $note ?? 'Correction for: ' . ($document->return_reason ?: 'returned document'),
+                    ]);
+                }
+
+                RoutingSlip::create([
+                    'document_id'          => $document->document_id,
+                    'tracking_number'      => $document->tracking_number ?: ('RS-RET-' . $document->reference_number),
+                    'from_user_id'         => $actor->id,
+                    'from_department_id'   => $actor->department_id ?? $document->current_holder_department_id,
+                    'to_user_id'           => $returner->id,
+                    'target_department_id' => $returner->department_id,
+                    'sender_name'          => $actor->name,
+                    'action'               => 'resubmit',
+                    'instruction'          => 'Corrected and resubmitted' . ($note ? ": {$note}" : '.'),
+                    'status'               => 'pending',
+                    'date_received'        => now(),
+                ]);
+
+                $document->update([
+                    'status'                       => 'Sent',
+                    'return_reason'                => null,
+                    'current_holder_id'            => $returner->id,
+                    'current_holder_department_id' => $returner->department_id,
+                    'current_step_index'           => $stepIndex,
+                    'version'                      => $version,
+                ]);
+
+                $this->auditTrailService->logDocumentAction(
+                    document: $document,
+                    action: 'Resubmitted',
+                    description: 'Correction submitted (' . implode(', ', $fileNames) . ") and sent back to {$returner->name}." . ($note ? " Note: {$note}" : ''),
+                    actor: $actor,
+                    ipAddress: $ip
+                );
+            });
+        } catch (\Throwable $e) {
+            foreach ($storedPaths as $path) {
+                Storage::disk('public')->delete($path);
+            }
+            throw $e;
+        }
+
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: $returner->id,
+            targetDeptId: $returner->department_id,
+            targetRole: $returner->role?->role_name,
             sender: $actor
         );
 
