@@ -57,7 +57,7 @@ export default function CartMonitoringIndex({ rows, options, initial }: Props) {
     const [pageSize, setPageSize] = useState(20);
 
     const handlers = useMemo(
-        () => [...new Set(rows.filter((r) => !r.is_closed && r.current_handler).map((r) => r.current_handler as string))].sort(),
+        () => [...new Set(rows.filter((r) => !r.is_closed && r.current_handler).map((r) => r.current_handler as string))].sort((a, b) => a.localeCompare(b)),
         [rows],
     );
 

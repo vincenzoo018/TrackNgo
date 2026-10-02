@@ -28,7 +28,7 @@ export default function CartSearch({ rows, options, selected }: Props) {
     const [to, setTo] = useState('');
     const [loadingId, setLoadingId] = useState<number | null>(null);
 
-    const handlers = useMemo(() => [...new Set(rows.map((r) => r.current_handler).filter(Boolean) as string[])].sort(), [rows]);
+    const handlers = useMemo(() => [...new Set(rows.map((r) => r.current_handler).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)), [rows]);
     const hasCriteria = Boolean(query.trim() || type || department || handler || status || escalation || from || to);
 
     const results = useMemo(() => {
@@ -88,7 +88,6 @@ export default function CartSearch({ rows, options, selected }: Props) {
                     <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
                         type="search"
-                        autoFocus
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Enter a tracking number, reference number or title"

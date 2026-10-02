@@ -10,6 +10,15 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <!-- Laravel starter-kit tests for features TrackNGo does not have (Teams, the starter Settings
+                 pages, the generic dashboard): their routes are not registered, so they cannot pass.
+                 Kept for reference; delete them or restore the features to bring them back. -->
+            <exclude>tests/Feature/DashboardTest.php</exclude>
+            <exclude>tests/Feature/Settings/ProfileUpdateTest.php</exclude>
+            <exclude>tests/Feature/Settings/SecurityTest.php</exclude>
+            <exclude>tests/Feature/Teams/TeamTest.php</exclude>
+            <exclude>tests/Feature/Teams/TeamMemberTest.php</exclude>
+            <exclude>tests/Feature/Teams/TeamInvitationTest.php</exclude>
         </testsuite>
     </testsuites>
     <source>

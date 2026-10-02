@@ -18,9 +18,10 @@ class VerificationNotificationTest extends TestCase
 
         $user = User::factory()->unverified()->create();
 
+        // Fortify sends the user back to where they came from (the site root in a test request)
         $this->actingAs($user)
             ->post(route('verification.send'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect('/');
 
         Notification::assertSentTo($user, VerifyEmail::class);
     }

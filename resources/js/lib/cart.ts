@@ -175,7 +175,7 @@ const parse = (value?: string | null): Date | null => {
 
     const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
 
-    return isNaN(date.getTime()) ? null : date;
+    return Number.isNaN(date.getTime()) ? null : date;
 };
 
 export function formatDate(value?: string | null): string {

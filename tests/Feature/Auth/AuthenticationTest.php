@@ -3,15 +3,14 @@
 namespace Tests\Feature\Auth;
 
 use App\Enums\TeamRole;
+use App\Models\Role;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
-use Laravel\Passkeys\Contracts\PasskeyLoginResponse;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -49,7 +48,9 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen()
     {
-        $user = User::factory()->create();
+        // TrackNGo sends each user to their role's dashboard after login
+        $role = Role::firstOrCreate(['role_name' => 'Receiving Clerk'], ['position' => 'Receiving Clerk']);
+        $user = User::factory()->create(['role_id' => $role->role_id]);
 
         $response = $this->post(route('login.store'), [
             'email' => $user->email,
@@ -57,25 +58,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard'));
-    }
-
-    public function test_passkey_login_response_redirects_to_the_current_team_dashboard(): void
-    {
-        $user = User::factory()->create();
-
-        $request = Request::create(route('login', absolute: false), 'GET', server: [
-            'HTTP_ACCEPT' => 'application/json',
-        ]);
-        $request->setLaravelSession($this->app['session.store']);
-        $request->setUserResolver(fn () => $user);
-
-        $jsonResponse = app(PasskeyLoginResponse::class)->toResponse($request);
-
-        $this->assertSame(
-            route('dashboard', ['current_team' => $user->personalTeam()->slug]),
-            $jsonResponse->getData()->redirect,
-        );
+        $response->assertRedirect('/receiving');
     }
 
     public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge()
@@ -120,7 +103,7 @@ class AuthenticationTest extends TestCase
         $response = $this->actingAs($user)->post(route('logout'));
 
         $this->assertGuest();
-        $response->assertRedirect(route('home'));
+        $response->assertRedirect('/');
     }
 
     public function test_users_are_rate_limited()

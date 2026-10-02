@@ -407,7 +407,7 @@ class DatabaseSeeder extends Seeder
                 'current_holder_id'           => $currentHolderId,
                 'date_filed'                  => $dateFiled,
                 'submitted_at'                => $dateFiled,
-                'completed_at'                => $docData['status'] === 'completed' ? $dateFiled->copy()->addDays(rand(2, 7)) : null,
+                'completed_at'                => $docData['status'] === 'completed' ? $dateFiled->copy()->addDays(random_int(2, 7)) : null,
             ]);
 
             // Create initial audit trail
@@ -441,7 +441,7 @@ class DatabaseSeeder extends Seeder
                     'user_id'      => $deptHeadMap[$deptCode]->id ?? $submitter->id,
                     'action'       => 'reviewed',
                     'description'  => 'Document reviewed by ' . ($deptHeadMap[$deptCode]->name ?? 'Department Head'),
-                    'timestamp'    => $dateFiled->copy()->addDays(rand(1, 3)),
+                    'timestamp'    => $dateFiled->copy()->addDays(random_int(1, 3)),
                 ]);
             }
 
@@ -452,7 +452,7 @@ class DatabaseSeeder extends Seeder
                     'user_id'      => $deptHeadMap[$deptCode]->id ?? $submitter->id,
                     'action'       => 'endorsed',
                     'description'  => 'Document endorsed and forwarded',
-                    'timestamp'    => $dateFiled->copy()->addDays(rand(3, 5)),
+                    'timestamp'    => $dateFiled->copy()->addDays(random_int(3, 5)),
                 ]);
             }
 
@@ -464,7 +464,7 @@ class DatabaseSeeder extends Seeder
                     'user_id'      => $mayor->id ?? $submitter->id,
                     'action'       => 'approved',
                     'description'  => 'Document approved by the Mayor',
-                    'timestamp'    => $dateFiled->copy()->addDays(rand(5, 8)),
+                    'timestamp'    => $dateFiled->copy()->addDays(random_int(5, 8)),
                 ]);
             }
 
@@ -475,7 +475,7 @@ class DatabaseSeeder extends Seeder
                     'user_id'      => $submitter->id,
                     'action'       => 'completed',
                     'description'  => 'Document processing completed',
-                    'timestamp'    => $dateFiled->copy()->addDays(rand(8, 12)),
+                    'timestamp'    => $dateFiled->copy()->addDays(random_int(8, 12)),
                 ]);
             }
         }
