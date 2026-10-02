@@ -85,7 +85,7 @@ class QrCodeService implements QrCodeServiceInterface
                 'document_id'     => $slip->document_id,
                 'tracking_number' => $trackingNum,
                 'document_ref'    => $doc ? $doc->reference_number : 'DOC-' . $slip->document_id,
-                'document_title'  => $doc ? $doc->title : 'Document #' . $slip->document_id,
+                'document_title'  => $doc ? $doc->visibleTitle() : 'Document #' . $slip->document_id,
                 'document_status' => $doc ? $doc->status : 'Ongoing',
                 'classification'  => $doc ? $doc->classification : 'normal',
                 'qr_value'        => $trackingNum,

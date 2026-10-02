@@ -15,11 +15,13 @@ type Props = {
     documentId: number | string;
     /** Download one of the document's attached files instead of the main document */
     attachmentId?: number | null;
+    /** 'signed' downloads the final copy with every signature stamped on it */
+    variant?: 'signed' | null;
     onSuccess: (message: string) => void;
     identifier?: string;
 };
 
-export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId, onSuccess, identifier }: Props) {
+export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId, variant = null, onSuccess, identifier }: Props) {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -43,7 +45,7 @@ export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId,
                     ...csrfHeaders(),
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify(attachmentId ? { password, attachment_id: attachmentId } : { password }),
+                body: JSON.stringify(variant ? { password, variant } : attachmentId ? { password, attachment_id: attachmentId } : { password }),
             });
 
             const isJson = (response.headers.get('content-type') || '').includes('application/json');

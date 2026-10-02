@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Document\DocumentConfidentiality;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,6 +30,28 @@ class AuditTrail extends Model
     protected $casts = [
         'timestamp' => 'datetime',
     ];
+
+    public function toArray()
+    {
+        $data = parent::toArray();
+        $data['description'] = $this->visibleDescription();
+
+        return $data;
+    }
+
+    /** The trail stays visible for monitoring; descriptions quoting a confidential document do not. */
+    public function visibleDescription(?User $viewer = null): ?string
+    {
+        if ($this->description === null || !$this->document_id) {
+            return $this->description;
+        }
+
+        $guard = app(DocumentConfidentiality::class);
+
+        return $guard->canViewContentsById((int) $this->document_id, $viewer ?? auth()->user())
+            ? $this->description
+            : $guard->redactAuditDescription((string) $this->action, (string) $this->description);
+    }
 
     public function document()
     {

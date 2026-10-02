@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Document\DocumentConfidentiality;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -41,7 +42,10 @@ class Document extends Model
         'current_holder_department_id',
         'is_internal',
         'destination_department_id',
+        'destination_user_id',
         'return_reason',
+        'requires_signature',
+        'signed_file_path',
     ];
 
     protected $casts = [
@@ -51,7 +55,33 @@ class Document extends Model
         'arta_due_date' => 'date',
         'is_escalated' => 'boolean',
         'is_internal' => 'boolean',
+        'requires_signature' => 'boolean',
     ];
+
+    /**
+     * Confidential contents are stripped for anyone outside the sender / route / signatories wherever the
+     * document is serialized (Inertia props, JSON), so no page can leak them to the Receiving Clerk.
+     */
+    public function toArray()
+    {
+        $data = parent::toArray();
+        $guard = app(DocumentConfidentiality::class);
+        $hidden = !$guard->canViewContents($this, auth()->user());
+        $data['is_confidential_hidden'] = $hidden;
+
+        return $hidden ? $guard->redact($data) : $data;
+    }
+
+    public function contentsVisibleTo(?User $user = null): bool
+    {
+        return app(DocumentConfidentiality::class)->canViewContents($this, $user ?? auth()->user());
+    }
+
+    /** Title as the viewer may see it (hidden for confidential documents they cannot open). */
+    public function visibleTitle(?User $user = null): string
+    {
+        return $this->contentsVisibleTo($user) ? (string) $this->title : DocumentConfidentiality::HIDDEN_TITLE;
+    }
 
     public function submitter()
     {
@@ -83,6 +113,12 @@ class Document extends Model
         return $this->belongsTo(Department::class, 'destination_department_id', 'department_id');
     }
 
+    /** Internal documents: the person the sender chose; the clerk's registration routes the document to them. */
+    public function destinationUser()
+    {
+        return $this->belongsTo(User::class, 'destination_user_id', 'id');
+    }
+
     public function linkedDocument()
     {
         return $this->belongsTo(Document::class, 'linked_document_id', 'document_id');
@@ -106,6 +142,12 @@ class Document extends Model
     public function signatures()
     {
         return $this->hasMany(DigitalSignature::class, 'document_id', 'document_id');
+    }
+
+    /** Required signatories chosen by the sender, in signing order. */
+    public function signatories()
+    {
+        return $this->hasMany(DocumentSignatory::class, 'document_id', 'document_id')->orderBy('sign_order');
     }
 
     public function smsNotifications()

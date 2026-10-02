@@ -19,8 +19,10 @@ class NotificationService
         ?User $receiver = null, 
         ?int $targetUserId = null, 
         ?int $targetDeptId = null, 
-        ?string $targetRole = null, 
-        ?User $sender = null
+        ?string $targetRole = null,
+        ?User $sender = null,
+        // e.g. "Document Approved & Completed" when a finished document comes back to its sender
+        ?string $title = null
     ): SystemNotification {
         $doc = $document->loadMissing(['type', 'department', 'submitter', 'currentHolderDepartment', 'currentHolder']);
 
@@ -52,7 +54,7 @@ class NotificationService
             'target_department_id'   => $deptId,
             'type'                   => 'receipt',
             'severity'               => 'normal',
-            'title'                  => "New Document Received from {$senderName}",
+            'title'                  => $title ?? "New Document Received from {$senderName}",
             'reference_number'       => $refNo,
             'document_type'          => $docType,
             'originating_department' => $originatingDept,
@@ -168,7 +170,9 @@ class NotificationService
             $dateStr = $rn->created_at ? Carbon::parse($rn->created_at)->format('M d, Y') : Carbon::now()->format('M d, Y');
             $ref = $rn->reference_number ?: ('RS-' . str_pad($rn->id, 4, '0', STR_PAD_LEFT));
             $dept = $rn->originating_department ?: 'LGU Mati';
-            $toastMessage = "New Document Received: {$ref}, {$dept}, {$dateStr}.";
+            // Receipts read "New Document Received"; other notices (e.g. a completed document) use their own title
+            $headline = $rn->title && !str_starts_with($rn->title, 'New Document Received') ? $rn->title : 'New Document Received';
+            $toastMessage = "{$headline}: {$ref}, {$dept}, {$dateStr}.";
 
             return [
                 'id'                     => 'receipt-' . $rn->id,

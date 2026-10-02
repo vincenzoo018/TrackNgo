@@ -1,23 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
-import { Plus, ScanLine, Loader2, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { Plus, ScanLine, Loader2, FileText, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, X, Inbox } from 'lucide-react';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 import { ClientInfoSection, ClientInfo, EMPTY_CLIENT, validateClient } from '@/components/trackngo/ClientInfoSection';
+import { extractDocumentText, withTimeout } from '@/lib/ocr';
+import { qrDataUrl, useTrackingLink } from '@/lib/qr';
 
-// Bundle the PDF.js worker with the app (same-origin) instead of relying on a CDN
-if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
-    try {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-    } catch (e) {
-        console.warn('Could not set pdf workerSrc', e);
-    }
-}
-
-// OCR must never block submission: cap extraction time and pages
-const OCR_TIMEOUT_MS = 15000;
-const OCR_MAX_PAGES = 20;
+// OCR must never block submission: scanned pages and photos take a few seconds each, so cap the wait
+const OCR_TIMEOUT_MS = 120000;
+// Formats the system can display (old .doc files cannot be previewed in the browser)
+const ACCEPTED_FILES = '.pdf,.docx,.png,.jpg,.jpeg';
 
 // Human-readable labels for server validation errors that have no inline slot in the form
 const FIELD_LABELS: Record<string, string> = {
@@ -30,10 +22,15 @@ const FIELD_LABELS: Record<string, string> = {
     forward_to_user: 'Recipient',
     instruction: 'Instructions / remarks',
     ocr_text: 'Extracted text',
-    is_internal: 'Internal flag',
     urgency_justification: 'Urgency justification',
     client: 'Client information',
+    signatories: 'Signatories',
 };
+
+// Officials who can sign; the Receiving Clerk only registers documents and Admin accounts are not signatories
+const canBeSignatory = (u: any) => !['receiving clerk', 'admin'].includes(String(u.role_name || '').toLowerCase());
+// Full name as the server builds it (first, middle, last), e.g. "Dr. Elena Pascual"
+const personName = (u: any) => u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || `User #${u.id}`;
 
 const inputClass = 'h-9 w-full rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20';
 const readOnlyClass = 'h-9 w-full rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] px-3 text-sm text-[var(--tng-slate-600)] cursor-not-allowed flex items-center truncate';
@@ -46,6 +43,9 @@ type CreatedDocument = {
     tracking_number?: string | null;
     recipient_name?: string | null;
     recipient_office?: string | null;
+    is_internal?: boolean;
+    addressee_name?: string | null;
+    addressee_office?: string | null;
 };
 
 export interface CreateDocumentModalProps {
@@ -73,6 +73,7 @@ export default function CreateDocumentModal({
     users = []
 }: CreateDocumentModalProps) {
     const { props } = usePage();
+    const trackingLinkFor = useTrackingLink();
     const authUser = (props.auth as any)?.user;
     // Effective server upload ceiling (PHP upload_max_filesize / post_max_size / app rule), shared by HandleInertiaRequests
     const uploadLimit = (props as any).upload as { max_bytes?: number; max_label?: string } | undefined;
@@ -97,20 +98,28 @@ export default function CreateDocumentModal({
         department_id: defaultOriginDept,
         file: null as File | null,
         classification: 'normal',
-        is_internal: false,
         urgency_justification: '',
         forward_to: '',
         forward_to_user: '',
         instruction: '',
         ocr_text: '',
         client: { ...EMPTY_CLIENT } as ClientInfo,
+        // Signing order = list order
+        signatories: [] as string[],
     });
-    // Client details only apply to the clerk's external intake
-    transform(({ client, ...rest }) => (isReceivingClerk ? { ...rest, client } : rest));
+    const [requiresSignature, setRequiresSignature] = useState(false);
+    // Client details only apply to the clerk's external intake; signatories only when signatures are required
+    transform(({ client, signatories, ...rest }) => ({
+        ...rest,
+        ...(isReceivingClerk ? { client } : {}),
+        ...(requiresSignature ? { signatories } : {}),
+    }));
     const fieldErrors = errors as Record<string, string | undefined>;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isScanning, setIsScanning] = useState(false);
+    const [scanMessage, setScanMessage] = useState('Reading document...');
+    const [textFound, setTextFound] = useState(true);
     const [ocrComplete, setOcrComplete] = useState(false);
     const [isUrgent, setIsUrgent] = useState(false);
     const [isConfidential, setIsConfidential] = useState(false);
@@ -133,6 +142,7 @@ export default function CreateDocumentModal({
         setIsScanning(false);
         setIsUrgent(false);
         setIsConfidential(false);
+        setRequiresSignature(false);
         setSubmitError(null);
         setCreatedDoc(null);
         reset();
@@ -150,8 +160,32 @@ export default function CreateDocumentModal({
         ? (users || []).filter(u =>
             String(u.department_id) === String(data.forward_to) &&
             String(u.id) !== String(authUser?.id) &&
-            (!isReceivingClerk || isDeptHeadUser(u)))
+            // The clerk registers internal documents automatically, so a clerk is never the recipient
+            (isReceivingClerk ? isDeptHeadUser(u) : (u.role_name || '').toLowerCase() !== 'receiving clerk'))
         : [];
+
+    // Internal documents within the sender's own office must name the colleague who receives them
+    const sendingWithinOwnOffice = !isReceivingClerk && Boolean(data.forward_to) && String(data.forward_to) === String(authUser?.department_id);
+
+    const signatoryOptions = (users || []).filter(u =>
+        canBeSignatory(u) &&
+        !data.signatories.includes(String(u.id)) &&
+        (!isReceivingClerk || String(u.id) !== String(authUser?.id)));
+    const signatoryUser = (id: string) => (users || []).find(u => String(u.id) === id);
+    const addSignatory = (id: string) => {
+        if (!id || data.signatories.includes(id)) return;
+        setData('signatories', [...data.signatories, id]);
+        clearErrors('signatories' as any);
+    };
+    const removeSignatory = (id: string) => setData('signatories', data.signatories.filter(s => s !== id));
+    const moveSignatory = (index: number, offset: -1 | 1) => {
+        const next = [...data.signatories];
+        const target = index + offset;
+        if (target < 0 || target >= next.length) return;
+        [next[index], next[target]] = [next[target], next[index]];
+        setData('signatories', next);
+    };
+    const fileStampable = !data.file || /\.(pdf|png|jpe?g)$/i.test(data.file.name);
 
     const updateClient = (field: keyof ClientInfo, value: string) => {
         setData(prev => ({ ...prev, client: { ...prev.client, [field]: value } }));
@@ -163,28 +197,13 @@ export default function CreateDocumentModal({
         fileInputRef.current?.click();
     };
 
-    const extractTextFromPDF = async (file: File) => {
-        const extract = async () => {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let fullText = '';
-
-            for (let i = 1; i <= Math.min(pdf.numPages, OCR_MAX_PAGES); i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map((item: any) => item.str).join(' ');
-                fullText += pageText + '\n';
-            }
-            return fullText;
-        };
-        const timeout = new Promise<string>((_, rejectTimeout) =>
-            setTimeout(() => rejectTimeout(new Error('OCR timed out')), OCR_TIMEOUT_MS));
-
+    // Real text of the file (PDF text layer, OCR for scans / photos, Word paragraphs); '' if nothing readable
+    const readDocumentText = async (file: File) => {
         try {
-            return await Promise.race([extract(), timeout]);
+            return await withTimeout(extractDocumentText(file, file.name, setScanMessage), OCR_TIMEOUT_MS);
         } catch (error) {
-            console.error('Error extracting PDF text:', error);
-            return `Document: ${file.name}\nText could not be extracted automatically.`;
+            console.error('Error reading document text:', error);
+            return '';
         }
     };
 
@@ -207,16 +226,12 @@ export default function CreateDocumentModal({
 
         clearErrors('file');
         setSubmitError(null);
+        setScanMessage('Reading document...');
         setIsScanning(true);
         setData('file', file);
 
-        let extractedText = '';
-        if (file.type === 'application/pdf') {
-            extractedText = await extractTextFromPDF(file);
-        } else {
-            await new Promise(resolve => setTimeout(resolve, 800));
-            extractedText = `Document: ${file.name}\nScanned and processed by TrackNGo OCR Engine.`;
-        }
+        const extractedText = await readDocumentText(file);
+        setTextFound(extractedText.trim().length > 0);
 
         const generatedTitle = formatFileNameToTitle(file.name);
 
@@ -256,6 +271,8 @@ export default function CreateDocumentModal({
         if (data.file && !data.type_id) found.type_id = 'Select a document type.';
         if (!data.department_id) found.department_id = 'Select the originating department.';
         if (!data.forward_to) found.forward_to = 'Select the destination department.';
+        if (sendingWithinOwnOffice && !data.forward_to_user) found.forward_to_user = 'Choose the person in your office who should receive this document.';
+        if (requiresSignature && data.signatories.length === 0) found.signatories = 'Add at least one signatory, or untick "Requires signatures".';
         if (isUrgent && !String(data.urgency_justification).trim()) found.urgency_justification = 'State the justification for urgency.';
         if (isReceivingClerk) Object.assign(found, validateClient(data.client));
         return found;
@@ -326,7 +343,7 @@ export default function CreateDocumentModal({
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                accept={ACCEPTED_FILES}
                 onChange={handleFileChange}
             />
 
@@ -340,7 +357,7 @@ export default function CreateDocumentModal({
                     </div>
                     <div className="text-center">
                         <p className="text-sm font-medium text-[var(--tng-slate-700)]">Click to upload or drag and drop</p>
-                        <p className="text-xs text-[var(--tng-slate-500)] mt-1">PDF, DOCX, DOC, PNG, JPG (max. {maxUploadLabel})</p>
+                        <p className="text-xs text-[var(--tng-slate-500)] mt-1">PDF, Word (.docx), PNG, JPG (max. {maxUploadLabel})</p>
                     </div>
                     {errors.file && <p className="text-xs text-red-600 mt-2">{errors.file}</p>}
                 </div>
@@ -352,8 +369,8 @@ export default function CreateDocumentModal({
                         <Loader2 className="h-5 w-5 animate-spin text-[var(--tng-blue-600)]" />
                     </div>
                     <div className="text-center">
-                        <p className="text-sm font-medium text-[var(--tng-blue-700)]">Reading document...</p>
-                        <p className="text-xs text-[var(--tng-blue-500)] mt-1">Extracting text and detecting the document type</p>
+                        <p className="text-sm font-medium text-[var(--tng-blue-700)]">{scanMessage}</p>
+                        <p className="text-xs text-[var(--tng-blue-500)] mt-1">Extracting text (OCR) and detecting the document type</p>
                     </div>
                 </div>
             )}
@@ -385,6 +402,12 @@ export default function CreateDocumentModal({
                         Replace
                     </button>
                 </div>
+            )}
+
+            {ocrComplete && data.file && !textFound && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                    No readable text was found in this file. You can still submit it; the text can be read later with "Scan Text" in the document viewer.
+                </p>
             )}
 
             {ocrComplete && (
@@ -483,7 +506,11 @@ export default function CreateDocumentModal({
 
                 <div>
                     <label className={labelClass}>
-                        {isReceivingClerk ? 'Department Head (Optional)' : 'Specific Person (Optional)'}
+                        {isReceivingClerk
+                            ? 'Department Head (Optional)'
+                            : sendingWithinOwnOffice
+                                ? <>Recipient <span className="text-red-500 font-semibold">*</span></>
+                                : 'Recipient (Optional)'}
                     </label>
                     <select
                         value={data.forward_to_user}
@@ -491,7 +518,9 @@ export default function CreateDocumentModal({
                         disabled={!data.forward_to}
                         className={`${inputClass} disabled:bg-[var(--tng-slate-50)] disabled:text-[var(--tng-slate-400)]`}
                     >
-                        <option value="">{isReceivingClerk ? 'Department Head of this office...' : 'Anyone in department...'}</option>
+                        <option value="">
+                            {isReceivingClerk ? 'Department Head of this office...' : sendingWithinOwnOffice ? 'Choose a colleague...' : 'Head of the office...'}
+                        </option>
                         {availableUsers.map(user => (
                             <option key={user.id} value={user.id}>
                                 {user.first_name} {user.last_name} {user.role_name ? `(${user.role_name})` : ''}
@@ -515,6 +544,77 @@ export default function CreateDocumentModal({
                 />
             </div>
         </>
+    );
+
+    const signatureSection = (
+        <div className="space-y-3">
+            <label className="flex items-start gap-3 rounded-lg border border-[var(--tng-slate-200)] bg-white p-3 cursor-pointer transition-colors hover:border-[var(--tng-blue-300)] hover:bg-[var(--tng-blue-50)]">
+                <input
+                    type="checkbox"
+                    checked={requiresSignature}
+                    onChange={e => {
+                        setRequiresSignature(e.target.checked);
+                        if (!e.target.checked) clearErrors('signatories' as any);
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
+                />
+                <div>
+                    <span className="block text-xs font-semibold text-[var(--tng-slate-800)]">Requires signatures</span>
+                    <span className="block text-[11px] text-[var(--tng-slate-500)] mt-0.5 leading-tight">
+                        Each signatory's registered signature (from HR) is stamped automatically at the bottom of the last page when they forward or approve the document. It cannot be completed until everyone has signed.
+                    </span>
+                </div>
+            </label>
+
+            {requiresSignature && (
+                <div className="space-y-2">
+                    {data.signatories.length > 0 && (
+                        <ol className="space-y-1.5">
+                            {data.signatories.map((id, index) => {
+                                const user = signatoryUser(id);
+                                return (
+                                    <li key={id} className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] px-3 py-2">
+                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-semibold text-[var(--tng-slate-600)] border border-[var(--tng-slate-200)]">{index + 1}</span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm text-[var(--tng-slate-900)]">
+                                                {user ? personName(user) : `User #${id}`}{String(id) === String(authUser?.id) ? ' (you)' : ''}
+                                            </p>
+                                            <p className="truncate text-[11px] text-[var(--tng-slate-500)]">{[user?.role_name, user?.department_name].filter(Boolean).join(' · ')}</p>
+                                        </div>
+                                        <button type="button" onClick={() => moveSignatory(index, -1)} disabled={index === 0} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white disabled:opacity-30" title="Sign earlier">
+                                            <ChevronUp className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button type="button" onClick={() => moveSignatory(index, 1)} disabled={index === data.signatories.length - 1} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white disabled:opacity-30" title="Sign later">
+                                            <ChevronDown className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button type="button" onClick={() => removeSignatory(id)} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white hover:text-red-600" title="Remove">
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ol>
+                    )}
+                    <select value="" onChange={e => addSignatory(e.target.value)} className={inputClass} aria-label="Add a signatory">
+                        <option value="">{data.signatories.length ? 'Add another signatory...' : 'Add a signatory...'}</option>
+                        {signatoryOptions.map(user => (
+                            // Only people with an HR-registered signature can sign
+                            <option key={user.id} value={user.id} disabled={!user.has_signature}>
+                                {personName(user)}{String(user.id) === String(authUser?.id) ? ' (you)' : ''}
+                                {user.role_name ? ` — ${user.role_name}` : ''}{user.department_name ? `, ${user.department_name}` : ''}
+                                {user.has_signature ? '' : ' (no registered signature)'}
+                            </option>
+                        ))}
+                    </select>
+                    {fieldErrors.signatories && <p className={errorClass}>{fieldErrors.signatories}</p>}
+                    {!fileStampable && (
+                        <p className="text-[11px] text-amber-700">
+                            Word files cannot be stamped in place, so the final copy will be a separate signature page. Upload a PDF to have the signatures stamped on the document itself.
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
     );
 
     // Receiving Clerk: external intake — the document comes from an outside client, so the origin is fixed
@@ -549,6 +649,11 @@ export default function CreateDocumentModal({
                     {urgentOption}
                 </div>
             </section>
+
+            <section>
+                <SectionHeading step={4} title="Signatures" />
+                <div className="sm:pl-7">{signatureSection}</div>
+            </section>
         </>
     );
 
@@ -561,19 +666,13 @@ export default function CreateDocumentModal({
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <label className={labelClass}>
-                                Originating Department <span className="text-red-500 font-semibold">*</span>
-                            </label>
-                            <select
-                                value={data.department_id}
-                                onChange={e => setData('department_id', e.target.value)}
-                                className={inputClass}
-                            >
-                                <option value="">Select department...</option>
-                                {departments.map(dept => (
-                                    <option key={dept.department_id} value={dept.department_id}>{dept.department_name}</option>
-                                ))}
-                            </select>
+                            {/* Staff always file from their own office (also enforced by the server) */}
+                            <label className={labelClass}>Originating Department</label>
+                            <div className={readOnlyClass} title="Documents are filed from your own office">
+                                {authUser?.department_name
+                                    || departments.find(d => String(d.department_id) === String(data.department_id))?.department_name
+                                    || 'Your office'}
+                            </div>
                             {errors.department_id && <p className={errorClass}>{errors.department_id}</p>}
                         </div>
                         <div>
@@ -601,27 +700,22 @@ export default function CreateDocumentModal({
                                         Confidential
                                     </span>
                                     <span className="block text-[10px] text-red-600/80 mt-0.5 leading-tight">
-                                        Clerks only see metadata.
+                                        Only you and the people it is routed to can open it. The Receiving Clerk sees the record only (reference no., sender, recipient, status).
                                     </span>
                                 </div>
                             </label>
 
-                            <label className="flex items-start gap-3 rounded-lg border border-[var(--tng-slate-200)] bg-white p-3 cursor-pointer transition-colors hover:border-[var(--tng-blue-300)] hover:bg-[var(--tng-blue-50)] shadow-xs">
-                                <input
-                                    type="checkbox"
-                                    checked={data.is_internal}
-                                    onChange={e => setData('is_internal', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
-                                />
+                            <div className="flex items-start gap-3 rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] p-3">
+                                <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-[var(--tng-blue-600)]" />
                                 <div>
                                     <span className="block text-xs font-semibold text-[var(--tng-slate-800)]">
-                                        Internal Document
+                                        Passes through the Receiving Clerk
                                     </span>
                                     <span className="block text-[10px] text-[var(--tng-slate-500)] mt-0.5 leading-tight">
-                                        Requires clerk registration first.
+                                        The clerk registers it for the record, then it goes to the recipient you choose below.
                                     </span>
                                 </div>
-                            </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -630,6 +724,11 @@ export default function CreateDocumentModal({
             <section>
                 <SectionHeading step={2} title="Initial Routing Slip" />
                 <div className="space-y-4 sm:pl-7">{routingFields}</div>
+            </section>
+
+            <section>
+                <SectionHeading step={3} title="Signatures" />
+                <div className="sm:pl-7">{signatureSection}</div>
             </section>
         </>
     );
@@ -699,7 +798,14 @@ export default function CreateDocumentModal({
                         Document Submitted
                     </h2>
                     <p className="mb-6 text-sm text-[var(--tng-slate-500)]">
-                        {createdDoc?.recipient_name || createdDoc?.recipient_office
+                        {createdDoc?.is_internal ? (
+                            <>
+                                Sent to the Receiving Clerk{createdDoc.recipient_name ? <> (<span className="font-semibold text-[var(--tng-slate-700)]">{createdDoc.recipient_name}</span>)</> : ''} for registration.
+                                {' '}Once registered it goes to{' '}
+                                <span className="font-semibold text-[var(--tng-slate-700)]">{createdDoc.addressee_name || createdDoc.addressee_office || 'the recipient'}</span>
+                                {createdDoc.addressee_name && createdDoc.addressee_office ? ` (${createdDoc.addressee_office})` : ''}.
+                            </>
+                        ) : createdDoc?.recipient_name || createdDoc?.recipient_office
                             ? <>Routed to <span className="font-semibold text-[var(--tng-slate-700)]">{createdDoc?.recipient_name || createdDoc?.recipient_office}</span>{createdDoc?.recipient_name && createdDoc?.recipient_office ? ` (${createdDoc.recipient_office})` : ''}. The recipient has been notified.</>
                             : 'The document has been created and the recipient has been notified automatically.'}
                     </p>
@@ -716,12 +822,13 @@ export default function CreateDocumentModal({
                             <div className="flex flex-col items-center p-5">
                                 <div className="mb-2 rounded-lg bg-white p-2 shadow-sm border border-[var(--tng-slate-200)]">
                                     <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrPayload)}`}
+                                        src={qrDataUrl(trackingLinkFor(qrPayload))}
                                         alt={`QR code for ${qrPayload}`}
                                         className="h-32 w-32"
                                     />
                                 </div>
                                 <p className="text-[11px] text-[var(--tng-slate-500)]">Scan to track this document</p>
+                                <p className="mt-1 break-all text-[10px] text-[var(--tng-slate-400)]">{trackingLinkFor(qrPayload)}</p>
                             </div>
                         )}
                     </div>

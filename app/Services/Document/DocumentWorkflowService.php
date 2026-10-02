@@ -100,15 +100,26 @@ class DocumentWorkflowService
             $targetDeptId = (int) $params['target_department_id'];
         }
 
-        $targetUserId = !empty($params['to_user_id']) ? (int) $params['to_user_id'] : null;
+        // The clerk only registers: the document goes to the person the sender chose when filing it
+        $targetUserId = $document->destination_user_id
+            ?: (!empty($params['to_user_id']) ? (int) $params['to_user_id'] : null);
         if (!$targetUserId && $targetDeptId) {
             // e.g. the HR office has an HR Manager but no "Department Head"
-            $targetUserId = $this->resolveOfficeHead((int) $targetDeptId)?->id;
+            $targetUserId = $this->resolveOfficeHead((int) $targetDeptId, $document->submitted_by)?->id;
         }
         $targetUser = $targetUserId ? User::with('role')->find($targetUserId) : null;
+        if ($targetUser?->department_id) {
+            $targetDeptId = $targetUser->department_id;
+        }
 
         $stepIndex = 2;
         $newStatus = 'registered';
+
+        // Carry the sender's instructions to the recipient
+        $senderInstruction = RoutingSlip::where('document_id', $document->document_id)->orderBy('slip_id')->value('instruction');
+        if ($senderInstruction === DocumentService::REGISTRATION_INSTRUCTION) {
+            $senderInstruction = null;
+        }
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
@@ -119,7 +130,7 @@ class DocumentWorkflowService
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'register',
-            'instruction'          => $params['instruction'] ?? 'Document officially registered and routed for processing.',
+            'instruction'          => $params['instruction'] ?? $senderInstruction ?? 'Document officially registered and routed for processing.',
             'status'               => 'pending',
             'date_received'        => now(),
         ]);
@@ -133,6 +144,9 @@ class DocumentWorkflowService
         ]);
 
         $destName = $targetDeptId ? Department::find($targetDeptId)?->department_name : 'Destination Department';
+        if ($targetUser) {
+            $destName = "{$targetUser->name} ({$destName})";
+        }
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
@@ -157,12 +171,14 @@ class DocumentWorkflowService
     /**
      * The person who receives documents for an office: its Department Head, or the equivalent
      * head for offices without one (HR Manager, Mayor), otherwise any active non-clerk staff.
+     * The sender is skipped so a document addressed to their own office never comes back to them.
      */
-    public function resolveOfficeHead(int $departmentId): ?User
+    public function resolveOfficeHead(int $departmentId, ?int $excludeUserId = null): ?User
     {
         $staff = User::with('role')
             ->where('department_id', $departmentId)
             ->where('is_active', true)
+            ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
             ->get();
 
         foreach (['Department Head', 'HR', 'Mayor'] as $roleName) {
@@ -335,6 +351,11 @@ class DocumentWorkflowService
 
     public function approveAndRouteToReceiving(Document $document, User $actor, ?string $ip = null): Document
     {
+        // Internal documents need no release at the counter: the final approval completes them
+        if ($document->is_internal) {
+            return $this->completeInternal($document, $actor, $ip);
+        }
+
         $clerkUser = User::whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))->first();
         $destDeptId = $clerkUser?->department_id ?? 2;
         $destUserId = $clerkUser?->id ?? 5;
@@ -353,14 +374,12 @@ class DocumentWorkflowService
             'date_received'        => now(),
         ]);
 
-        // External: step 7 "Forwarded to Receiving Clerk" (released on clerk release).
-        // Internal: stays on final step 6 until the clerk releases it.
-        $stepIndex = $document->is_internal ? 6 : 7;
+        // External: step 7 "Forwarded to Receiving Clerk", completed when the clerk releases it to the applicant
         $document->update([
             'status'                       => 'approved',
             'current_holder_department_id' => $destDeptId,
             'current_holder_id'            => $destUserId,
-            'current_step_index'           => $stepIndex,
+            'current_step_index'           => 7,
         ]);
 
         $this->auditTrailService->logDocumentAction(
@@ -378,6 +397,67 @@ class DocumentWorkflowService
             targetRole: 'Receiving Clerk',
             sender: $actor
         );
+
+        return $document;
+    }
+
+    /**
+     * Final approval of an internal document (the Mayor, or the last reviewing office when the Mayor filed it):
+     * it is completed on the spot and the finished document — with every signature stamped — goes back to the
+     * sender. The Receiving Clerk keeps the record (registration and trail) but has nothing to release.
+     */
+    protected function completeInternal(Document $document, User $actor, ?string $ip = null): Document
+    {
+        $sender = $document->submitted_by ? User::find($document->submitted_by) : null;
+
+        RoutingSlip::create([
+            'document_id'          => $document->document_id,
+            'tracking_number'      => $document->tracking_number ?: ('PENDING-' . $document->reference_number),
+            'from_user_id'         => $actor->id,
+            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
+            'to_user_id'           => $sender?->id,
+            'target_department_id' => $sender?->department_id ?? $document->department_id,
+            'sender_name'          => $actor->name,
+            'action'               => 'approve',
+            'instruction'          => "Approved by {$actor->name}. The completed document is returned to the sender.",
+            'status'               => 'completed',
+            'date_received'        => now(),
+        ]);
+
+        $document->update([
+            'status'                       => 'completed',
+            'completed_at'                 => now(),
+            'current_holder_id'            => null,
+            'current_holder_department_id' => null,
+            'current_step_index'           => $document->total_steps ?: 6,
+        ]);
+
+        $this->auditTrailService->logDocumentAction(
+            document: $document,
+            action: 'Approve',
+            description: "Final approval given by {$actor->name}.",
+            actor: $actor,
+            ipAddress: $ip
+        );
+
+        $this->auditTrailService->logDocumentAction(
+            document: $document,
+            action: 'Completed',
+            description: 'Internal document completed and returned to ' . ($sender?->name ?? 'the sender')
+                . ' automatically after the final approval (no release by the Receiving Clerk needed).',
+            actor: $actor,
+            ipAddress: $ip
+        );
+
+        if ($sender && (int) $sender->id !== (int) $actor->id) {
+            \App\Services\NotificationService::triggerDocumentReceiptNotification(
+                document: $document,
+                targetUserId: $sender->id,
+                targetDeptId: $sender->department_id,
+                sender: $actor,
+                title: 'Document Approved & Completed'
+            );
+        }
 
         return $document;
     }
@@ -422,9 +502,29 @@ class DocumentWorkflowService
         return $document;
     }
 
+    /**
+     * One step back: whoever passed the document to the actor (forward / endorse / correction). A clerk's
+     * registration is skipped — the clerk only records internal documents — so those go back to the sender.
+     */
+    public function previousHolderId(Document $document, User $actor): ?int
+    {
+        $inbound = RoutingSlip::where('document_id', $document->document_id)
+            ->where('to_user_id', $actor->id)
+            ->where('action', '!=', 'return')
+            ->orderByDesc('slip_id')
+            ->first();
+
+        $previous = $inbound && $inbound->action !== 'register' ? $inbound->from_user_id : $document->submitted_by;
+
+        return $previous ? (int) $previous : null;
+    }
+
     public function returnDocument(Document $document, string $reason, User $actor, ?string $ip = null): Document
     {
-        $targetHolderId = $document->submitted_by ?? $document->current_holder_id;
+        $targetHolderId = $this->previousHolderId($document, $actor) ?? $document->current_holder_id;
+        if ((int) $targetHolderId === (int) $actor->id) {
+            throw ValidationException::withMessages(['reason' => 'This document started with you, so there is no one to return it to.']);
+        }
         $targetHolder = $targetHolderId ? User::find($targetHolderId) : null;
         $targetDeptId = $targetHolder?->department_id ?? $document->department_id;
         // The returning office, captured before the holder changes (used to route the correction back)
@@ -454,7 +554,7 @@ class DocumentWorkflowService
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Return',
-            description: "Document returned for revision. Reason: {$reason}",
+            description: 'Document returned for revision' . ($targetHolder ? " to {$targetHolder->name}" : '') . ". Reason: {$reason}",
             actor: $actor,
             ipAddress: $ip
         );

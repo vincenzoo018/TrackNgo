@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, ExternalLink, QrCode, Download, Loader2 } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import { qrDataUrl, useTrackingLink } from '@/lib/qr';
 import { cn } from '@/lib/utils';
 
 export type RoutingSlipModalData = {
@@ -44,12 +45,14 @@ export function RoutingSlipModal({
     currentRole = 'receiving',
 }: RoutingSlipModalProps) {
     const [isDownloading, setIsDownloading] = useState(false);
+    const trackingLinkFor = useTrackingLink();
 
     if (!isOpen || !slip) return null;
 
     const trackingNumber = slip.tracking_number || slip.formatted_slip_id || `RS-2026-${String(slip.slip_id || '0001').padStart(4, '0')}`;
-    const qrPayload = encodeURIComponent(slip.qr_data || trackingNumber || slip.document_ref || 'TRACKNGO');
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${qrPayload}`;
+    // The QR opens the public tracking page for this document (scannable from a phone)
+    const qrTarget = slip.qr_data || trackingNumber || slip.document_ref || 'TRACKNGO';
+    const qrUrl = qrDataUrl(/^https?:\/\//.test(qrTarget) ? qrTarget : trackingLinkFor(qrTarget));
 
     const handlePrint = () => {
         window.print();

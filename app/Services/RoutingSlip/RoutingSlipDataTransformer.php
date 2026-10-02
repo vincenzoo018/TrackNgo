@@ -4,6 +4,7 @@ namespace App\Services\RoutingSlip;
 
 use App\DTOs\RoutingSlipItemDto;
 use App\Models\RoutingSlip;
+use App\Services\Document\DocumentConfidentiality;
 use Carbon\Carbon;
 
 class RoutingSlipDataTransformer
@@ -65,7 +66,7 @@ class RoutingSlipDataTransformer
             trackingNumber: $trackingNumber,
             documentId: $slip->document_id,
             documentRef: $doc ? $doc->reference_number : 'DOC-' . $slip->document_id,
-            documentTitle: $doc ? $doc->title : 'Document #' . $slip->document_id,
+            documentTitle: $doc ? $doc->visibleTitle() : 'Document #' . $slip->document_id,
             documentStatus: $doc ? $doc->status : 'Ongoing',
             documentClassification: $doc ? $doc->classification : 'normal',
             fromName: $fromName,
@@ -74,7 +75,9 @@ class RoutingSlipDataTransformer
             toName: $toName,
             toDepartment: $toDept,
             action: $action,
-            instruction: $slip->instruction ?: 'For review and appropriate action.',
+            instruction: $doc && !$doc->contentsVisibleTo()
+                ? DocumentConfidentiality::HIDDEN_REMARKS
+                : ($slip->instruction ?: 'For review and appropriate action.'),
             status: $status,
             date: $createdAt->toIso8601String(),
             formattedDate: $createdAt->format('Y-m-d'),

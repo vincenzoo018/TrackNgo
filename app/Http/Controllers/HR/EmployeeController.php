@@ -88,6 +88,8 @@ class EmployeeController extends Controller
             'dbEmployee' => $employee,
             'dbDepartments' => $departments,
             'dbRoles' => $roles,
+            // The registered signature is hidden from user lists; HR sees it here to verify or replace it
+            'currentSignature' => $employee->signature ?: null,
         ]);
     }
 
@@ -103,6 +105,8 @@ class EmployeeController extends Controller
             'role_id' => 'required|exists:roles,role_id',
             'mobile_number' => 'nullable|string|max:20',
             'is_active' => 'required|boolean',
+            // Optional: a newly drawn signature (base64 PNG data URL) replaces the registered one
+            'signature' => ['nullable', 'string', 'max:2000000', 'regex:/^data:image\/(png|jpe?g);base64,[A-Za-z0-9+\/=]+$/'],
         ]);
 
         $data = $validated;
@@ -110,6 +114,9 @@ class EmployeeController extends Controller
             $data['password'] = Hash::make($validated['password']);
         } else {
             unset($data['password']);
+        }
+        if (empty($validated['signature'])) {
+            unset($data['signature']);
         }
 
         $employee->update($data);

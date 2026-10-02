@@ -68,7 +68,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
             onSuccess: () => {
                 setReturnModalOpen(false);
                 setIsActionLoading(false);
-                setSuccessState({ isOpen: true, title: 'Returned', message: 'Document returned successfully to sender.' });
+                setSuccessState({ isOpen: true, title: 'Returned', message: 'Document returned to the person who forwarded it to you.' });
             },
             onError: () => setIsActionLoading(false)
         });
@@ -113,24 +113,44 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                     window.dispatchEvent(new CustomEvent('tng:document-sent'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
-                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document approved and routed to Receiving Clerk!' });
+                    setSuccessState({
+                        isOpen: true,
+                        title: 'Successfully',
+                        message: isInternal
+                            ? `Document approved and completed. It has been returned to ${senderName} with all signatures.`
+                            : 'Document approved and routed to Receiving Clerk!',
+                    });
                 },
-                onError: () => setIsActionLoading(false)
+                // Close the dialog so the reason (e.g. a signature still missing) shows in the Actions panel
+                onError: () => {
+                    setIsActionLoading(false);
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                },
             });
         }
     };
 
+    // Internal documents are completed by this approval (no release by the Receiving Clerk)
+    const isInternal = Boolean(doc.is_internal);
+    const senderName = doc.submitter?.name || 'the sender';
     const approveButton = (
         <button
-            onClick={() => requestAction('approve', 'Sign and Approve', 'Are you sure you want to sign, approve, and route this document to Receiving?', 'Approve')}
+            onClick={() => requestAction(
+                'approve',
+                isInternal ? 'Sign, Approve & Complete' : 'Sign and Approve',
+                isInternal
+                    ? `Approve this document? It will be completed and returned to ${senderName} right away.`
+                    : 'Are you sure you want to sign, approve, and route this document to Receiving?',
+                'Approve'
+            )}
             className={actionButton.primary}
         >
-            Sign &amp; Approve Document
+            {isInternal ? 'Sign, Approve & Complete' : <>Sign &amp; Approve Document</>}
         </button>
     );
     const returnButton = (
         <button onClick={() => setReturnModalOpen(true)} className={actionButton.secondary}>
-            Return to Sender
+            Return Document
         </button>
     );
 
@@ -220,6 +240,8 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                     <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
                         Re-route / Endorse
                     </button>
+                    {/* Returned to you: pass it further back unless you are where it started */}
+                    {String(doc.submitted_by) !== String(auth?.user?.id) && returnButton}
                 </>
             );
         }
@@ -256,7 +278,6 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 backUrl="/mayor/documents"
                 actionsTitle="Review Actions"
                 actions={renderActions()}
-                signatoryLabel="Approved By"
                 correctionOpen={correctionModalOpen}
                 onCorrectionOpenChange={setCorrectionModalOpen}
             />

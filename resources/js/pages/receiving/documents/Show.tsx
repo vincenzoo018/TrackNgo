@@ -78,10 +78,11 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             events: ['tng:fsm-refresh'],
             message: 'Document marked as reviewed. You can now forward / endorse it.',
         },
+        // Final approval of an internal document: completed and returned to the sender (no release step)
         route_to_receiving: {
             url: 'approve-route',
             events: ['tng:fsm-refresh', 'tng:document-sent'],
-            message: 'Document forwarded to the Receiving Clerk for release.',
+            message: 'Document approved and completed. It has been returned to the sender with all signatures.',
         },
     };
 
@@ -98,7 +99,11 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 setIsActionLoading(false);
                 setSuccessState({ isOpen: true, title: 'Successfully', message: config.message });
             },
-            onError: () => setIsActionLoading(false)
+            // Close the dialog so the reason (e.g. a signature still missing) shows in the Actions panel
+            onError: () => {
+                setIsActionLoading(false);
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+            },
         });
     };
 
@@ -156,10 +161,26 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             );
         }
         if (needsRegistration) {
+            // Internal documents already name their recipient; the clerk only registers them for the record
+            const addressee = doc.destination_user?.name
+                ? `${doc.destination_user.name}${doc.destination_department?.department_name ? ` (${doc.destination_department.department_name})` : ''}`
+                : doc.destination_department?.department_name;
             return (
                 <>
+                    {addressee && (
+                        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-[13px] text-slate-600">
+                            Addressed to <span className="font-semibold text-slate-800">{addressee}</span>. Registering records it and sends it to them.
+                        </p>
+                    )}
                     <button
-                        onClick={() => requestAction('register', 'Register Document', 'Are you sure you want to register this document and generate its routing slip?', 'Register')}
+                        onClick={() => requestAction(
+                            'register',
+                            'Register Document',
+                            addressee
+                                ? `Register this document? It will get a tracking number and go to ${addressee}.`
+                                : 'Are you sure you want to register this document and generate its routing slip?',
+                            'Register'
+                        )}
                         className={actionButton.primary}
                     >
                         Register &amp; Route Document
@@ -204,10 +225,10 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
             return (
                 <>
                     <button
-                        onClick={() => requestAction('route_to_receiving', 'Forward to Receiving Clerk', 'Forward this reviewed document to the Receiving Clerk for release?', 'Forward')}
+                        onClick={() => requestAction('route_to_receiving', 'Approve & Complete', `Approve this document? It will be completed and returned to ${doc.submitter?.name || 'the sender'} right away.`, 'Approve')}
                         className={actionButton.primary}
                     >
-                        Forward to Receiving Clerk
+                        Approve &amp; Complete Document
                     </button>
                     {returnButton}
                 </>
@@ -252,6 +273,8 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
                         Re-route / Endorse
                     </button>
+                    {/* Returned to you: pass it further back unless you are where it started */}
+                    {String(doc.submitted_by) !== String(auth?.user?.id) && returnButton}
                 </>
             );
         }
@@ -285,7 +308,6 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 backUrl={backToListUrl}
                 actionsTitle="Core Actions"
                 actions={renderActions()}
-                signatoryLabel="Received By"
                 correctionOpen={correctionModalOpen}
                 onCorrectionOpenChange={setCorrectionModalOpen}
             />

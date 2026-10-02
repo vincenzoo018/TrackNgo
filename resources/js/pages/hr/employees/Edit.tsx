@@ -1,16 +1,33 @@
 import { Head, Link, useForm } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
+import SignatureCanvas from 'react-signature-canvas';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
-import { Save, ChevronRight, Home } from 'lucide-react';
+import { Save, ChevronRight, Home, Eraser, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Props = {
     dbEmployee: any;
     dbDepartments: any[];
     dbRoles: any[];
+    /** Registered signature (PNG data URL); stamped on documents this employee approves as a signatory */
+    currentSignature?: string | null;
 };
 
-export default function Edit({ dbEmployee, dbDepartments, dbRoles }: Props) {
-    const { data, setData, put, processing, errors } = useForm({
+export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignature = null }: Props) {
+    const signaturePadRef = useRef<any>(null);
+    const [replacingSignature, setReplacingSignature] = useState(!currentSignature);
+
+    // Match the canvas resolution to its box so strokes are not stretched
+    useEffect(() => {
+        const canvas = signaturePadRef.current?.getCanvas?.();
+        if (replacingSignature && canvas && canvas.offsetWidth > 0) {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            signaturePadRef.current.clear();
+        }
+    }, [replacingSignature]);
+
+    const { data, setData, put, processing, errors, transform } = useForm({
         first_name: dbEmployee.first_name || '',
         middle_name: dbEmployee.middle_name || '',
         last_name: dbEmployee.last_name || '',
@@ -28,6 +45,18 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles }: Props) {
         if (!window.confirm('Are you sure you want to save these changes?')) {
             return;
         }
+
+        // A newly drawn signature replaces the registered one; an untouched pad keeps it
+        const pad = signaturePadRef.current;
+        let signature = '';
+        if (replacingSignature && pad && !pad.isEmpty?.()) {
+            try {
+                signature = pad.getTrimmedCanvas().toDataURL('image/png');
+            } catch {
+                signature = pad.getCanvas?.()?.toDataURL('image/png') ?? '';
+            }
+        }
+        transform(form => (signature ? { ...form, signature } : form));
 
         put(`/hr/employees/${dbEmployee.id}`, {
             onSuccess: () => {
@@ -187,6 +216,62 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles }: Props) {
                                 <option value={0}>Inactive</option>
                             </select>
                         </div>
+                    </div>
+
+                    {/* Registered digital signature: stamped automatically on documents this employee approves */}
+                    <div className="space-y-3 rounded-xl border border-[var(--tng-slate-200)] p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <p className="text-sm font-medium text-[var(--tng-slate-700)]">Digital Signature</p>
+                                <p className="text-xs text-[var(--tng-slate-500)]">
+                                    Stamped automatically on documents this employee forwards or approves as a signatory.
+                                </p>
+                            </div>
+                            {currentSignature && (
+                                <button
+                                    type="button"
+                                    onClick={() => setReplacingSignature(r => !r)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] px-3 py-1.5 text-xs font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]"
+                                >
+                                    <PenLine className="h-3.5 w-3.5" /> {replacingSignature ? 'Keep current signature' : 'Replace signature'}
+                                </button>
+                            )}
+                        </div>
+
+                        {currentSignature && !replacingSignature && (
+                            <div className="flex h-28 items-center justify-center rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
+                                <img src={currentSignature} alt={`Signature of ${dbEmployee.name}`} className="max-h-24 max-w-[280px] object-contain mix-blend-multiply" />
+                            </div>
+                        )}
+
+                        {replacingSignature && (
+                            <div className="space-y-2">
+                                {!currentSignature && (
+                                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                        No signature registered yet. This employee cannot be chosen as a signatory until one is added.
+                                    </p>
+                                )}
+                                <div className="relative overflow-hidden rounded-xl border-2 border-dashed border-[var(--tng-slate-300)] bg-[var(--tng-slate-50)]">
+                                    <SignatureCanvas
+                                        ref={signaturePadRef}
+                                        canvasProps={{ className: 'h-40 w-full cursor-crosshair' }}
+                                        backgroundColor="transparent"
+                                        penColor="#0f172a"
+                                    />
+                                    <span className="pointer-events-none absolute inset-x-0 bottom-2 select-none text-center text-[11px] text-[var(--tng-slate-400)]">
+                                        Draw the employee's signature above this line
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => signaturePadRef.current?.clear()}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--tng-slate-200)] px-2.5 py-1 text-xs font-medium text-[var(--tng-slate-600)] hover:bg-[var(--tng-slate-50)]"
+                                >
+                                    <Eraser className="h-3.5 w-3.5" /> Clear
+                                </button>
+                            </div>
+                        )}
+                        {(errors as Record<string, string>).signature && <p className="text-xs text-red-500">{(errors as Record<string, string>).signature}</p>}
                     </div>
 
                     <div className="pt-6 border-t border-[var(--tng-slate-100)] flex items-center justify-end gap-3">

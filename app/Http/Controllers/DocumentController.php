@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use App\Contracts\AuditTrailServiceInterface;
+use Inertia\Inertia;
 
 class DocumentController extends Controller
 {
@@ -31,6 +32,83 @@ class DocumentController extends Controller
         return response()->json($document);
     }
 
+    /**
+     * Role document page ($view comes from the route defaults). Confidential contents — file, text,
+     * comments, attachments, signature images — only reach the sender, the people on its route and its
+     * signatories; the Receiving Clerk keeps the metadata and the trail for monitoring.
+     */
+    public function page(Request $request, $id, string $view)
+    {
+        $user = $request->user() ?: auth()->user();
+        $document = Document::with([
+            'submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument',
+            'destinationDepartment', 'destinationUser',
+            'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment',
+            'signatories.user.role', 'signatories.user.department', 'signatories.signature',
+        ])->findOrFail($id);
+        $canView = $document->contentsVisibleTo($user);
+
+        return Inertia::render($view, [
+            'dbDocument'    => $document,
+            'dbAuditTrail'  => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
+            'dbDepartments' => \App\Models\Department::all(),
+            'dbUsers'       => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+                ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
+                ->select('users.*', 'roles.role_name', 'departments.department_name')
+                ->get(),
+            'dbComments'    => $canView ? $this->commentsQuery($id)->get() : [],
+            'dbAttachments' => $canView
+                ? \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get()
+                : [],
+        ]);
+    }
+
+    /**
+     * Save text read from the main document file by OCR in the browser (e.g. "Scan Text" on a document whose
+     * text could not be read at upload). Only people who can open the document may set it.
+     */
+    public function saveOcrText(Request $request, $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'ocr_text' => 'required|string|max:4000000',
+        ]);
+
+        $actor = $request->user() ?: auth()->user();
+        $document = Document::findOrFail($id);
+        if (!$document->contentsVisibleTo($actor)) {
+            return response()->json(['message' => 'This document is confidential. Only its sender and recipients can open it.'], 403);
+        }
+
+        $text = trim($validated['ocr_text']);
+        if ($text !== trim((string) $document->ocr_text)) {
+            $document->update(['ocr_text' => $text]);
+
+            app(AuditTrailServiceInterface::class)->logDocumentAction(
+                document: $document,
+                action: 'OCR Text Updated',
+                description: 'Text read from the document file by OCR (' . number_format(mb_strlen($text)) . ' characters).',
+                actor: $actor,
+                ipAddress: $request->ip()
+            );
+        }
+
+        return response()->json(['message' => 'OCR text saved.']);
+    }
+
+    private function commentsQuery($documentId)
+    {
+        return DB::table('document_comments')
+            ->where('document_id', $documentId)
+            ->join('users', 'document_comments.user_id', '=', 'users.id')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
+            ->select(
+                'document_comments.*',
+                DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"),
+                'roles.role_name as user_role'
+            )
+            ->orderBy('created_at', 'desc');
+    }
+
     public function store(StoreDocumentRequest $request)
     {
         $actor = $request->user() ?: auth()->user();
@@ -45,7 +123,7 @@ class DocumentController extends Controller
             ], 201);
         }
 
-        $document->loadMissing(['currentHolder', 'currentHolderDepartment']);
+        $document->loadMissing(['currentHolder', 'currentHolderDepartment', 'destinationUser', 'destinationDepartment']);
 
         return redirect()->back()
             ->with('success', 'Document submitted successfully. Tracking: ' . $document->tracking_number)
@@ -55,6 +133,10 @@ class DocumentController extends Controller
                 'tracking_number'  => $document->tracking_number,
                 'recipient_name'   => $document->currentHolder?->name,
                 'recipient_office' => $document->currentHolderDepartment?->department_name,
+                // Internal: sits with the Receiving Clerk for registration, then goes to this person
+                'is_internal'      => (bool) $document->is_internal,
+                'addressee_name'   => $document->destinationUser?->name,
+                'addressee_office' => $document->destinationDepartment?->department_name,
             ]);
     }
 
@@ -111,13 +193,23 @@ class DocumentController extends Controller
         ]);
 
         $actor = $request->user() ?: auth()->user();
+        $stamps = $this->signatureDue((int) $id, $actor);
         $document = $this->documentService->executeWorkflowAction((int) $id, 'endorse', $request->all(), $actor, $request->ip());
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Document endorsed successfully.', 'document' => $document]);
+            return response()->json(['message' => 'Document endorsed successfully.', 'document' => $document, 'signature_stamped' => $stamps]);
         }
 
-        return redirect()->back()->with('success', 'Document endorsed successfully');
+        return redirect()->back()->with('success', 'Document endorsed successfully')->with('signature_stamped', $stamps);
+    }
+
+    /** Whether the actor's registered signature will be stamped by this approval (shown back to them). */
+    private function signatureDue(int $documentId, $actor): bool
+    {
+        return \App\Models\DocumentSignatory::where('document_id', $documentId)
+            ->where('user_id', $actor->id)
+            ->whereNull('signed_at')
+            ->exists();
     }
 
     public function escalate(Request $request, $id)
@@ -147,13 +239,19 @@ class DocumentController extends Controller
     public function approveAndRouteToReceiving(Request $request, $id)
     {
         $actor = $request->user() ?: auth()->user();
+        $stamps = $this->signatureDue((int) $id, $actor);
         $document = $this->documentService->executeWorkflowAction((int) $id, 'approveAndRouteToReceiving', $request->all(), $actor, $request->ip());
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Document approved successfully.', 'document' => $document]);
+            return response()->json(['message' => 'Document approved successfully.', 'document' => $document, 'signature_stamped' => $stamps]);
         }
 
-        return redirect()->back()->with('success', 'Document approved and routed to Receiving Clerk.');
+        // Internal documents are completed by the final approval; external ones go to the clerk for release
+        $message = $document->is_internal
+            ? 'Document approved and completed. It has been returned to the sender.'
+            : 'Document approved and routed to Receiving Clerk.';
+
+        return redirect()->back()->with('success', $message)->with('signature_stamped', $stamps);
     }
 
     public function releaseToApplicant(Request $request, $id)
@@ -201,9 +299,10 @@ class DocumentController extends Controller
         ]);
 
         $actor = $request->user() ?: auth()->user();
+        $stamps = $this->signatureDue((int) $id, $actor);
         $this->documentService->executeWorkflowAction((int) $id, 'forward', $request->all(), $actor, $request->ip());
 
-        return redirect()->back()->with('success', 'Document forwarded successfully');
+        return redirect()->back()->with('success', 'Document forwarded successfully')->with('signature_stamped', $stamps);
     }
 
     public function addComment(Request $request, $id)
@@ -223,12 +322,12 @@ class DocumentController extends Controller
     {
         $request->validate([
             'files'   => 'required|array|min:1|max:5',
-            'files.*' => 'file|mimes:pdf,doc,docx,png,jpg,jpeg|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
+            'files.*' => 'file|mimes:' . implode(',', StoreDocumentRequest::VIEWABLE_TYPES) . '|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
             'note'    => 'nullable|string|max:500',
         ], [
             'files.required'   => 'Attach at least one corrected or missing file.',
             'files.max'        => 'Attach up to 5 files at a time.',
-            'files.*.mimes'    => 'Files must be PDF, Word (DOC/DOCX) or images (PNG/JPG).',
+            'files.*.mimes'    => 'Files must be PDF, Word (.docx) or images (PNG/JPG).',
             'files.*.max'      => 'Each file must not be larger than ' . (StoreDocumentRequest::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
             'files.*.uploaded' => 'A file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
         ]);
@@ -247,7 +346,7 @@ class DocumentController extends Controller
     public function addAttachment(Request $request, $id)
     {
         $request->validate([
-            'file'        => 'required|file|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
+            'file'        => 'required|file|mimes:' . implode(',', StoreDocumentRequest::VIEWABLE_TYPES) . '|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
             'description' => 'required|string',
         ], [
             'file.uploaded' => 'The file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
@@ -276,12 +375,16 @@ class DocumentController extends Controller
         }
 
         $document = Document::findOrFail($id);
+        if (!$document->contentsVisibleTo($user)) {
+            return response()->json(['message' => 'This document is confidential. Only its sender and recipients can download it.'], 403);
+        }
 
-        // A correction / supporting file attached to the document, or the main document file
-        $attachment = $request->filled('attachment_id')
+        // The final signed copy, a correction / supporting file attached to the document, or the main document file
+        $signedCopy = $request->input('variant') === 'signed';
+        $attachment = !$signedCopy && $request->filled('attachment_id')
             ? \App\Models\DocumentAttachment::where('document_id', $document->document_id)->findOrFail($request->input('attachment_id'))
             : null;
-        $storedPath = $attachment?->file_path ?? $document->attachment_path;
+        $storedPath = $signedCopy ? $document->signed_file_path : ($attachment?->file_path ?? $document->attachment_path);
 
         if (!$storedPath || !Storage::disk('public')->exists($storedPath)) {
             return response()->json(['message' => 'Original document file is not found on disk.'], 404);
@@ -290,14 +393,19 @@ class DocumentController extends Controller
         app(AuditTrailServiceInterface::class)->logDocumentAction(
             document: $document,
             action: 'Exported',
-            description: $attachment
-                ? "Attached file {$attachment->file_name} downloaded after password verification"
-                : 'Original document exported after password verification',
+            description: $signedCopy
+                ? 'Final signed copy downloaded after password verification'
+                : ($attachment
+                    ? "Attached file {$attachment->file_name} downloaded after password verification"
+                    : 'Original document exported after password verification'),
             actor: $user,
             ipAddress: $request->ip()
         );
 
         $filePath = Storage::disk('public')->path($storedPath);
+        if ($signedCopy) {
+            return response()->download($filePath, "Signed_{$document->reference_number}.pdf");
+        }
         if ($attachment) {
             return response()->download($filePath, $attachment->file_name);
         }
@@ -329,19 +437,12 @@ class DocumentController extends Controller
 
     public function getComments(Request $request, $id): JsonResponse
     {
-        $comments = DB::table('document_comments')
-            ->where('document_id', $id)
-            ->join('users', 'document_comments.user_id', '=', 'users.id')
-            ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-            ->select(
-                'document_comments.*',
-                DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"),
-                'roles.role_name as user_role'
-            )
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $document = Document::findOrFail($id);
+        if (!$document->contentsVisibleTo($request->user())) {
+            return response()->json([]);
+        }
 
-        return response()->json($comments);
+        return response()->json($this->commentsQuery($id)->get());
     }
 
     public function logAction(Request $request, $id): JsonResponse
@@ -380,35 +481,24 @@ class DocumentController extends Controller
             ->orderBy('timestamp', 'desc')
             ->get();
 
-        $comments = DB::table('document_comments')
-            ->where('document_id', $id)
-            ->join('users', 'document_comments.user_id', '=', 'users.id')
-            ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-            ->select(
-                'document_comments.*',
-                DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"),
-                'roles.role_name as user_role'
-            )
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $attachments = \App\Models\DocumentAttachment::with(['user.role'])
-            ->where('document_id', $id)
-            ->orderBy('created_at', 'asc')
-            ->get();
+        $canView = $document->contentsVisibleTo($request->user());
+        $comments = $canView ? $this->commentsQuery($id)->get() : [];
+        $attachments = $canView
+            ? \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get()
+            : [];
 
         return response()->json([
             'document' => [
                 'document_id'                  => $document->document_id,
                 'reference_number'             => $document->reference_number,
                 'tracking_number'              => $document->tracking_number,
-                'title'                        => $document->title,
+                'title'                        => $document->visibleTitle(),
                 'status'                       => $document->status,
                 'current_step_index'           => $document->current_step_index,
                 'total_steps'                  => $document->total_steps,
                 'is_internal'                  => (bool) $document->is_internal,
                 'is_escalated'                 => (bool) $document->is_escalated,
-                'return_reason'                => $document->return_reason,
+                'return_reason'                => $canView ? $document->return_reason : null,
                 'submitted_by'                 => $document->submitted_by,
                 'submitted_by_name'            => $document->submitter?->name,
                 'department_id'                => $document->department_id,
@@ -426,7 +516,7 @@ class DocumentController extends Controller
                 'completed_at'                 => $document->completed_at?->toISOString(),
             ],
             'status'             => $document->status,
-            'return_reason'      => $document->return_reason,
+            'return_reason'      => $canView ? $document->return_reason : null,
             'current_step_index' => $document->current_step_index,
             'auditTrail'         => $auditTrail,
             'comments'           => $comments,
@@ -434,16 +524,31 @@ class DocumentController extends Controller
         ]);
     }
 
+    /** Workflow steps shown on the public tracking page, worded for the public (internal remarks never leave the system) */
+    private const PUBLIC_TIMELINE = [
+        'submit'                    => 'Submitted',
+        'register'                  => 'Registered by the Receiving Office',
+        'accepted'                  => 'Received and accepted',
+        'review'                    => 'Under review',
+        'endorse'                   => 'Forwarded to the next office',
+        'forward'                   => 'Forwarded to the next office',
+        'approve'                   => 'Approved',
+        'return'                    => 'Returned for corrections',
+        'resubmitted'               => 'Corrections submitted',
+        'digital signature stamped' => 'Signed by an authorized official',
+        'all signatures complete'   => 'All required signatures complete',
+        'release'                   => 'Released to the applicant',
+        'completed'                 => 'Completed',
+    ];
+
+    /**
+     * Public tracking (QR code / tracking number, no login): status, progress and an office-level timeline only.
+     * No staff names, e-mails, phone numbers, IP addresses or remarks are exposed.
+     */
     public function trackPublicDocument(Request $request, $trackingNumber): JsonResponse
     {
-        $trackingNumber = trim($trackingNumber);
-        $document = Document::with([
-            'submitter.role',
-            'department',
-            'destinationDepartment',
-            'currentHolderDepartment',
-            'currentHolder.role'
-        ])
+        $trackingNumber = strtoupper(trim($trackingNumber));
+        $document = Document::with(['department', 'currentHolderDepartment'])
             ->where('tracking_number', $trackingNumber)
             ->orWhere('reference_number', $trackingNumber)
             ->first();
@@ -452,30 +557,53 @@ class DocumentController extends Controller
             return response()->json(['message' => 'Document not found'], 404);
         }
 
-        $auditTrail = \App\Models\AuditTrail::with(['user.role'])
-            ->where('document_id', $document->document_id)
+        $timeline = \App\Models\AuditTrail::where('document_id', $document->document_id)
             ->orderBy('timestamp', 'desc')
-            ->get();
+            // Several steps can happen within the same second
+            ->orderBy('audit_id', 'desc')
+            ->get()
+            ->filter(fn ($entry) => isset(self::PUBLIC_TIMELINE[strtolower((string) $entry->action)]))
+            ->map(fn ($entry) => [
+                'action'      => $entry->action,
+                'description' => self::PUBLIC_TIMELINE[strtolower((string) $entry->action)],
+                // Offices, not people, are shown publicly
+                'user_name'   => $entry->department ?: ($entry->user_role ?: 'LGU Office'),
+                'user_role'   => $entry->user_role,
+                'department'  => $entry->department,
+                'timestamp'   => $entry->timestamp?->toIso8601String(),
+            ])
+            ->values();
+
+        $status = strtolower((string) $document->status);
 
         return response()->json([
             'document' => [
-                'document_id'                  => $document->document_id,
-                'reference_number'             => $document->reference_number,
-                'tracking_number'              => $document->tracking_number,
-                'title'                        => $document->title,
-                'status'                       => $document->status,
-                'current_step_index'           => $document->current_step_index,
-                'total_steps'                  => $document->total_steps,
-                'is_internal'                  => (bool) $document->is_internal,
-                'is_escalated'                 => (bool) $document->is_escalated,
-                'date_filed'                   => $document->date_filed?->format('F d, Y'),
-                'created_at'                   => $document->created_at?->format('F d, Y h:i A'),
-                'submitter_name'               => $document->submitter?->name ?? $document->sender ?? 'Public Submitter',
-                'department_name'              => $document->department?->department_name,
-                'current_holder_department'    => $document->currentHolderDepartment?->department_name ?? 'Receiving Office',
-                'current_holder_name'          => $document->currentHolder?->name,
+                'reference_number'          => $document->reference_number,
+                'tracking_number'           => $document->tracking_number,
+                'title'                     => $document->visibleTitle(),
+                'status'                    => $document->status,
+                'status_label'              => match ($status) {
+                    'completed', 'released' => 'Completed',
+                    'approved'              => 'Approved — for release',
+                    'returned'              => 'Returned for corrections',
+                    'archived'              => 'Archived',
+                    default                 => 'In process',
+                },
+                'current_step_index'        => $document->current_step_index,
+                'total_steps'               => $document->total_steps,
+                'is_internal'               => (bool) $document->is_internal,
+                // ISO timestamps: the page shows them in the viewer's own time zone
+                'date_filed'                => $document->date_filed?->toIso8601String(),
+                'created_at'                => $document->created_at?->toIso8601String(),
+                'completed_at'              => $document->completed_at?->toIso8601String(),
+                // External documents are filed for a client; internal ones are shown by office
+                'submitter_name'            => $document->is_internal ? $document->department?->department_name : ($document->sender ?: 'Applicant'),
+                'department_name'           => $document->department?->department_name,
+                'current_holder_department' => in_array($status, ['completed', 'released', 'archived'], true)
+                    ? null
+                    : ($document->currentHolderDepartment?->department_name ?? 'Receiving Office'),
             ],
-            'auditTrail' => $auditTrail,
+            'auditTrail' => $timeline,
         ]);
     }
 }

@@ -31,6 +31,7 @@ import { StatCard } from '@/components/trackngo/StatCard';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { QrDetailModal, type QrCodeItem } from '@/components/trackngo/QrDetailModal';
 import { RoutingSlipModal, type RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
+import { qrDataUrl, useTrackingLink } from '@/lib/qr';
 
 type DepartmentOption = {
     department_id: number;
@@ -54,7 +55,7 @@ type Props = {
 };
 
 export default function QrCodesIndex({
-    qrCodes = [],
+    qrCodes: rawQrCodes = [],
     departments = [],
     documentTypes = [],
     isFullAccess = false,
@@ -62,6 +63,13 @@ export default function QrCodesIndex({
     userRoleName = 'Staff',
     userName = 'User',
 }: Props) {
+    const trackingLinkFor = useTrackingLink();
+    // QR images are drawn locally; scanning one opens the public tracking page of the document
+    const qrCodes = useMemo(() => rawQrCodes.map((qr: any) => {
+        const link = trackingLinkFor(qr.qr_value || qr.tracking_number || qr.document_ref);
+
+        return { ...qr, qr_data: link, qr_image_url: qrDataUrl(link) } as QrCodeItem;
+    }), [rawQrCodes, trackingLinkFor]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -164,7 +172,7 @@ export default function QrCodesIndex({
         const link = document.createElement('a');
         link.href = qr.qr_image_url;
         link.target = '_blank';
-        link.download = `${qr.qr_id}_${qr.document_ref}.png`;
+        link.download = `${qr.qr_id}_${qr.document_ref}.svg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

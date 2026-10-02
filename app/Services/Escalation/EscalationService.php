@@ -88,7 +88,7 @@ class EscalationService implements EscalationServiceInterface
                 'document_id'                  => $doc->document_id,
                 'reference_number'             => $doc->reference_number,
                 'tracking_number'              => $doc->tracking_number,
-                'title'                        => $doc->title,
+                'title'                        => $doc->visibleTitle(),
                 'status'                       => $doc->status,
                 'classification'               => $doc->classification ?? 'normal',
                 'is_escalated'                 => (bool) $doc->is_escalated,

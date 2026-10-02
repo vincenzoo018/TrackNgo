@@ -35,7 +35,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property-read Collection<int, Team> $teams
  */
 #[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'current_team_id', 'avatar', 'role_id', 'department_id', 'mobile_number', 'is_active', 'signature'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'signature'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
@@ -48,6 +48,7 @@ class User extends Authenticatable implements PasskeyUser
      */
     protected $appends = [
         'name',
+        'has_signature',
     ];
 
     /**
@@ -69,6 +70,14 @@ class User extends Authenticatable implements PasskeyUser
         return \Illuminate\Database\Eloquent\Casts\Attribute::make(
             // Collapse spaces so an empty middle name doesn't produce "Ana  Gonzales"
             get: fn (mixed $value, array $attributes) => trim(preg_replace('/\s+/', ' ', ($attributes['first_name'] ?? '') . ' ' . ($attributes['middle_name'] ?? '') . ' ' . ($attributes['last_name'] ?? ''))),
+        );
+    }
+
+    /** Whether HR registered a signature for this account (the image itself stays hidden from serialization). */
+    protected function hasSignature(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: fn (mixed $value, array $attributes) => !empty($attributes['signature']),
         );
     }
 

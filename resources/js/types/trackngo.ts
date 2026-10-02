@@ -87,7 +87,8 @@ export const INTERNAL_DEPT_6_STEPS: FsmStepDefinition[] = [
     { step: 3, label: 'Reviewed', role: 'Department Head' },
     { step: 4, label: 'Forwarded', role: 'Department Head → Mayor' },
     { step: 5, label: 'Accepted', role: 'Mayor' },
-    { step: 6, label: 'Released', role: 'Reviewed Mayor → Forward to Receiving Clerk → Released' },
+    // Internal documents complete on the Mayor's final approval and go straight back to the sender
+    { step: 6, label: 'Completed', role: 'Reviewed & approved by Mayor → returned to sender' },
 ];
 
 export const INTERNAL_MAYOR_6_STEPS: FsmStepDefinition[] = [
@@ -96,7 +97,7 @@ export const INTERNAL_MAYOR_6_STEPS: FsmStepDefinition[] = [
     { step: 3, label: 'Reviewed', role: 'Department Head' },
     { step: 4, label: 'Forwarded', role: 'Department Head → (next stage)' },
     { step: 5, label: 'Accepted', role: 'Department Head' },
-    { step: 6, label: 'Released', role: 'Reviewed Department → Forward to Receiving Clerk → Released' },
+    { step: 6, label: 'Completed', role: 'Reviewed & approved by Department → returned to sender' },
 ];
 
 export const WORKFLOW_STEPS: { key: DocumentStatus; label: string }[] = [

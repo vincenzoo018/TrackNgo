@@ -129,7 +129,7 @@ class AuditTrailService implements AuditTrailServiceInterface
             'user_role'      => $roleName,
             'department'     => $deptName,
             'action'         => $log->action,
-            'description'    => $log->description,
+            'description'    => $log->visibleDescription(),
             'document_id'    => $log->document_id,
             'document_ref'   => $log->document_ref ?: ($log->document ? $log->document->reference_number : null),
             'ip_address'     => $log->ip_address ?: '127.0.0.1',

@@ -52,6 +52,10 @@ class StoreDocumentRequest extends FormRequest
         return auth()->check();
     }
 
+    public const MAX_SIGNATORIES = 10;
+
+    public const VIEWABLE_TYPES = ['pdf', 'docx', 'png', 'jpg', 'jpeg'];
+
     public const CLIENT_TYPES = ['Citizen', 'Business', 'Government'];
     public const CLIENT_SEXES = ['Male', 'Female'];
     public const RECEIPT_MODES = ['Walk-in', 'Mail / Courier', 'Email'];
@@ -74,7 +78,8 @@ class StoreDocumentRequest extends FormRequest
             'title'                 => 'required|string|max:150', // documents.title is varchar(150)
             'type_id'               => 'required|exists:document_types,type_id',
             'department_id'         => 'required|exists:departments,department_id',
-            'file'                  => 'required|file|max:' . self::APP_MAX_UPLOAD_KB,
+            // Only formats the system can display (old .doc files cannot be previewed in the browser)
+            'file'                  => 'required|file|mimes:' . implode(',', self::VIEWABLE_TYPES) . '|max:' . self::APP_MAX_UPLOAD_KB,
             'classification'        => 'required|string|max:50',
             'forward_to'            => 'required|exists:departments,department_id',
             'forward_to_user'       => 'nullable|exists:users,id',
@@ -82,6 +87,9 @@ class StoreDocumentRequest extends FormRequest
             'ocr_text'              => 'nullable|string',
             'is_internal'           => 'nullable|boolean',
             'urgency_justification' => 'nullable|string|max:500',
+            // Signatories in signing order; the document cannot be completed until all of them have signed
+            'signatories'           => 'nullable|array|max:' . self::MAX_SIGNATORIES,
+            'signatories.*'         => 'integer|distinct|exists:users,id',
         ];
 
         // Receiving Clerks file documents for external clients, whose details are recorded with the document
@@ -143,6 +151,9 @@ class StoreDocumentRequest extends FormRequest
             'file.uploaded' => 'The file could not be uploaded. The server accepts files up to ' . self::maxUploadLabel() . '.',
             'file.required' => 'Please upload the document file.',
             'file.max'      => 'The file must not be larger than ' . (self::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
+            'file.mimes'    => 'Upload a PDF, Word (.docx) or image (PNG/JPG) file. Old .doc files cannot be viewed in the system; save them as .docx or PDF first.',
+            'signatories.max'        => 'Choose up to ' . self::MAX_SIGNATORIES . ' signatories.',
+            'signatories.*.distinct' => 'Each signatory can only be listed once.',
             'client.contact_number.regex' => 'The contact number must be 11 digits and start with 09, e.g. 09171234567.',
             'client.first_name.regex'          => 'The first name may only contain letters, spaces, periods, apostrophes and hyphens.',
             'client.middle_name.regex'         => 'The middle name may only contain letters, spaces, periods, apostrophes and hyphens.',
@@ -152,13 +163,37 @@ class StoreDocumentRequest extends FormRequest
     }
 
     /**
+     * Signatories must be active officials who can open the document (never the Receiving Clerk).
+     * Internal personnel address a specific person, who must belong to the destination office.
      * Receiving Clerks only file external documents, which must land on a Department Head.
      */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
             $actor = $this->user();
-            if (!$actor || !$actor->hasRole('Receiving Clerk') || $validator->errors()->isNotEmpty()) {
+            if (!$actor || $validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $signatoryIds = array_map('intval', (array) $this->input('signatories', []));
+            if ($signatoryIds) {
+                $signatories = User::whereIn('id', $signatoryIds)
+                    ->where('is_active', true)
+                    ->whereDoesntHave('role', fn ($q) => $q->whereIn('role_name', ['Receiving Clerk', 'Admin']))
+                    ->get();
+                if ($signatories->count() !== count($signatoryIds)) {
+                    $validator->errors()->add('signatories', 'Signatories must be active officials (not Receiving Clerks or Admin accounts).');
+                }
+                // Signatures are stamped from the image HR registered; nobody signs on the spot
+                $unsigned = $signatories->filter(fn (User $u) => empty($u->signature));
+                if ($unsigned->isNotEmpty()) {
+                    $validator->errors()->add('signatories', $unsigned->pluck('name')->join(', ', ' and ')
+                        . ($unsigned->count() > 1 ? ' have' : ' has') . ' no registered signature yet. Ask HR to add it first.');
+                }
+            }
+
+            if (!$actor->hasRole('Receiving Clerk')) {
+                $this->validateInternalRecipient($validator, $actor);
                 return;
             }
 
@@ -191,5 +226,35 @@ class StoreDocumentRequest extends FormRequest
                 $validator->errors()->add('forward_to_user', 'The selected recipient must be a Department Head of the selected department.');
             }
         });
+    }
+
+    /**
+     * Internal documents go to the Receiving Clerk first, then to this person; within the sender's own office
+     * the person must be named, otherwise it would resolve back to the sender's own desk.
+     */
+    private function validateInternalRecipient($validator, User $actor): void
+    {
+        $forwardTo = (int) $this->input('forward_to');
+
+        if ($this->filled('forward_to_user')) {
+            $recipient = User::with('role')->find($this->input('forward_to_user'));
+            if (!$recipient || !$recipient->is_active || (int) $recipient->department_id !== $forwardTo) {
+                $validator->errors()->add('forward_to_user', 'The selected person must be active staff of the selected office.');
+            } elseif ((int) $recipient->id === (int) $actor->id) {
+                $validator->errors()->add('forward_to_user', 'You cannot send a document to yourself.');
+            } elseif ($recipient->hasRole('Receiving Clerk')) {
+                $validator->errors()->add('forward_to_user', 'The Receiving Clerk registers every internal document automatically; choose the person who should act on it.');
+            }
+            return;
+        }
+
+        if ($forwardTo === (int) $actor->department_id) {
+            $validator->errors()->add('forward_to_user', 'Choose the person in your office who should receive this document.');
+            return;
+        }
+
+        if (!app(\App\Services\Document\DocumentWorkflowService::class)->resolveOfficeHead($forwardTo, $actor->id)) {
+            $validator->errors()->add('forward_to', 'The selected office has no active staff to receive this document.');
+        }
     }
 }

@@ -19,12 +19,22 @@ class DigitalSignature extends Model
         'signature_image',
         'signature_hash',
         'action_type',
+        'page',
+        'pos_x',
+        'pos_y',
+        'width',
+        'height',
         'ip_address',
         'signed_at',
     ];
 
     protected $casts = [
         'signed_at' => 'datetime',
+        'page'      => 'integer',
+        'pos_x'     => 'float',
+        'pos_y'     => 'float',
+        'width'     => 'float',
+        'height'    => 'float',
     ];
 
     public function document()

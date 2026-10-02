@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Contracts\SignatureServiceInterface;
+use App\Http\Requests\StoreDocumentRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,40 +14,21 @@ class SignatureController extends Controller
     ) {}
 
     /**
-     * Apply Digital Signature with SHA-256 Cryptographic Hash Attestation.
+     * Upload the final copy with every signature stamped on it. Signatures themselves are stamped
+     * automatically when each signatory forwards / approves the document (see DocumentService).
      */
-    public function applySignature(Request $request, $document_id): JsonResponse
-    {
-        $validated = $request->validate([
-            'signature_hash'  => 'required|string',
-            'action_type'     => 'required|string',
-            'signature_image' => 'nullable|string',
-        ]);
-
-        $actor = $request->user() ?: auth()->user();
-        $signature = $this->signatureService->applySignature((int) $document_id, $validated, $actor, $request->ip());
-
-        return response()->json([
-            'success'   => true,
-            'message'   => 'Digital signature successfully applied and cryptographically sealed with SHA-256 hash.',
-            'signature' => $signature,
-        ]);
-    }
-
-    /**
-     * Verify PIN for digital signature authorization.
-     */
-    public function verifyPin(Request $request): JsonResponse
+    public function storeSignedCopy(Request $request, $id): JsonResponse
     {
         $request->validate([
-            'pin' => 'required|string',
+            'file' => 'required|file|mimes:pdf|max:' . (StoreDocumentRequest::APP_MAX_UPLOAD_KB * 2),
         ]);
 
         $actor = $request->user() ?: auth()->user();
-        $isValid = $this->signatureService->verifyPin($actor, $request->pin);
+        $document = $this->signatureService->storeSignedCopy((int) $id, $request->file('file'), $actor, $request->ip());
 
         return response()->json([
-            'valid' => $isValid,
+            'message'          => 'Final signed copy attached to the document.',
+            'signed_file_path' => $document->signed_file_path,
         ]);
     }
 }

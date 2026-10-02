@@ -58,6 +58,8 @@ class HandleInertiaRequests extends Middleware
                 'role'  => $roleMap[$roleName] ?? 'receiving',
                 'department_id' => $user->department_id,
                 'department_name' => $user->department->department_name ?? null,
+                // Signatures are registered by HR; the image itself is never shared
+                'has_signature' => (bool) $user->has_signature,
             ];
         }
 
@@ -84,8 +86,12 @@ class HandleInertiaRequests extends Middleware
                 'success'          => fn () => $request->session()->get('success'),
                 'error'            => fn () => $request->session()->get('error'),
                 'created_document' => fn () => $request->session()->get('created_document'),
+                // Set when the actor's registered signature was stamped by their forward / approval
+                'signature_stamped' => fn () => $request->session()->get('signature_stamped'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Public tracking page address for QR codes (LAN IP instead of localhost, see TrackingLink)
+            'tracking' => fn () => ['base_url' => \App\Support\TrackingLink::baseUrl($request)],
         ];
     }
 }

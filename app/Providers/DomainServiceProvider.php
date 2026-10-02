@@ -45,6 +45,9 @@ class DomainServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Bindings are automatically registered via $bindings property
+
+        // Per-request access cache for confidential documents
+        $this->app->scoped(\App\Services\Document\DocumentConfidentiality::class);
     }
 
     /**

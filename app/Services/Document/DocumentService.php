@@ -4,11 +4,13 @@ namespace App\Services\Document;
 
 use App\Contracts\AuditTrailServiceInterface;
 use App\Contracts\DocumentServiceInterface;
+use App\Contracts\SignatureServiceInterface;
 use App\Models\Department;
 use App\Models\Document;
 use App\Models\DocumentAttachment;
 use App\Models\DocumentClient;
 use App\Models\DocumentComment;
+use App\Models\DocumentSignatory;
 use App\Models\RoutingSlip;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -16,23 +18,32 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class DocumentService implements DocumentServiceInterface
 {
     /**
-     * FSM transitions only the current holder may perform. Escalate / link / comments stay open
-     * to anyone who can view the document.
+     * Actions only the current holder may perform: once a user forwards / approves the document it is out of
+     * their hands until it is returned to them. Escalation to CART and comments stay open to anyone who can
+     * view the document.
      */
     private const HOLDER_ONLY_ACTIONS = [
         'register', 'receive', 'accept', 'review', 'endorse', 'forward',
-        'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit',
+        'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit', 'link',
     ];
+
+    /** Passing the document on is the holder's approval: a signatory's registered signature is stamped then */
+    private const APPROVING_ACTIONS = ['endorse', 'forward', 'approveAndRouteToReceiving'];
+
+    /** Routing slip instruction to the clerk when the sender left no instructions */
+    public const REGISTRATION_INSTRUCTION = 'Submitted for registration and routing.';
 
     public function __construct(
         protected DocumentRepository $repository,
         protected DocumentNumberGenerator $numberGenerator,
         protected DocumentWorkflowService $workflowService,
-        protected AuditTrailServiceInterface $auditTrailService
+        protected AuditTrailServiceInterface $auditTrailService,
+        protected SignatureServiceInterface $signatureService
     ) {}
 
     public function getDocumentsForUser(User $user): Collection
@@ -42,16 +53,8 @@ class DocumentService implements DocumentServiceInterface
 
     public function getDocumentWithConfidentialityGuard(int $id, User $user): Document
     {
-        $document = $this->repository->findWithRelations($id);
-
-        // Role is stored as "Receiving Clerk"; classification casing varies ("Confidential" from the UI)
-        if (strtolower((string) $document->classification) === 'confidential' && $user->hasRole('Receiving Clerk')) {
-            $document->attachment_path = null;
-            $document->ocr_text = 'Confidential Document — Metadata Only. You are authorized to route this document but not view its contents.';
-            $document->is_confidential_hidden = true;
-        }
-
-        return $document;
+        // Document::toArray() strips confidential contents for viewers outside the route (see DocumentConfidentiality)
+        return $this->repository->findWithRelations($id);
     }
 
     public function createDocument(array $data, ?UploadedFile $file, User $actor, ?string $ipAddress = null): Document
@@ -86,18 +89,34 @@ class DocumentService implements DocumentServiceInterface
             $data['department_id'] = $data['forward_to'];
             $slipFromDepartmentId = $actor->department_id ?? $slipFromDepartmentId;
             $client = $data['client'] ?? null;
+        } else {
+            // Documents from internal personnel always pass through the Receiving Clerk, who registers them
+            // for the record before they reach the person the sender chose (same office or another office)
+            $data['is_internal'] = true;
+            // Staff always file from their own office
+            if ($actor->department_id) {
+                $data['department_id'] = $actor->department_id;
+                $slipFromDepartmentId = $actor->department_id;
+            }
         }
         $isInternal = !empty($data['is_internal']);
         $referenceNumber = $this->numberGenerator->generateReferenceNumber($data['department_id'] ?? null);
         $clientName = $client ? (new DocumentClient($client))->full_name : null;
+        $destinationUserId = null;
 
         if ($isInternal) {
             $trackingNumber = null;
             $status = 'Ongoing';
-            $receivingUser = User::whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))->first();
+            $receivingUser = User::whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))
+                ->where('is_active', true)
+                ->first();
             $currentHolderDeptId = $receivingUser?->department_id ?? 2;
             $currentHolderId = $receivingUser?->id ?? 5;
             $destinationDeptId = $data['forward_to'];
+            // Kept on the document so the clerk's registration routes it to exactly this person
+            $destinationUserId = !empty($data['forward_to_user'])
+                ? (int) $data['forward_to_user']
+                : $this->workflowService->resolveOfficeHead((int) $destinationDeptId, $actor->id)?->id;
             $targetUser = $receivingUser;
         } else {
             $trackingNumber = $this->numberGenerator->generateTrackingNumber();
@@ -150,12 +169,24 @@ class DocumentService implements DocumentServiceInterface
             'current_holder_id'            => $currentHolderId,
             'is_internal'                  => $isInternal,
             'destination_department_id'    => $destinationDeptId,
+            'destination_user_id'          => $destinationUserId,
+            'requires_signature'           => !empty($data['signatories']),
             'date_filed'                   => now(),
         ]);
 
         if ($client) {
             $document->client()->create($client);
         }
+
+        foreach (array_values(array_unique(array_map('intval', $data['signatories'] ?? []))) as $index => $signatoryId) {
+            DocumentSignatory::create([
+                'document_id' => $document->document_id,
+                'user_id'     => $signatoryId,
+                'sign_order'  => $index + 1,
+            ]);
+        }
+        // A sender who listed themselves signs by submitting it
+        $this->signatureService->stampIfDue($document, $actor, $ipAddress);
 
         if ($isInternal) {
             RoutingSlip::create([
@@ -167,7 +198,8 @@ class DocumentService implements DocumentServiceInterface
                 'target_department_id' => $currentHolderDeptId,
                 'sender_name'          => $actor->name,
                 'action'               => 'forward',
-                'instruction'          => 'Submitted for registration and routing.',
+                // The sender's instructions travel with the document to the recipient (see register)
+                'instruction'          => $data['instruction'] ?? self::REGISTRATION_INSTRUCTION,
                 'status'               => 'pending',
                 'date_received'        => now(),
             ]);
@@ -188,10 +220,14 @@ class DocumentService implements DocumentServiceInterface
         }
 
         $destDept = Department::find($data['forward_to']);
+        $addressee = $destinationUserId ? User::find($destinationUserId)?->name : null;
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Submit',
-            description: 'Document submitted and routed to ' . ($destDept?->department_name ?? 'destination'),
+            description: $isInternal
+                ? 'Document submitted to the Receiving Clerk for registration, addressed to '
+                    . ($addressee ? "{$addressee} (" . ($destDept?->department_name ?? 'destination') . ')' : ($destDept?->department_name ?? 'destination'))
+                : 'Document submitted and routed to ' . ($destDept?->department_name ?? 'destination'),
             actor: $actor,
             ipAddress: $ipAddress
         );
@@ -219,7 +255,22 @@ class DocumentService implements DocumentServiceInterface
         if (in_array($action, self::HOLDER_ONLY_ACTIONS, true)) {
             $this->ensureActorHoldsDocument($document, $actor);
         }
+        $this->ensureSignaturesAllow($document, $action, $actor);
 
+        if (in_array($action, self::APPROVING_ACTIONS, true)) {
+            // The signature and the move succeed or fail together
+            return DB::transaction(function () use ($document, $action, $params, $actor, $ipAddress) {
+                $this->signatureService->stampIfDue($document, $actor, $ipAddress);
+
+                return $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
+            });
+        }
+
+        return $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
+    }
+
+    protected function performWorkflowAction(Document $document, string $action, array $params, User $actor, ?string $ipAddress): Document
+    {
         return match ($action) {
             'register'                  => $this->workflowService->register($document, $params, $actor, $ipAddress),
             'receive'                   => $this->workflowService->accept($document, $actor, $ipAddress),
@@ -262,9 +313,46 @@ class DocumentService implements DocumentServiceInterface
         }
     }
 
+    /**
+     * Signed documents: nothing goes to the Receiving Clerk for release while another signatory has yet to
+     * sign (the actor's own signature is stamped by the approval itself), and the clerk only releases it once
+     * the final signed copy is attached.
+     */
+    protected function ensureSignaturesAllow(Document $document, string $action, User $actor): void
+    {
+        if (!$document->requires_signature || !in_array($action, ['approveAndRouteToReceiving', 'releaseToApplicant'], true)) {
+            return;
+        }
+
+        $pending = $document->signatories()->whereNull('signed_at')->with('user')->get()
+            ->reject(fn ($s) => $action === 'approveAndRouteToReceiving' && (int) $s->user_id === (int) $actor->id);
+
+        if ($pending->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'signature' => 'Still waiting for the signature of ' . $pending->map(fn ($s) => $s->user?->name ?? 'a signatory')->join(', ', ' and ')
+                    . '. Route the document to them so they can approve it first.',
+            ]);
+        }
+
+        if ($action === 'releaseToApplicant' && !$document->signed_file_path) {
+            throw ValidationException::withMessages([
+                'signature' => 'All signatures are stamped, but the final signed copy is not attached yet. It is generated when the sender or a signatory opens the document.',
+            ]);
+        }
+    }
+
+    /** Comments and uploads on a confidential document are limited to the people who can open it. */
+    protected function ensureCanViewContents(Document $document, User $actor): void
+    {
+        if (!$document->contentsVisibleTo($actor)) {
+            throw new AuthorizationException('This document is confidential. Only its sender and recipients can open it.');
+        }
+    }
+
     public function addComment(int $documentId, string $comment, User $actor, ?string $ipAddress = null, ?string $quotedText = null): DocumentComment
     {
         $document = Document::findOrFail($documentId);
+        $this->ensureCanViewContents($document, $actor);
         $quotedText = $quotedText !== null && trim($quotedText) !== '' ? trim($quotedText) : null;
 
         // Anchored comments keep the passage of the document they refer to
@@ -292,6 +380,7 @@ class DocumentService implements DocumentServiceInterface
     public function addAttachment(int $documentId, UploadedFile $file, string $description, User $actor, ?string $ipAddress = null): DocumentAttachment
     {
         $document = Document::findOrFail($documentId);
+        $this->ensureCanViewContents($document, $actor);
         $path = $file->store('attachments', 'public');
 
         $attachment = DocumentAttachment::create([

@@ -1,18 +1,21 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
-import React, { useState } from 'react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Lock, PenLine } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
 import { DocumentCorrectionModal, findReturner } from '@/components/trackngo/DocumentCorrectionModal';
-import { DraggableSignature } from '@/components/trackngo/DraggableSignature';
+import { SignatoriesPanel, summarizeSignatures } from '@/components/trackngo/DocumentSigning';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
+import { csrfHeaders } from '@/lib/csrf';
 import type { RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
 import { RoutingSlipModal } from '@/components/trackngo/RoutingSlipModal';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { StepProgress } from '@/components/trackngo/StepProgress';
 import { getArtaDueDate } from '@/lib/arta';
 import { describeHolder, isCurrentHolder } from '@/lib/document-holder';
+import { qrDataUrl, useTrackingLink } from '@/lib/qr';
+import { generateSignedCopy, signatureBlocks, stampableKind } from '@/lib/signed-pdf';
 import { getStandardizedStatus } from '@/lib/status-helper';
 
 /** Uniform action button styles for the role action panels. */
@@ -72,8 +75,6 @@ export type DocumentDetailViewProps = {
     backUrl: string;
     actionsTitle?: string;
     actions: React.ReactNode;
-    /** Label under the viewer's own signature in the Signatories panel */
-    signatoryLabel: string;
     /** Opened from the Returned notice; owned by the page so its own buttons can open it too */
     correctionOpen: boolean;
     onCorrectionOpenChange: (open: boolean) => void;
@@ -89,11 +90,11 @@ export function DocumentDetailView({
     backUrl,
     actionsTitle = 'Actions',
     actions,
-    signatoryLabel,
     correctionOpen,
     onCorrectionOpenChange,
 }: DocumentDetailViewProps) {
-    const { auth } = usePage<any>().props;
+    const { auth, errors, flash } = usePage<any>().props;
+    const trackingLinkFor = useTrackingLink();
     const [slipOpen, setSlipOpen] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
     const [selectedOcrText, setSelectedOcrText] = useState('');
@@ -106,7 +107,11 @@ export function DocumentDetailView({
     const [escalateReason, setEscalateReason] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
-    const [selectedFileKey, setSelectedFileKey] = useState('main');
+    // null = default file: the final signed copy once it exists (listed first), otherwise the main document
+    const [selectedFileKey, setSelectedFileKey] = useState<string | null>(null);
+
+    const [generating, setGenerating] = useState(false);
+    const [generateError, setGenerateError] = useState<string | null>(null);
 
     const showToast = (message: string) => {
         setToast(message);
@@ -126,17 +131,77 @@ export function DocumentDetailView({
     // Only whoever the document was returned to uploads the correction (Admin keeps override rights)
     const canCorrect = isReturned && (isCurrentHolder(doc, auth?.user) || auth?.user?.role === 'admin');
 
+    const isHidden = Boolean(doc.is_confidential_hidden);
+    // Workflow actions belong to whoever holds the document now (Admin keeps override rights)
+    const isHolder = isCurrentHolder(doc, auth?.user) || auth?.user?.role === 'admin';
+    const signatures = summarizeSignatures(doc);
+    const mainKind = stampableKind(doc.attachment_path);
+    // Anyone who can open the document may build the final signed copy from the stamped signatures
+    const canGenerate = !isHidden;
+    // The viewer's own signature is stamped by their forward / approval while the document is with them
+    const mySignatureDue = signatures.required && isCurrentHolder(doc, auth?.user)
+        && signatures.pending.some((s: any) => String(s.user_id) === String(auth?.user?.id));
+
+    // Signature block drawn on the last page, where the final signed copy carries it
+    const blocks = useMemo(() => signatureBlocks(doc.signatories || []), [doc.signatories]);
+
     // Main document plus files attached later (e.g. corrections for a returned document)
     const files: { key: string; label: string; url: string; attachmentId: number | null }[] = [
+        ...(doc.signed_file_path ? [{ key: 'signed', label: 'Final Signed Copy', url: `/storage/${doc.signed_file_path}`, attachmentId: null }] : []),
         ...(doc.attachment_path ? [{ key: 'main', label: 'Main Document', url: `/storage/${doc.attachment_path}`, attachmentId: null }] : []),
         ...attachments
             .filter((a: any) => a.file_path)
             .map((a: any) => ({ key: `att-${a.attachment_id}`, label: a.file_name, url: `/storage/${a.file_path}`, attachmentId: a.attachment_id as number })),
     ];
     const activeFile = files.find(f => f.key === selectedFileKey) ?? files[0] ?? null;
-    const showAttachment = (attachmentId: number) => {
-        setSelectedFileKey(`att-${attachmentId}`);
+    const showFile = (key: string) => {
+        setSelectedFileKey(key);
         document.getElementById('tng-document-viewer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const showAttachment = (attachmentId: number) => showFile(`att-${attachmentId}`);
+
+    const generateFinalCopy = async (target: any = doc) => {
+        setGenerating(true);
+        setGenerateError(null);
+        try {
+            await generateSignedCopy(target);
+            // Back to the default file, which is now the final signed copy
+            setSelectedFileKey(null);
+            router.reload({ only: ['dbDocument', 'dbAuditTrail'] });
+            showToast('Final signed copy attached to the document.');
+        } catch (e: any) {
+            setGenerateError(e?.message || 'The final signed copy could not be generated. Please try again.');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    // Once the last signature is stamped, the first person who has the document open builds the final copy
+    const needsFinalCopy = signatures.allSigned && !doc.signed_file_path && canGenerate;
+    const finalCopyStarted = useRef(false);
+    useEffect(() => {
+        if (!needsFinalCopy || finalCopyStarted.current) {
+            return;
+        }
+        finalCopyStarted.current = true;
+        void Promise.resolve().then(() => generateFinalCopy());
+    }, [needsFinalCopy]);
+
+    // "Scan Text" on the main document stores the text it read (fixes documents whose text was not read at upload)
+    const saveOcrText = async (text: string) => {
+        try {
+            const res = await fetch(`/documents/${doc.document_id}/ocr-text`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...csrfHeaders() },
+                credentials: 'same-origin',
+                body: JSON.stringify({ ocr_text: text }),
+            });
+            if (res.ok) {
+                router.reload({ only: ['dbDocument', 'dbAuditTrail'] });
+            }
+        } catch {
+            // The text stays visible in the viewer even if saving failed
+        }
     };
 
     const slipData: RoutingSlipModalData = {
@@ -240,6 +305,16 @@ export function DocumentDetailView({
                                 <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[12px] font-medium uppercase text-slate-600">
                                     {classification}
                                 </span>
+                                {isHidden && (
+                                    <span className="flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[12px] font-medium text-red-700" title="Only the sender and the people it is routed to can open this document">
+                                        <Lock className="h-3 w-3" /> Contents restricted
+                                    </span>
+                                )}
+                                {signatures.required && (
+                                    <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium ${signatures.allSigned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                                        <PenLine className="h-3 w-3" /> Signatures {signatures.signed}/{signatures.total}
+                                    </span>
+                                )}
                                 {isUrgent && (
                                     <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[12px] font-medium text-red-700">Urgent</span>
                                 )}
@@ -268,6 +343,23 @@ export function DocumentDetailView({
                             </Link>
                         </div>
                     </div>
+
+                    {status === 'Completed' && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-200 bg-emerald-50 px-5 py-4 sm:px-6">
+                            <p className="flex items-center gap-2 text-[14px] font-semibold text-emerald-900">
+                                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                Completed{doc.completed_at ? ` on ${formatDate(doc.completed_at, true)}` : ''}.
+                                {signatures.required && (doc.signed_file_path
+                                    ? ' The final copy with every signature is shown below.'
+                                    : ' The final signed copy is being attached.')}
+                            </p>
+                            {doc.signed_file_path && (
+                                <button type="button" onClick={() => showFile('signed')} className="rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-emerald-700">
+                                    View Signed Copy
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     {isReturned && (
                         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200 bg-rose-50 px-5 py-4 sm:px-6">
@@ -365,23 +457,33 @@ export function DocumentDetailView({
                                         className="h-8 max-w-[240px] rounded-lg border border-slate-300 bg-white px-2 text-[13px] text-slate-700"
                                         aria-label="File to view"
                                     >
-                                        {files.map(f => <option key={f.key} value={f.key}>{f.key === 'main' ? 'Main Document' : `Attachment: ${f.label}`}</option>)}
+                                        {files.map(f => <option key={f.key} value={f.key}>{f.key === 'main' || f.key === 'signed' ? f.label : `Attachment: ${f.label}`}</option>)}
                                     </select>
                                 )}
-                                <Link href={`/documents/${doc.document_id}/ocr-workspace`} className="text-[13px] font-medium text-[#0066cc] hover:underline">
-                                    Full-Screen OCR
-                                </Link>
-                                <button
-                                    type="button"
-                                    onClick={() => setAnchorOpen(true)}
-                                    title="Comment on a passage of the document (select text first, or type the passage)"
-                                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                    Add Anchored Comment{selectedOcrText ? ' (Text Selected)' : ''}
-                                </button>
+                                {!isHidden && (
+                                    <>
+                                        <Link href={`/documents/${doc.document_id}/ocr-workspace`} className="text-[13px] font-medium text-[#0066cc] hover:underline">
+                                            Full-Screen OCR
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAnchorOpen(true)}
+                                            title="Comment on a passage of the document (select text first, or type the passage)"
+                                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Add Anchored Comment{selectedOcrText ? ' (Text Selected)' : ''}
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         }
                     >
+                        {signatures.required && activeFile?.key === 'main' && mainKind !== 'other' && (
+                            <p className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[13px] text-slate-600">
+                                <PenLine className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                                Signatures are stamped at the bottom of the last page ({signatures.signed} of {signatures.total} stamped).
+                            </p>
+                        )}
                         <div id="tng-document-viewer" className="p-4 scroll-mt-4">
                             <IntegratedDocumentViewer
                                 fileUrl={activeFile?.url ?? null}
@@ -389,7 +491,10 @@ export function DocumentDetailView({
                                 fileName={activeFile && activeFile.key !== 'main' ? activeFile.label : (doc.title || doc.reference_number)}
                                 documentId={doc.document_id}
                                 attachmentId={activeFile?.attachmentId ?? null}
-                                isConfidential={Boolean(doc.is_confidential_hidden)}
+                                downloadVariant={activeFile?.key === 'signed' ? 'signed' : null}
+                                signatureBlocks={signatures.required && activeFile?.key === 'main' && mainKind !== 'other' ? blocks : []}
+                                onOcrText={activeFile?.key === 'main' && !isHidden ? saveOcrText : undefined}
+                                isConfidential={isHidden}
                                 selectedText={selectedOcrText}
                                 onTextSelect={setSelectedOcrText}
                                 onAddAnchoredComment={(text) => {
@@ -403,15 +508,54 @@ export function DocumentDetailView({
                     <div className="xl:col-span-4 flex flex-col gap-6">
                         <Card title={actionsTitle}>
                             <div className="space-y-3 p-5">
+                                {flash?.signature_stamped && (
+                                    <p role="status" className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[13px] text-emerald-800">
+                                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>Your registered signature was stamped on the document.</span>
+                                    </p>
+                                )}
+                                {mySignatureDue && (auth?.user?.has_signature ? (
+                                    <p className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-[13px] text-blue-900">
+                                        <PenLine className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>
+                                            <span className="font-semibold">You are a signatory.</span> Your registered signature will be stamped on this document automatically when you forward or approve it.
+                                        </span>
+                                    </p>
+                                ) : (
+                                    <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>
+                                            <span className="font-semibold">You are a signatory, but your account has no registered signature.</span> Ask HR to add it before you approve this document.
+                                        </span>
+                                    </p>
+                                ))}
+                                {errors?.signature && (
+                                    <p role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>{errors.signature}</span>
+                                    </p>
+                                )}
                                 {actions}
                                 <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-3">
                                     <button type="button" onClick={() => setSlipOpen(true)} className={actionButton.secondary}>
                                         Print QR
                                     </button>
-                                    <button type="button" onClick={() => setExportOpen(true)} className={actionButton.secondary}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setExportOpen(true)}
+                                        disabled={isHidden}
+                                        title={isHidden ? 'Only the sender and recipients can download a confidential document' : undefined}
+                                        className={actionButton.secondary}
+                                    >
                                         Export PDF
                                     </button>
-                                    <button type="button" onClick={() => setLinkOpen(true)} className={actionButton.secondary}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLinkOpen(true)}
+                                        disabled={!isHolder}
+                                        title={isHolder ? undefined : 'Only the current holder can link documents'}
+                                        className={actionButton.secondary}
+                                    >
                                         Link Document
                                     </button>
                                     <button
@@ -444,8 +588,9 @@ export function DocumentDetailView({
                                     </dl>
                                     <div className="shrink-0 text-right">
                                         <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(trackingNo || doc.reference_number)}`}
+                                            src={qrDataUrl(trackingLinkFor(trackingNo || doc.reference_number))}
                                             alt={`QR code for ${trackingNo || doc.reference_number}`}
+                                            title={trackingLinkFor(trackingNo || doc.reference_number)}
                                             className="ml-auto h-16 w-16 mix-blend-multiply"
                                         />
                                         <p className="mt-1 text-[12px] font-semibold text-slate-700">Stop #1</p>
@@ -467,22 +612,21 @@ export function DocumentDetailView({
                             onViewAttachment={showAttachment}
                         />
 
-                        {/* Digital Signatories */}
-                        <Card title="Signatories">
-                            <div className="flex flex-col gap-8 px-5 pb-6 pt-12">
-                                <div className="relative flex w-full flex-col items-center text-center">
-                                    <DraggableSignature imagePath={doc.submitter?.signature} name={submitterName ?? undefined} />
-                                    <div className="h-14" />
-                                    <div className="pb-1 mb-1 font-semibold text-slate-800 underline underline-offset-4 decoration-slate-400">{submitterName ?? 'Unknown'}</div>
-                                    <div className="text-[12px] text-slate-500">Prepared By</div>
-                                </div>
-                                <div className="relative flex w-full flex-col items-center text-center pt-6">
-                                    <DraggableSignature imagePath={auth?.user?.signature} name={auth?.user?.name} />
-                                    <div className="h-14" />
-                                    <div className="pb-1 mb-1 font-semibold text-slate-800 underline underline-offset-4 decoration-slate-400">{auth?.user?.name}</div>
-                                    <div className="text-[12px] text-slate-500">{signatoryLabel}</div>
-                                </div>
-                            </div>
+                        {/* Digital Signatories: chosen by the sender, each signs when the document reaches them */}
+                        <Card
+                            title="Signatories"
+                            aside={signatures.required && (
+                                <span className="text-[12px] font-medium text-slate-500">{signatures.signed} of {signatures.total} signed</span>
+                            )}
+                        >
+                            <SignatoriesPanel
+                                doc={doc}
+                                canGenerate={canGenerate}
+                                generating={generating}
+                                generateError={generateError}
+                                onGenerate={() => generateFinalCopy()}
+                                onViewSignedCopy={() => showFile('signed')}
+                            />
                         </Card>
                     </div>
                 </div>
@@ -494,6 +638,7 @@ export function DocumentDetailView({
                 isOpen={exportOpen}
                 onClose={() => setExportOpen(false)}
                 documentId={doc.document_id}
+                variant={doc.signed_file_path ? 'signed' : null}
                 identifier={doc.reference_number}
                 onSuccess={(msg) => showToast(msg)}
             />

@@ -6,6 +6,7 @@ use App\Contracts\RoutingSlipTimelineCalculatorInterface;
 use App\DTOs\DocumentTimelineGroupDto;
 use App\DTOs\RoutingHopDto;
 use App\Models\RoutingSlip;
+use App\Services\Document\DocumentConfidentiality;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -44,7 +45,8 @@ class RoutingSlipTimelineCalculator implements RoutingSlipTimelineCalculatorInte
             $docId = $doc?->document_id ?? (int) $docKey;
             $trackingNumber = $doc?->tracking_number ?? ($firstSlip->tracking_number ?: 'RS-' . str_pad($firstSlip->slip_id, 4, '0', STR_PAD_LEFT));
             $referenceNumber = $doc?->reference_number ?? ('DOC-' . $docId);
-            $documentTitle = $doc?->title ?? ('Document #' . $referenceNumber);
+            $documentTitle = $doc ? $doc->visibleTitle() : ('Document #' . $referenceNumber);
+            $contentsVisible = !$doc || $doc->contentsVisibleTo();
             $documentStatus = $doc?->status ?? 'Ongoing';
             $classification = $doc?->classification ?? 'normal';
             $slaDays = (int) ($doc?->type?->arta_processing_days ?? 3);
@@ -129,7 +131,7 @@ class RoutingSlipTimelineCalculator implements RoutingSlipTimelineCalculatorInte
                     toName: $toName,
                     targetDepartment: $toDept,
                     action: $action,
-                    instruction: $slip->instruction ?: 'For review and appropriate action.',
+                    instruction: !$contentsVisible ? DocumentConfidentiality::HIDDEN_REMARKS : ($slip->instruction ?: 'For review and appropriate action.'),
                     status: $status,
                     dateReceived: $slipDate->toIso8601String(),
                     formattedDate: $slipDate->format('M d, Y H:i'),

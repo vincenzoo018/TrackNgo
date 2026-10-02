@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public Tracking URL
+    |--------------------------------------------------------------------------
+    |
+    | Address that document QR codes open (the public /track page). Leave empty to
+    | use the address the app is opened with — "localhost" is replaced by this
+    | machine's LAN IP so phones on the same Wi-Fi can scan it.
+    |
+    */
+
+    'tracking_url' => env('TRACKING_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

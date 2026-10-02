@@ -447,7 +447,12 @@ export function DiscussionAuditTimeline({
                         </div>
                     )}
 
-                    {/* Discussion Message Composer */}
+                    {/* Confidential: the discussion belongs to the sender and recipients only */}
+                    {doc?.is_confidential_hidden ? (
+                        <p className="border-t border-slate-200 bg-slate-50/50 px-4 py-3 text-[13px] text-slate-500">
+                            Confidential document — the discussion is visible to its sender and recipients only.
+                        </p>
+                    ) : (
                     <form onSubmit={handleSendComment} className="border-t border-slate-200 bg-slate-50/50 p-3 flex items-center gap-2">
                         <input
                             type="text"
@@ -476,6 +481,7 @@ export function DiscussionAuditTimeline({
                             )}
                         </button>
                     </form>
+                    )}
                 </div>
             )}
 

@@ -109,17 +109,22 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                     window.dispatchEvent(new CustomEvent('tng:document-sent'));
                     setConfirmState(prev => ({ ...prev, isOpen: false }));
                     setIsActionLoading(false);
-                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document forwarded to the Receiving Clerk for release.' });
+                    setSuccessState({ isOpen: true, title: 'Successfully', message: `Document approved and completed. It has been returned to ${senderName} with all signatures.` });
                 },
-                onError: () => setIsActionLoading(false)
+                // Close the dialog so the reason (e.g. a signature still missing) shows in the Actions panel
+                onError: () => {
+                    setIsActionLoading(false);
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                },
             });
         }
     };
 
     // Only the current holder (or their office when unassigned) can act; once forwarded, the panel is read-only
     const isHolder = isCurrentHolder(doc, auth?.user);
-    // Mayor-origin internal docs end with the Dept Head forwarding to the Receiving Clerk (step 6)
+    // Mayor-origin internal docs end with this office's final approval (step 6): completed and returned to the sender
     const canRouteToReceiving = Boolean(doc.is_internal) && (doc.current_step_index || 0) >= 6;
+    const senderName = doc.submitter?.name || 'the sender';
 
     const returnButton = (
         <button onClick={() => setReturnModalOpen(true)} className={actionButton.secondary}>
@@ -171,10 +176,10 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 <>
                     {canRouteToReceiving ? (
                         <button
-                            onClick={() => requestAction('route_to_receiving', 'Forward to Receiving Clerk', 'Forward this reviewed document to the Receiving Clerk for release?', 'Forward')}
+                            onClick={() => requestAction('route_to_receiving', 'Approve & Complete', `Approve this document? It will be completed and returned to ${senderName} right away.`, 'Approve')}
                             className={actionButton.primary}
                         >
-                            Forward to Receiving Clerk
+                            Approve &amp; Complete Document
                         </button>
                     ) : (
                         <button onClick={() => setForwardModalOpen(true)} className={actionButton.primary}>
@@ -204,6 +209,8 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                     <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
                         Re-endorse / Forward
                     </button>
+                    {/* Returned to you: pass it further back unless you are where it started */}
+                    {String(doc.submitted_by) !== String(auth?.user?.id) && returnButton}
                 </>
             );
         }
@@ -234,7 +241,6 @@ export default function DepartmentHeadReviewAndActions({ dbDocument, dbAuditTrai
                 backUrl="/department-head/documents"
                 actionsTitle="Review Actions"
                 actions={renderActions()}
-                signatoryLabel="Reviewed By"
                 correctionOpen={correctionModalOpen}
                 onCorrectionOpenChange={setCorrectionModalOpen}
             />

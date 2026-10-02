@@ -39,6 +39,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
     Route::get('/documents/{id}/timeline-sync', [\App\Http\Controllers\DocumentController::class, 'getTimelineSync'])->name('documents.timelineSync');
 
+    // Digital signatures are stamped automatically when each signatory forwards / approves; once all have
+    // signed, the copy with every signature stamped on it is attached to the document
+    Route::post('/documents/{id}/signed-copy', [\App\Http\Controllers\SignatureController::class, 'storeSignedCopy'])->name('documents.signedCopy');
+    // Text read from the document file by OCR in the browser (upload, or "Scan Text" in the viewer)
+    Route::post('/documents/{id}/ocr-text', [\App\Http\Controllers\DocumentController::class, 'saveOcrText'])->name('documents.ocrText');
+
     // Philippine address lookup (PSA PSGC) for the client address dropdowns
     Route::get('/locations/provinces', [\App\Http\Controllers\LocationController::class, 'provinces'])->name('locations.provinces');
     Route::get('/locations/provinces/{code}/cities', [\App\Http\Controllers\LocationController::class, 'cities'])->name('locations.cities');
@@ -81,8 +87,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('admin')->middleware('role:Admin')->group(function () {
         Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
+            // Finished documents are included too: the list's "Archived" tab shows them
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('admin/documents/Documents', [
@@ -109,23 +115,7 @@ Route::middleware(['auth'])->group(function () {
                 'role'            => 'admin',
             ]);
         });
-        Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
-            return Inertia::render('receiving/documents/Show', [
-                'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
-                'dbDepartments' => \App\Models\Department::all(),
-                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
-                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
-                    ->where('document_id', $id)
-                    ->join('users', 'document_comments.user_id', '=', 'users.id')
-                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-                    ->orderBy('created_at', 'desc')
-                    ->get(),
-                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
-            ]);
-        });
+        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'receiving/documents/Show');
         // User Accounts Management (Full CRUD & Role Override)
         Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('admin.users.index');
         Route::get('/users/create', [\App\Http\Controllers\Admin\UserController::class, 'create'])->name('admin.users.create');
@@ -237,33 +227,7 @@ Route::middleware(['auth'])->group(function () {
         });
         // GET /documents/create removed - handled via modal in Index.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
-        Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
-            
-            // Hide contents if confidential
-            if (strtolower($document->classification) === 'confidential') {
-                $document->is_confidential_hidden = true;
-                $document->ocr_text = null;
-                $document->attachment_path = null;
-            } else {
-                $document->is_confidential_hidden = false;
-            }
-
-            return Inertia::render('receiving/documents/Show', [
-                'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
-                'dbDepartments' => \App\Models\Department::all(),
-                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
-                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
-                    ->where('document_id', $id)
-                    ->join('users', 'document_comments.user_id', '=', 'users.id')
-                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-                    ->orderBy('created_at', 'desc')
-                    ->get(),
-                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
-            ]);
-        });
+        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'receiving/documents/Show');
         Route::get('/documents/{id}/versions', fn() => Inertia::render('receiving/documents/VersionHistory'));
         Route::get('/documents/{id}/arta-timeline', fn() => Inertia::render('receiving/documents/ArtaTimeline'));
         Route::get('/documents/{id}/ocr-workspace', function($id) {
@@ -299,7 +263,8 @@ Route::middleware(['auth'])->group(function () {
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
                 // Powers the "Sent" tab: documents this Dept Head filed or forwarded that are now with someone else
                 ->withExists(['routingSlips as forwarded_by_me' => fn ($q) => $q->where('from_user_id', $user->id)])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
+                // Finished documents stay in the list ("Completed" tab) for the people who handled them
+                ->whereRaw("LOWER(status) <> 'archived'")
                 ->where(function ($query) use ($user) {
                     $query->where('current_holder_id', $user->id)
                           ->orWhere('submitted_by', $user->id);
@@ -345,23 +310,7 @@ Route::middleware(['auth'])->group(function () {
         });
         // GET /documents/create removed - handled via modal in Endorsements.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
-        Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
-            return Inertia::render('department-head/documents/ReviewAndActions', [
-                'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
-                'dbDepartments' => \App\Models\Department::all(),
-                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
-                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
-                    ->where('document_id', $id)
-                    ->join('users', 'document_comments.user_id', '=', 'users.id')
-                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-                    ->orderBy('created_at', 'desc')
-                    ->get(),
-                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
-            ]);
-        });
+        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'department-head/documents/ReviewAndActions');
         // Document Actions
         Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
         Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
@@ -386,11 +335,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents', function () {
             $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
+                // Finished documents stay in the list ("Approved" tab) for the people who handled them
+                ->whereRaw("LOWER(status) <> 'archived'")
                 ->where(function ($query) use ($user) {
                     $query->where('current_holder_id', $user->id)
                           ->orWhere('submitted_by', $user->id)
-                          ->orWhereIn('current_step_index', [4, 5, 6]);
+                          // Every document at the Mayor's stage, while it is still being processed
+                          ->orWhere(fn ($stage) => $stage->whereIn('current_step_index', [4, 5, 6])
+                              ->whereRaw("LOWER(status) NOT IN ('completed', 'approved')"));
                     if ($user->department_id) {
                         $query->orWhere('current_holder_department_id', $user->department_id)
                               ->orWhereHas('routingSlips', function($q) use ($user) {
@@ -431,23 +383,7 @@ Route::middleware(['auth'])->group(function () {
         });
         // GET /documents/create removed - handled via modal in FinalApproval.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
-        Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
-            return Inertia::render('mayor/documents/Show', [
-                'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
-                'dbDepartments' => \App\Models\Department::all(),
-                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
-                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
-                    ->where('document_id', $id)
-                    ->join('users', 'document_comments.user_id', '=', 'users.id')
-                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-                    ->orderBy('created_at', 'desc')
-                    ->get(),
-                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
-            ]);
-        });
+        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'mayor/documents/Show');
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
@@ -468,8 +404,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('cart')->middleware('role:CART')->group(function () {
         Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
         Route::get('/documents', function () {
+            // Finished documents are included too: the list's "Archived" tab shows them
             $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
                 ->orderBy('reference_number', 'asc')
                 ->get();
             return Inertia::render('cart/documents/Documents', [
@@ -497,23 +433,7 @@ Route::middleware(['auth'])->group(function () {
             ]);
         });
         Route::get('/documents/create', fn() => Inertia::render('cart/documents/Create'));
-        Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
-            return Inertia::render('receiving/documents/Show', [
-                'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
-                'dbDepartments' => \App\Models\Department::all(),
-                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
-                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
-                    ->where('document_id', $id)
-                    ->join('users', 'document_comments.user_id', '=', 'users.id')
-                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-                    ->orderBy('created_at', 'desc')
-                    ->get(),
-                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
-            ]);
-        });
+        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'receiving/documents/Show');
         Route::get('/escalations', [\App\Http\Controllers\CartEscalationController::class, 'index']);
         Route::get('/escalations/documents', [\App\Http\Controllers\CartEscalationController::class, 'index']);
         Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\CartEscalationController::class, 'resolve']);
@@ -537,7 +457,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents', function () {
             $user = auth()->user();
             $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
-                ->whereNotIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['completed', 'archived'])
+                // Finished documents stay in the list ("Completed" tab) for the people who handled them
+                ->whereRaw("LOWER(status) <> 'archived'")
                 ->where(function ($query) use ($user) {
                     $query->where('current_holder_id', $user->id)
                           ->orWhere('submitted_by', $user->id);
@@ -580,23 +501,7 @@ Route::middleware(['auth'])->group(function () {
                 'role'            => 'hr',
             ]);
         });
-        Route::get('/documents/{id}', function ($id) {
-            $document = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument', 'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment'])->findOrFail($id);
-            return Inertia::render('receiving/documents/Show', [
-                'dbDocument' => $document,
-                'dbAuditTrail' => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
-                'dbDepartments' => \App\Models\Department::all(),
-                'dbUsers' => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')->select('users.*', 'roles.role_name', 'departments.department_name')->get(),
-                'dbComments' => \Illuminate\Support\Facades\DB::table('document_comments')
-                    ->where('document_id', $id)
-                    ->join('users', 'document_comments.user_id', '=', 'users.id')
-                    ->leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->select('document_comments.*', \Illuminate\Support\Facades\DB::raw("TRIM(CONCAT_WS(' ', users.first_name, users.middle_name, users.last_name)) as user_name"), 'roles.role_name as user_role')
-                    ->orderBy('created_at', 'desc')
-                    ->get(),
-                'dbAttachments' => \App\Models\DocumentAttachment::with(['user.role'])->where('document_id', $id)->orderBy('created_at', 'asc')->get(),
-            ]);
-        });
+        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'receiving/documents/Show');
         
         Route::get('/employees', [\App\Http\Controllers\HR\EmployeeController::class, 'index'])->name('hr.employees.index');
         Route::get('/employees/create', [\App\Http\Controllers\HR\EmployeeController::class, 'create'])->name('hr.employees.create');

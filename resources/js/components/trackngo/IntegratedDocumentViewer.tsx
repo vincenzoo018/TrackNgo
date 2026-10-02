@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import {
     ScanText,
     Highlighter,
@@ -28,11 +26,11 @@ import {
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
-
-// Bundle the PDF.js worker with the app (same-origin); a CDN worker breaks offline and on version mismatch
-if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-}
+import { SignatureStampLayer } from '@/components/trackngo/SignatureStampLayer';
+import { extractTextFromUrl, ocrImage } from '@/lib/ocr';
+// Legacy PDF.js build with the bundled worker (see lib/pdfjs.ts)
+import * as pdfjsLib from '@/lib/pdfjs';
+import type { SignatureBlock } from '@/lib/signed-pdf';
 
 // Only needed for PDFs with CJK / non-embedded standard fonts; jsDelivr mirrors the exact npm version
 const PDFJS_ASSETS = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}`;
@@ -74,6 +72,12 @@ export interface IntegratedDocumentViewerProps {
     onAddAnchoredComment?: (selectedText: string) => void;
     defaultToolbarPosition?: 'top' | 'bottom';
     className?: string;
+    /** Signature block shown on the last page, where the final signed copy carries it */
+    signatureBlocks?: SignatureBlock[];
+    /** 'signed' downloads the final signed copy instead of the original */
+    downloadVariant?: 'signed' | null;
+    /** Called with the text read by "Scan Text" (OCR of the shown file) */
+    onOcrText?: (text: string) => void;
 }
 
 const toolButton = 'inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-100 active:scale-[0.98]';
@@ -81,7 +85,7 @@ const toolButton = 'inline-flex items-center gap-1.5 rounded-[8px] border border
 export default function IntegratedDocumentViewer({
     fileUrl,
     pdfUrl,
-    ocrText,
+    ocrText: storedOcrText,
     fileName = 'Document Preview',
     documentId,
     attachmentId = null,
@@ -90,12 +94,18 @@ export default function IntegratedDocumentViewer({
     onTextSelect,
     onAddAnchoredComment,
     defaultToolbarPosition = 'top',
-    className
+    className,
+    signatureBlocks = [],
+    downloadVariant = null,
+    onOcrText,
 }: IntegratedDocumentViewerProps) {
     const url = fileUrl ?? pdfUrl ?? null;
     const kind = detectFileKind(url);
     const isPdf = kind === 'pdf';
     const canZoom = kind === 'pdf' || kind === 'image' || kind === 'docx';
+    // Text read by "Scan Text" for this file replaces the stored text until the page reloads
+    const [scannedText, setScannedText] = useState<{ url: string; text: string } | null>(null);
+    const ocrText = scannedText && scannedText.url === url ? scannedText.text : storedOcrText;
     const hasOcrText = Boolean(ocrText && ocrText.trim());
 
     // File State
@@ -115,6 +125,7 @@ export default function IntegratedDocumentViewer({
     const [mode, setMode] = useState<'text' | 'area'>('text');
     const [highlightsActive, setHighlightsActive] = useState<boolean>(true); // Active by default for immediate visibility
     const [isScanning, setIsScanning] = useState<boolean>(false);
+    const [scanProgress, setScanProgress] = useState<string | null>(null);
     const [scanSuccessMessage, setScanSuccessMessage] = useState<string | null>(null);
     const [copiedText, setCopiedText] = useState<boolean>(false);
     const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
@@ -160,6 +171,7 @@ export default function IntegratedDocumentViewer({
         setPageTextItems([]);
         setViewMode('document');
     }, [url]);
+
 
     // Load PDF Document
     useEffect(() => {
@@ -313,27 +325,39 @@ export default function IntegratedDocumentViewer({
         }
     }, [isPdf, isLoading, loadError, pageNumber, scale, renderPage]);
 
-    // Full Scan Text Animation & Action
-    const handleScanText = () => {
+    // Scan Text: real OCR of the shown file (PDF text layer, Tesseract for scans / photos, Word paragraphs)
+    const handleScanText = async () => {
+        if (!url || isScanning) return;
+
         setIsScanning(true);
+        setScanProgress('Reading document...');
         setScanSuccessMessage(null);
         setActiveInlineSelection(null);
 
-        // Animate scanning laser sweep
-        setTimeout(() => {
-            setIsScanning(false);
-            if (isPdf && viewMode === 'document') {
-                setHighlightsActive(true);
-                const count = pageTextItems.length || (ocrText ? ocrText.split(/\s+/).filter(Boolean).length : 0);
-                setScanSuccessMessage(count > 0 ? `OCR scan complete. ${count} text regions recognized and highlighted.` : 'OCR scan complete. Text verified successfully.');
+        try {
+            const text = (await extractTextFromUrl(url, setScanProgress)).trim();
+            setScannedText({ url, text });
+
+            if (!text) {
+                setScanSuccessMessage('OCR finished, but no readable text was found in this file.');
             } else {
-                // Images and Word files have no text layer: show the extracted text instead
-                setViewMode('text');
-                const words = ocrText ? ocrText.split(/\s+/).filter(Boolean).length : 0;
-                setScanSuccessMessage(words > 0 ? `OCR scan complete. ${words} words extracted.` : 'OCR scan complete. No readable text was found in this file.');
+                const words = text.split(/\s+/).filter(Boolean).length;
+                setScanSuccessMessage(`OCR complete: ${words.toLocaleString()} words read from the document.`);
+                onOcrText?.(text);
+                if (isPdf && pageTextItems.length > 0) {
+                    setHighlightsActive(true);
+                } else {
+                    // Photos, scans and Word files have no PDF text layer: show the text that was read
+                    setViewMode('text');
+                }
             }
-            setTimeout(() => setScanSuccessMessage(null), 4500);
-        }, 1500);
+        } catch (err: any) {
+            setScanSuccessMessage(`OCR could not read this file: ${err?.message || 'unknown error'}`);
+        } finally {
+            setIsScanning(false);
+            setScanProgress(null);
+            setTimeout(() => setScanSuccessMessage(null), 6000);
+        }
     };
 
     // Copy Handler: Copies selected text if available, otherwise copies all recognized OCR text
@@ -452,51 +476,59 @@ export default function IntegratedDocumentViewer({
         }
     };
 
-    // Run OCR on Marquee Area Selection
-    const handleRunOcrOnArea = () => {
+    // Run OCR on Marquee Area Selection: the PDF text layer when the area has one, otherwise real OCR of that area
+    const handleRunOcrOnArea = async () => {
         if (!selectionBox) return;
 
         setIsAreaScanning(true);
 
-        setTimeout(() => {
-            let extracted = '';
-            const intersectingItems = pageTextItems.filter(item => {
-                const itemRight = item.x + item.width;
-                const itemBottom = item.y + item.height;
-                const boxRight = selectionBox.x + selectionBox.width;
-                const boxBottom = selectionBox.y + selectionBox.height;
+        const intersectingItems = pageTextItems.filter(item => {
+            const itemRight = item.x + item.width;
+            const itemBottom = item.y + item.height;
+            const boxRight = selectionBox.x + selectionBox.width;
+            const boxBottom = selectionBox.y + selectionBox.height;
 
-                return !(
-                    itemRight < selectionBox.x ||
-                    item.x > boxRight ||
-                    itemBottom < selectionBox.y ||
-                    item.y > boxBottom
-                );
-            });
+            return !(
+                itemRight < selectionBox.x ||
+                item.x > boxRight ||
+                itemBottom < selectionBox.y ||
+                item.y > boxBottom
+            );
+        });
 
-            if (intersectingItems.length > 0) {
+        let extracted = '';
+        try {
+            if (intersectingItems.length > 0 && !intersectingItems[0].id.startsWith('synthetic')) {
                 extracted = intersectingItems.map(i => i.str).join(' ');
-            } else if (ocrText) {
-                const lines = ocrText.split('\n').filter(Boolean);
-                const ratio = selectionBox.y / (pageViewport.height || 800);
-                const targetIdx = Math.floor(ratio * lines.length);
-                extracted = lines.slice(Math.max(0, targetIdx - 1), Math.min(lines.length, targetIdx + 3)).join(' ');
-            } else {
-                extracted = 'Recognized text region in selected box.';
+            } else if (canvasRef.current) {
+                // Crop the rendered page (canvas pixels include the device pixel ratio) and OCR it
+                const source = canvasRef.current;
+                const ratio = source.width / (source.clientWidth || source.width);
+                const crop = document.createElement('canvas');
+                crop.width = Math.max(1, Math.round(selectionBox.width * ratio));
+                crop.height = Math.max(1, Math.round(selectionBox.height * ratio));
+                crop.getContext('2d')?.drawImage(source, selectionBox.x * ratio, selectionBox.y * ratio, crop.width, crop.height, 0, 0, crop.width, crop.height);
+                extracted = (await ocrImage(crop)).replace(/\s+/g, ' ').trim();
             }
+        } catch (err) {
+            console.error('Area OCR failed:', err);
+        }
 
-            setAreaOcrResult(extracted);
-            setIsAreaScanning(false);
-            if (onTextSelect) {
-                onTextSelect(extracted);
-            }
-            setActiveInlineSelection({
-                text: extracted,
-                x: selectionBox.x,
-                y: selectionBox.y,
-                width: selectionBox.width,
-            });
-        }, 500);
+        if (!extracted) {
+            extracted = 'No readable text in the selected area.';
+        }
+
+        setAreaOcrResult(extracted);
+        setIsAreaScanning(false);
+        if (onTextSelect) {
+            onTextSelect(extracted);
+        }
+        setActiveInlineSelection({
+            text: extracted,
+            x: selectionBox.x,
+            y: selectionBox.y,
+            width: selectionBox.width,
+        });
     };
 
     // DOM Native Text Selection Handler
@@ -808,6 +840,14 @@ export default function IntegratedDocumentViewer({
         <div className={cn("flex flex-col w-full rounded-[8px] border border-slate-200 bg-white overflow-hidden", className)}>
             {(canZoom || hasOcrText) && renderInlineToolbar()}
 
+            {/* OCR progress (scanned pages and photos take a few seconds each) */}
+            {isScanning && scanProgress && (
+                <div className="flex items-center gap-2 bg-blue-50 border-b border-blue-200 px-4 py-2 text-[13px] font-medium text-blue-800 shrink-0">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>{scanProgress}</span>
+                </div>
+            )}
+
             {/* Scan Success Banner */}
             {scanSuccessMessage && (
                 <div className="flex items-center justify-between bg-emerald-50 border-b border-emerald-200 px-4 py-2 text-[13px] font-medium text-emerald-800 shrink-0">
@@ -845,14 +885,16 @@ export default function IntegratedDocumentViewer({
                 {/* Image */}
                 {kind === 'image' && url && !loadError && (
                     <div className={cn('w-full self-start', (!showFile || viewMode === 'text') && 'hidden')}>
-                        <img
-                            src={url}
-                            alt={fileName}
-                            onLoad={() => markLoaded(url)}
-                            onError={() => markLoaded(url, 'The image is missing from storage or could not be loaded.')}
-                            style={{ width: `${zoomPercent}%`, maxWidth: 'none' }}
-                            className="mx-auto block bg-white shadow-xl rounded-[4px] border border-slate-300"
-                        />
+                        <div className="relative mx-auto" style={{ width: `${zoomPercent}%`, maxWidth: 'none' }}>
+                            <img
+                                src={url}
+                                alt={fileName}
+                                onLoad={() => markLoaded(url)}
+                                onError={() => markLoaded(url, 'The image is missing from storage or could not be loaded.')}
+                                className="block w-full bg-white shadow-xl rounded-[4px] border border-slate-300"
+                            />
+                            {signatureBlocks.length > 0 && <SignatureStampLayer blocks={signatureBlocks} />}
+                        </div>
                     </div>
                 )}
 
@@ -1072,6 +1114,13 @@ export default function IntegratedDocumentViewer({
                                 </div>
                             )}
                         </div>
+
+                        {/* Signature block on the last page, sized to the rendered page (the container may be taller: min-height) */}
+                        {signatureBlocks.length > 0 && pageNumber === numPages && (
+                            <div className="pointer-events-none absolute left-0 top-0 z-30" style={{ width: `${pageViewport.width}px`, height: `${pageViewport.height}px` }}>
+                                <SignatureStampLayer blocks={signatureBlocks} />
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1092,6 +1141,7 @@ export default function IntegratedDocumentViewer({
                     onClose={() => setDownloadGateOpen(false)}
                     documentId={documentId!}
                     attachmentId={attachmentId}
+                    variant={downloadVariant}
                     identifier={fileName}
                     onSuccess={(msg) => {
                         setScanSuccessMessage(msg);

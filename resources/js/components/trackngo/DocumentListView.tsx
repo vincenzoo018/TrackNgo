@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Lock, Search } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { BaseModal } from '@/components/trackngo/BaseModal';
@@ -8,6 +8,7 @@ import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { StepDots } from '@/components/trackngo/StepProgress';
 import TablePagination from '@/components/trackngo/TablePagination';
 import { getArtaDaysLeft } from '@/lib/arta';
+import { qrDataUrl, useTrackingLink } from '@/lib/qr';
 import type { StandardizedStatus } from '@/lib/status-helper';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { cn } from '@/lib/utils';
@@ -93,6 +94,7 @@ export function DocumentListView({
     const [pageSize, setPageSize] = useState(20);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [qrDoc, setQrDoc] = useState<any | null>(null);
+    const trackingLinkFor = useTrackingLink();
     const [exportOpen, setExportOpen] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     // Row just submitted from the create modal: highlighted briefly
@@ -244,7 +246,9 @@ export function DocumentListView({
     };
 
     const qrValue = qrDoc ? (qrDoc.tracking_number || qrDoc.reference_number) : '';
-    const qrImage = qrValue ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrValue)}` : '';
+    // Scanning opens the public tracking page for this document
+    const qrLink = qrValue ? trackingLinkFor(qrValue) : '';
+    const qrImage = qrValue ? qrDataUrl(qrLink) : '';
 
     const printQr = () => {
         const win = window.open('', '_blank', 'width=420,height=560');
@@ -254,6 +258,7 @@ export function DocumentListView({
         win.document.write(`<html><head><title>${qrValue}</title></head><body style="font-family:sans-serif;text-align:center;padding:24px">
             <img src="${qrImage}" style="width:240px;height:240px" onload="window.print()" />
             <h2 style="margin:12px 0 4px">${qrValue}</h2><p style="margin:0;color:#555">${qrDoc.reference_number}</p>
+            <p style="margin:6px 0 0;font-size:11px;color:#777;word-break:break-all">${qrLink}</p>
             <p style="color:#333">${String(qrDoc.title || '').replace(/</g, '&lt;')}</p></body></html>`);
         win.document.close();
     };
@@ -432,7 +437,14 @@ export function DocumentListView({
                                                 <Link href={url} onClick={(e) => e.stopPropagation()} className="font-medium text-[#0066cc] hover:underline">
                                                     {doc.reference_number}
                                                 </Link>
-                                                <p className="mt-0.5 truncate text-[13px] text-slate-800" title={doc.title}>{doc.title}</p>
+                                                {doc.is_confidential_hidden ? (
+                                                    <p className="mt-0.5 flex items-center gap-1 text-[13px] italic text-slate-500" title="Only the sender and recipients can open this document">
+                                                        <Lock className="h-3 w-3 shrink-0 text-red-500" />
+                                                        {doc.title}
+                                                    </p>
+                                                ) : (
+                                                    <p className="mt-0.5 truncate text-[13px] text-slate-800" title={doc.title}>{doc.title}</p>
+                                                )}
                                                 {doc.tracking_number && <p className="text-[12px] text-slate-400">{doc.tracking_number}</p>}
                                             </td>
                                             <td className="px-4 py-3 min-w-[150px] text-slate-700">{doc.sender || doc.submitter?.name || 'N/A'}</td>
@@ -522,6 +534,7 @@ export function DocumentListView({
                         <p className="mt-3 font-mono text-[15px] font-semibold text-slate-900">{qrValue}</p>
                         <p className="mt-1 text-[13px] text-slate-600">{qrDoc.title}</p>
                         <p className="mt-1 text-[12px] text-slate-400">Scan to track this document</p>
+                        <p className="mt-0.5 break-all text-[11px] text-slate-400">{qrLink}</p>
                     </div>
                 )}
             </BaseModal>

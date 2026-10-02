@@ -43,6 +43,8 @@ export default function HrDocumentsIndex() {
                     { id: 'employee_records', label: 'Employee Records', match: (d) => classifyHrCategory(d) === 'employee_records' },
                     { id: 'leave_requests', label: 'Leave Requests', match: (d) => classifyHrCategory(d) === 'leave_requests' },
                     { id: 'violations', label: 'Violations', match: (d) => classifyHrCategory(d) === 'violations' },
+                    // Finished documents (e.g. an internal request approved by the Mayor) stay here for the sender
+                    { id: 'completed', label: 'Completed', match: (d) => isClosedStatus(d.status) },
                 ]}
                 statusOptions={['Received', 'Ongoing', 'Sent', 'Returned', 'Archived']}
                 createLabel="New Document"

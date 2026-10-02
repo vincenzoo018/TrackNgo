@@ -404,7 +404,8 @@ export function StepProgress({
                                     (stepNum === 4 && ((a.action || '').toLowerCase() === 'forward' || (a.action || '').toLowerCase() === 'endorse')) ||
                                     (stepNum === 5 && (a.action || '').toLowerCase() === 'accepted') ||
                                     (stepNum === 6 && ((a.action || '').toLowerCase() === 'approve' || (a.action || '').toLowerCase() === 'review')) ||
-                                    (stepNum === steps.length && (a.action || '').toLowerCase() === 'release')
+                                    // External documents end with the clerk's release; internal ones complete on the final approval
+                                    (stepNum === steps.length && ['release', 'completed'].includes((a.action || '').toLowerCase()))
                             );
 
                         const auditActor =

@@ -70,7 +70,7 @@ export function QrDetailModal({
         const link = document.createElement('a');
         link.href = qrItem.qr_image_url;
         link.target = '_blank';
-        link.download = `${qrItem.qr_id}_${qrItem.document_ref}.png`;
+        link.download = `${qrItem.qr_id}_${qrItem.document_ref}.svg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
