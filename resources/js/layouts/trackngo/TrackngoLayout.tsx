@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     LogOut,
     Menu,
@@ -7,6 +7,7 @@ import {
     ChevronDown,
 } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useRef } from 'react';
+import { csrfHeaders } from '@/lib/csrf';
 import { cn } from '@/lib/utils';
 import { ToastContainer, type ToastItem } from '@/components/trackngo/ToastNotification';
 import { NotificationDropdown } from '@/components/trackngo/NotificationDropdown';
@@ -139,7 +140,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                            ...csrfHeaders(),
                         },
                         body: JSON.stringify({
                             id: item.id,
@@ -216,12 +217,15 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
             await fetch('/api/notifications/mark-all-read', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                    ...csrfHeaders(),
                 },
             });
             setNotificationData((prev: any) => ({
                 ...prev,
-                counts: { ...prev.counts, received: 0, total: prev.counts.warning + prev.counts.overdue + prev.counts.escalated },
+                // CART counts are unread alerts, so they all clear; other roles keep their live deadline counts
+                counts: typeof prev.counts.active_escalations === 'number'
+                    ? { ...prev.counts, total: 0, received: 0, warning: 0, overdue: 0, escalated: 0 }
+                    : { ...prev.counts, received: 0, total: prev.counts.warning + prev.counts.overdue + prev.counts.escalated },
                 items: prev.items.map((it: any) => ({ ...it, is_read: true })),
             }));
         } catch (e) {}
@@ -232,7 +236,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
             await fetch(`/api/notifications/${id}/read`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content || '',
+                    ...csrfHeaders(),
                 },
             });
         } catch (e) {}
@@ -243,6 +247,17 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
         const lowerTitle = title.toLowerCase();
         const counts = notificationData.counts || { total: 0, received: 0, warning: 0, overdue: 0, escalated: 0 };
 
+        // CART: documents with an open escalation (sent with CART's notification counts)
+        if (lowerTitle.includes('escalat') && typeof counts.active_escalations === 'number') {
+            return counts.active_escalations > 0
+                ? { text: `${counts.active_escalations}`, color: 'bg-rose-600 text-white', label: `Active escalations: ${counts.active_escalations}` }
+                : null;
+        }
+        if (lowerTitle === 'alerts') {
+            return counts.total > 0
+                ? { text: `${counts.total}`, color: 'bg-[var(--tng-blue-600)] text-white', label: `Unread alerts: ${counts.total}` }
+                : null;
+        }
         if (lowerTitle.includes('escalat') && (counts.overdue > 0 || counts.escalated > 0)) {
             return {
                 text: `${counts.overdue + counts.escalated}`,
@@ -449,6 +464,12 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                                 placeholder="Search by tracking number or keyword..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                    // CART: the header search opens Search Documents
+                                    if (e.key === 'Enter' && userRole === 'cart' && searchQuery.trim()) {
+                                        router.get('/cart/search', { q: searchQuery.trim() });
+                                    }
+                                }}
                                 className="h-9 w-72 rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] pl-9 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 lg:w-80"
                             />
                         </div>

@@ -17,33 +17,36 @@ Route::get('/api/track/{trackingNumber}', [\App\Http\Controllers\DocumentControl
 // Authenticated Role Routes
 Route::middleware(['auth'])->group(function () {
 
-    Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store'])->name('documents.store');
-    Route::post('/documents/{id}/attachments', [\App\Http\Controllers\DocumentController::class, 'addAttachment'])->name('documents.attachments');
-    Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
-    Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
-    Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
-    // Returned document: holder uploads the missing / corrected files and it goes back to whoever returned it
-    Route::post('/documents/{id}/resubmit', [\App\Http\Controllers\DocumentController::class, 'resubmit'])->name('documents.resubmit');
-    Route::post('/documents/{id}/register', [\App\Http\Controllers\DocumentController::class, 'register'])->name('documents.register');
-    Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept'])->name('documents.accept');
-    Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
-    Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review'])->name('documents.review');
-    Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse'])->name('documents.endorse');
-    Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate'])->name('documents.escalate');
-    Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link'])->name('documents.link');
-    Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant'])->name('documents.release');
-    // Final internal step: current holder forwards the reviewed document to the Receiving Clerk (holder-guarded in DocumentService)
-    Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving'])->name('documents.approveRoute');
-    Route::post('/documents/{id}/archive', [\App\Http\Controllers\DocumentController::class, 'archiveDocument'])->name('documents.archive');
-    Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
-    Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
-    Route::get('/documents/{id}/timeline-sync', [\App\Http\Controllers\DocumentController::class, 'getTimelineSync'])->name('documents.timelineSync');
+    // Filing and processing documents: CART only monitors, so it is kept out of every write below
+    Route::middleware('not-role:CART')->group(function () {
+        Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store'])->name('documents.store');
+        Route::post('/documents/{id}/attachments', [\App\Http\Controllers\DocumentController::class, 'addAttachment'])->name('documents.attachments');
+        Route::post('/documents/{id}/export', [\App\Http\Controllers\DocumentController::class, 'export'])->name('documents.export');
+        Route::post('/documents/{id}/log-action', [\App\Http\Controllers\DocumentController::class, 'logAction'])->name('documents.logAction');
+        Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
+        // Returned document: holder uploads the missing / corrected files and it goes back to whoever returned it
+        Route::post('/documents/{id}/resubmit', [\App\Http\Controllers\DocumentController::class, 'resubmit'])->name('documents.resubmit');
+        Route::post('/documents/{id}/register', [\App\Http\Controllers\DocumentController::class, 'register'])->name('documents.register');
+        Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept'])->name('documents.accept');
+        Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
+        Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review'])->name('documents.review');
+        Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse'])->name('documents.endorse');
+        Route::post('/documents/{id}/escalate', [\App\Http\Controllers\DocumentController::class, 'escalate'])->name('documents.escalate');
+        Route::post('/documents/{id}/link', [\App\Http\Controllers\DocumentController::class, 'link'])->name('documents.link');
+        Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant'])->name('documents.release');
+        // Final internal step: current holder forwards the reviewed document to the Receiving Clerk (holder-guarded in DocumentService)
+        Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving'])->name('documents.approveRoute');
+        Route::post('/documents/{id}/archive', [\App\Http\Controllers\DocumentController::class, 'archiveDocument'])->name('documents.archive');
+        Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
+        Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
+        Route::get('/documents/{id}/timeline-sync', [\App\Http\Controllers\DocumentController::class, 'getTimelineSync'])->name('documents.timelineSync');
 
-    // Digital signatures are stamped automatically when each signatory forwards / approves; once all have
-    // signed, the copy with every signature stamped on it is attached to the document
-    Route::post('/documents/{id}/signed-copy', [\App\Http\Controllers\SignatureController::class, 'storeSignedCopy'])->name('documents.signedCopy');
-    // Text read from the document file by OCR in the browser (upload, or "Scan Text" in the viewer)
-    Route::post('/documents/{id}/ocr-text', [\App\Http\Controllers\DocumentController::class, 'saveOcrText'])->name('documents.ocrText');
+        // Digital signatures are stamped automatically when each signatory forwards / approves; once all have
+        // signed, the copy with every signature stamped on it is attached to the document
+        Route::post('/documents/{id}/signed-copy', [\App\Http\Controllers\SignatureController::class, 'storeSignedCopy'])->name('documents.signedCopy');
+        // Text read from the document file by OCR in the browser (upload, or "Scan Text" in the viewer)
+        Route::post('/documents/{id}/ocr-text', [\App\Http\Controllers\DocumentController::class, 'saveOcrText'])->name('documents.ocrText');
+    });
 
     // Philippine address lookup (PSA PSGC) for the client address dropdowns
     Route::get('/locations/provinces', [\App\Http\Controllers\LocationController::class, 'provinces'])->name('locations.provinces');
@@ -400,55 +403,33 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
     });
 
-    // CART Routes
+    // CART Routes — a read-only monitoring layer over the workflow (never a processing step)
     Route::prefix('cart')->middleware('role:CART')->group(function () {
-        Route::get('/', [\App\Http\Controllers\DashboardController::class, 'index']);
-        Route::get('/documents', function () {
-            // Finished documents are included too: the list's "Archived" tab shows them
-            $documents = \App\Models\Document::with(['submitter', 'department', 'type'])
-                ->orderBy('reference_number', 'asc')
-                ->get();
-            return Inertia::render('cart/documents/Documents', [
-                'dbDocuments'     => $documents,
-                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
-                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
-                'dbUsers'         => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
-                    ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
-                    ->select('users.*', 'roles.role_name', 'departments.department_name')
-                    ->where('users.is_active', true)
-                    ->get(),
-            ]);
-        });
-        Route::get('/archived', function () {
-            $documents = \App\Models\Document::with(['submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder'])
-                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['approved', 'completed', 'archived'])
-                ->orderBy('completed_at', 'desc')
-                ->orderBy('updated_at', 'desc')
-                ->get();
-            return Inertia::render('archived/Index', [
-                'dbDocuments'     => $documents,
-                'dbDepartments'   => \App\Models\Department::where('is_active', true)->orderBy('department_name')->get(),
-                'dbDocumentTypes' => \App\Models\DocumentType::where('is_active', true)->orderBy('type_name')->get(),
-                'role'            => 'cart',
-            ]);
-        });
-        Route::get('/documents/create', fn() => Inertia::render('cart/documents/Create'));
-        Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', 'receiving/documents/Show');
-        Route::get('/escalations', [\App\Http\Controllers\CartEscalationController::class, 'index']);
-        Route::get('/escalations/documents', [\App\Http\Controllers\CartEscalationController::class, 'index']);
-        Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\CartEscalationController::class, 'resolve']);
-        Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
-        Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
-        Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index']);
-        Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
-        Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
-        Route::get('/qr-codes', [\App\Http\Controllers\QrCodeController::class, 'index']);
-        
-        // Document Actions
-        Route::post('/documents/{id}/endorse', [\App\Http\Controllers\DocumentController::class, 'endorse']);
-        Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive']);
-        Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment']);
-        Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments']);
+        Route::get('/', [\App\Http\Controllers\Cart\DashboardController::class, 'index']);
+
+        Route::get('/monitoring', [\App\Http\Controllers\Cart\MonitoringController::class, 'index']);
+        Route::get('/monitoring/{id}', [\App\Http\Controllers\Cart\MonitoringController::class, 'show'])->whereNumber('id');
+        // /documents/{id} (any role) lands here for CART
+        Route::get('/documents/{id}', fn (int $id) => redirect("/cart/monitoring/{$id}"))->whereNumber('id');
+        Route::post('/documents/{id}/follow-up', [\App\Http\Controllers\Cart\MonitoringController::class, 'followUp'])->whereNumber('id');
+
+        Route::get('/escalations', [\App\Http\Controllers\Cart\EscalationController::class, 'index']);
+        Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\Cart\EscalationController::class, 'resolve'])->whereNumber('id');
+
+        Route::get('/alerts', [\App\Http\Controllers\Cart\AlertController::class, 'index']);
+        Route::post('/alerts/read-all', [\App\Http\Controllers\Cart\AlertController::class, 'readAll']);
+        Route::post('/alerts/{id}/read', [\App\Http\Controllers\Cart\AlertController::class, 'read'])->whereNumber('id');
+
+        Route::get('/audit-trail', [\App\Http\Controllers\Cart\AuditTrailController::class, 'index']);
+
+        Route::get('/reports', [\App\Http\Controllers\Cart\ReportController::class, 'index']);
+        Route::get('/reports/export', [\App\Http\Controllers\Cart\ReportController::class, 'export']);
+
+        Route::get('/search', [\App\Http\Controllers\Cart\SearchController::class, 'index']);
+
+        // Earlier CART addresses (bookmarks, old notifications)
+        Route::redirect('/documents', '/cart/monitoring');
+        Route::redirect('/archived', '/cart/monitoring?view=completed');
     });
 
     // HR Routes

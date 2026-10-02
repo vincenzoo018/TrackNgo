@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\DenyRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTeamUrlDefaults;
@@ -37,7 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $middleware->alias([
-            'role' => CheckRole::class,
+            'role'     => CheckRole::class,
+            'not-role' => DenyRole::class,
         ]);
 
         $middleware->web(append: [

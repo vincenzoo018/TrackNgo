@@ -48,7 +48,9 @@ class NotificationController extends Controller
     public function markAllAsRead(Request $request): JsonResponse
     {
         $user = $request->user();
-        if ($user) {
+        if ($user && $user->hasRole('CART')) {
+            \App\Services\Cart\CartAlerts::markAllRead();
+        } elseif ($user) {
             SystemNotification::where('is_read', false)
                 ->where(function ($q) use ($user) {
                     $q->where('user_id', $user->id)

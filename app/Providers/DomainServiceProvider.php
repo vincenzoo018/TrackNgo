@@ -55,6 +55,16 @@ class DomainServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // CART is alerted whenever a processing deadline or period is changed
+        \App\Models\Document::updated(function (\App\Models\Document $document) {
+            if ($document->wasChanged('arta_due_date')) {
+                app(\App\Services\Cart\ArtaMonitor::class)->deadlineChanged($document);
+            }
+        });
+        \App\Models\DocumentType::updated(function (\App\Models\DocumentType $type) {
+            if ($type->wasChanged('arta_processing_days')) {
+                app(\App\Services\Cart\ArtaMonitor::class)->processingPeriodChanged($type);
+            }
+        });
     }
 }

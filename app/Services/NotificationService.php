@@ -6,6 +6,7 @@ use App\Models\AuditTrail;
 use App\Models\Document;
 use App\Models\SystemNotification;
 use App\Models\User;
+use App\Services\Cart\CartAlerts;
 use App\Services\Notification\NotificationStrategyFactory;
 use Carbon\Carbon;
 
@@ -70,6 +71,11 @@ class NotificationService
     {
         $userRole = strtolower($user->role->role_name ?? 'receiving');
         $now = Carbon::now();
+
+        // CART monitors: its bell carries CART alerts (deadline, escalation, inactivity), not every receipt
+        if ($userRole === 'cart') {
+            return CartAlerts::bellPayload();
+        }
 
         // 1. Fetch active documents using polymorphic strategy
         $strategy = NotificationStrategyFactory::make($user);
@@ -140,8 +146,8 @@ class NotificationService
             }
         }
 
-        // 3. Fetch persisted Receipt Notifications
-        $receiptQuery = SystemNotification::where('type', 'receipt')
+        // 3. Fetch persisted Receipt Notifications (and follow-ups CART sent to this handler)
+        $receiptQuery = SystemNotification::whereIn('type', ['receipt', CartAlerts::FOLLOW_UP])
             ->orderBy('created_at', 'desc')
             ->limit(25);
 
@@ -164,7 +170,10 @@ class NotificationService
         }
 
         $receiptNotifications = $receiptQuery->get();
-        $receivedCount = $receiptNotifications->where('is_read', false)->count();
+        $unreadNotices = $receiptNotifications->where('is_read', false);
+        $receivedCount = $unreadNotices->where('type', 'receipt')->count();
+        // An unread CART follow-up counts as a warning (it is listed under the Warning tab)
+        $warningCount += $unreadNotices->where('type', CartAlerts::FOLLOW_UP)->count();
 
         $receiptItems = $receiptNotifications->map(function ($rn) {
             $dateStr = $rn->created_at ? Carbon::parse($rn->created_at)->format('M d, Y') : Carbon::now()->format('M d, Y');
@@ -172,15 +181,16 @@ class NotificationService
             $dept = $rn->originating_department ?: 'LGU Mati';
             // Receipts read "New Document Received"; other notices (e.g. a completed document) use their own title
             $headline = $rn->title && !str_starts_with($rn->title, 'New Document Received') ? $rn->title : 'New Document Received';
-            $toastMessage = "{$headline}: {$ref}, {$dept}, {$dateStr}.";
+            $isFollowUp = $rn->type === CartAlerts::FOLLOW_UP;
+            $toastMessage = $isFollowUp ? $headline : "{$headline}: {$ref}, {$dept}, {$dateStr}.";
 
             return [
                 'id'                     => 'receipt-' . $rn->id,
                 'db_id'                  => $rn->id,
                 'document_id'            => $rn->document_id,
-                'type'                   => 'receipt',
-                'severity'               => 'normal',
-                'icon'                   => '📄',
+                'type'                   => $isFollowUp ? CartAlerts::FOLLOW_UP : 'receipt',
+                'severity'               => $isFollowUp ? 'warning' : 'normal',
+                'icon'                   => $isFollowUp ? '⏰' : '📄',
                 'title'                  => $rn->title ?: 'New Document Received',
                 'toast_message'          => $toastMessage,
                 'reference_number'       => $ref,
