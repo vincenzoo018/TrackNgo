@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
-import { Search, Building2, Edit, Trash2, Plus } from 'lucide-react';
+import { Building2, Edit, Trash2, Plus } from 'lucide-react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import { SearchInput } from '@/components/trackngo/ListFilters';
 import { useState } from 'react';
 import DepartmentFormModal from '@/components/DepartmentFormModal';
 import TablePagination from '@/components/trackngo/TablePagination';
@@ -74,19 +75,13 @@ export default function DepartmentIndex({ dbDepartments, dbUsers }: Props) {
 
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative flex-1 min-w-[250px] max-w-md">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
-                        <input
-                            type="text"
-                            placeholder="Search by reference number, tracking number, type, or name..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="h-10 w-full rounded-lg border border-[var(--tng-slate-200)] bg-white pl-9 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                        />
-                    </div>
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={(value) => {
+                            setSearchQuery(value);
+                            setCurrentPage(1);
+                        }}
+                    />
                 </div>
 
                 {/* Data Table */}

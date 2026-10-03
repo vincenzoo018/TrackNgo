@@ -1,40 +1,17 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { Head } from '@inertiajs/react';
+import { useState } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
-import { ForwardModal } from '@/components/trackngo/ForwardModal';
-import { ReturnModal } from '@/components/trackngo/ReturnModal';
-import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
-import { SuccessModal } from '@/components/trackngo/SuccessModal';
-import { DocumentDetailView, actionButton } from '@/components/trackngo/DocumentDetailView';
+import { actionButton } from '@/components/trackngo/DocumentDetailView';
+import { DocumentPageView, NoActionsAvailable, ReturnButton, ReturnedActions } from '@/components/trackngo/DocumentPageActions';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
 import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
-import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
+import { useDocumentPage, type DocumentPageProps } from '@/hooks/use-document-page';
 
-export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers, dbAttachments }: any) {
-    const { auth } = usePage<any>().props;
-    const doc = dbDocument || mockDocuments[0];
-    const trail = dbAuditTrail || mockAuditTrail.filter((a: any) => a.document_ref === doc.reference_number);
-    const comments = dbComments || [];
-    const departments = dbDepartments || [];
-    const users = dbUsers || [];
-    const attachments = dbAttachments || doc.attachments || [];
-
-    const [forwardModalOpen, setForwardModalOpen] = useState(false);
-    const [returnModalOpen, setReturnModalOpen] = useState(false);
-    const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
+export default function MayorDocumentShow(props: DocumentPageProps) {
+    const page = useDocumentPage(props);
+    const { auth, doc, users, confirmState, requestAction } = page;
     const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-    const [confirmState, setConfirmState] = useState({ isOpen: false, action: '', title: '', message: '', btnText: '' });
-    const [successState, setSuccessState] = useState({ isOpen: false, title: '', message: '' });
-    const [isActionLoading, setIsActionLoading] = useState(false);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments', 'dbAttachments'] });
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -42,90 +19,30 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
     };
 
     const handleEndorse = (destType: string, destId: string, rem: string) => {
-        router.post(`/mayor/documents/${doc.document_id}/endorse`, {
-            destination_type: destType,
-            destination_id: destId,
-            remarks: rem
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                showToast('Document endorsed successfully');
-                setForwardModalOpen(false);
-                window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
-                window.dispatchEvent(new CustomEvent('tng:document-sent'));
-            }
+        page.postEndorse(`/mayor/documents/${doc.document_id}/endorse`, destType, destId, rem, () => {
+            showToast('Document endorsed successfully');
+            page.setForwardModalOpen(false);
         });
-    };
-
-    const handleReturn = (reason: string) => {
-        setIsActionLoading(true);
-        router.post(`/documents/${doc.document_id}/return`, {
-            reason
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                setReturnModalOpen(false);
-                setIsActionLoading(false);
-                setSuccessState({ isOpen: true, title: 'Returned', message: 'Document returned to the person who forwarded it to you.' });
-            },
-            onError: () => setIsActionLoading(false)
-        });
-    };
-
-    const requestAction = (action: string, title: string, message: string, btnText: string) => {
-        setConfirmState({ isOpen: true, action, title, message, btnText });
     };
 
     const handleConfirmAction = () => {
-        setIsActionLoading(true);
         if (confirmState.action === 'accept') {
-            router.post(`/mayor/documents/${doc.document_id}/accept`, {}, {
-                preserveState: true,
-                preserveScroll: true,
-                onSuccess: () => {
-                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
-                    setConfirmState(prev => ({ ...prev, isOpen: false }));
-                    setIsActionLoading(false);
-                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document accepted successfully.' });
-                },
-                onError: () => setIsActionLoading(false)
+            page.postAction(`/mayor/documents/${doc.document_id}/accept`, {
+                events: ['tng:fsm-refresh'],
+                message: 'Document accepted successfully.',
             });
         } else if (confirmState.action === 'review') {
-            router.post(`/mayor/documents/${doc.document_id}/review`, {}, {
-                preserveState: true,
-                preserveScroll: true,
-                onSuccess: () => {
-                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
-                    setConfirmState(prev => ({ ...prev, isOpen: false }));
-                    setIsActionLoading(false);
-                    setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document marked as reviewed.' });
-                },
-                onError: () => setIsActionLoading(false)
+            page.postAction(`/mayor/documents/${doc.document_id}/review`, {
+                events: ['tng:fsm-refresh'],
+                message: 'Document marked as reviewed.',
             });
         } else if (confirmState.action === 'approve') {
-            router.post(`/mayor/documents/${doc.document_id}/approve-route`, {}, {
-                preserveState: true,
-                preserveScroll: true,
-                onSuccess: () => {
-                    window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
-                    window.dispatchEvent(new CustomEvent('tng:document-sent'));
-                    setConfirmState(prev => ({ ...prev, isOpen: false }));
-                    setIsActionLoading(false);
-                    setSuccessState({
-                        isOpen: true,
-                        title: 'Successfully',
-                        message: isInternal
-                            ? `Document approved and completed. It has been returned to ${senderName} with all signatures.`
-                            : 'Document approved and routed to Receiving Clerk!',
-                    });
-                },
-                // Close the dialog so the reason (e.g. a signature still missing) shows in the Actions panel
-                onError: () => {
-                    setIsActionLoading(false);
-                    setConfirmState(prev => ({ ...prev, isOpen: false }));
-                },
+            page.postAction(`/mayor/documents/${doc.document_id}/approve-route`, {
+                events: ['tng:fsm-refresh', 'tng:document-sent'],
+                message: isInternal
+                    ? `Document approved and completed. It has been returned to ${senderName} with all signatures.`
+                    : 'Document approved and routed to Receiving Clerk!',
+                closeOnError: true,
             });
         }
     };
@@ -148,11 +65,7 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
             {isInternal ? 'Sign, Approve & Complete' : <>Sign &amp; Approve Document</>}
         </button>
     );
-    const returnButton = (
-        <button onClick={() => setReturnModalOpen(true)} className={actionButton.secondary}>
-            Return Document
-        </button>
-    );
+    const returnButton = <ReturnButton page={page} />;
 
     const renderActions = () => {
         const std = getStandardizedStatus(doc.status);
@@ -214,42 +127,17 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                         </button>
                     )}
                     {approveButton}
-                    <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
+                    <button onClick={() => page.setForwardModalOpen(true)} className={actionButton.secondary}>
                         Forward / Endorse
                     </button>
                     {returnButton}
                 </>
             );
         }
-        if (std === 'Returned' && !isCurrentHolder(doc, auth?.user)) {
-            return (
-                <HolderStatusCard
-                    variant="waiting"
-                    title="Returned for Correction"
-                    holder={describeHolder(doc, users)}
-                    message="Waiting for the missing / corrected files to be uploaded."
-                />
-            );
-        }
         if (std === 'Returned') {
-            return (
-                <>
-                    <button type="button" onClick={() => setCorrectionModalOpen(true)} className={actionButton.danger}>
-                        Upload Correction
-                    </button>
-                    <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
-                        Re-route / Endorse
-                    </button>
-                    {/* Returned to you: pass it further back unless you are where it started */}
-                    {String(doc.submitted_by) !== String(auth?.user?.id) && returnButton}
-                </>
-            );
+            return <ReturnedActions page={page} isHolder={isCurrentHolder(doc, auth?.user)} rerouteLabel="Re-route / Endorse" />;
         }
-        return (
-            <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center text-sm font-medium text-slate-500">
-                No actions available
-            </p>
-        );
+        return <NoActionsAvailable />;
     };
 
     return (
@@ -268,53 +156,15 @@ export default function MayorDocumentShow({ dbDocument, dbAuditTrail, dbComments
                 </div>
             )}
 
-            <DocumentDetailView
-                doc={doc}
-                trail={trail}
-                comments={comments}
-                attachments={attachments}
-                users={users}
+            <DocumentPageView
+                page={page}
                 role="mayor"
                 backUrl="/mayor/documents"
                 actionsTitle="Review Actions"
                 actions={renderActions()}
-                correctionOpen={correctionModalOpen}
-                onCorrectionOpenChange={setCorrectionModalOpen}
-            />
-
-            <ForwardModal
-                open={forwardModalOpen}
-                onClose={() => setForwardModalOpen(false)}
-                departments={departments}
-                users={users}
-                identifier={doc.reference_number}
-                onConfirm={(destType, destId, rem) => handleEndorse(destType, destId, rem)}
-            />
-
-            <ReturnModal
-                open={returnModalOpen}
-                onClose={() => setReturnModalOpen(false)}
-                onConfirm={(reason) => handleReturn(reason)}
-                identifier={doc.reference_number}
-            />
-
-            <ConfirmActionModal
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onEndorse={handleEndorse}
+                onReturn={(reason) => page.postReturn(reason, 'Document returned to the person who forwarded it to you.')}
                 onConfirm={handleConfirmAction}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.btnText}
-                identifier={doc.reference_number}
-                isLoading={isActionLoading}
-            />
-
-            <SuccessModal
-                isOpen={successState.isOpen}
-                onClose={() => setSuccessState(prev => ({ ...prev, isOpen: false }))}
-                title={successState.title}
-                identifier={doc.reference_number}
-                message={successState.message}
             />
         </TrackngoLayout>
     );

@@ -85,54 +85,22 @@ class RoutingSlipTimelineCalculator implements RoutingSlipTimelineCalculatorInte
                     $bottleneckMessage = "Processed in {$timeSpentFormatted}";
                 }
 
-                $fromName = $slip->sender_name
-                    ?: ($slip->fromUser ? $slip->fromUser->name : ($doc && $doc->submitter ? $doc->submitter->name : 'Staff Submitter'));
-
-                $fromDept = $slip->fromDepartment
-                    ? $slip->fromDepartment->department_name
-                    : ($slip->fromUser && $slip->fromUser->department
-                        ? $slip->fromUser->department->department_name
-                        : ($doc && $doc->department ? $doc->department->department_name : 'General Office'));
-
-                $toDept = $slip->targetDepartment
-                    ? $slip->targetDepartment->department_name
-                    : ($slip->toUser && $slip->toUser->department
-                        ? $slip->toUser->department->department_name
-                        : 'Department Pool');
-
-                $toName = $slip->toUser
-                    ? $slip->toUser->name
-                    : 'Department Pool';
+                $fromName = RoutingSlipLabels::senderName($slip, $doc);
 
                 $receiverName = $slip->receiver
                     ? $slip->receiver->name
                     : ($slip->toUser ? $slip->toUser->name : 'Pending Acknowledgement');
 
-                $rawAction = strtolower($slip->action ?? 'forward');
-                $action = match ($rawAction) {
-                    'endorse', 'endorsed' => 'Endorse',
-                    'return', 'returned'   => 'Return',
-                    'approve', 'approved' => 'Approve',
-                    default               => 'Forward',
-                };
-
-                $rawStatus = strtolower($slip->status ?? 'pending');
-                $status = match ($rawStatus) {
-                    'completed' => 'Completed',
-                    'returned'  => 'Returned',
-                    default     => 'Active',
-                };
-
                 $hops[] = new RoutingHopDto(
                     slipId: $slip->slip_id,
                     trackingNumber: $slip->tracking_number ?: $trackingNumber,
                     fromName: $fromName,
-                    fromDepartment: $fromDept,
-                    toName: $toName,
-                    targetDepartment: $toDept,
-                    action: $action,
+                    fromDepartment: RoutingSlipLabels::senderDepartment($slip, $doc),
+                    toName: RoutingSlipLabels::recipientName($slip),
+                    targetDepartment: RoutingSlipLabels::recipientDepartment($slip),
+                    action: RoutingSlipLabels::action($slip->action),
                     instruction: !$contentsVisible ? DocumentConfidentiality::HIDDEN_REMARKS : ($slip->instruction ?: 'For review and appropriate action.'),
-                    status: $status,
+                    status: RoutingSlipLabels::status($slip->status),
                     dateReceived: $slipDate->toIso8601String(),
                     formattedDate: $slipDate->format('M d, Y H:i'),
                     timeSpentDays: $timeSpentDays,

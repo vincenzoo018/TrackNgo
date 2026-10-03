@@ -5,13 +5,17 @@ namespace App\Services\Report;
 use App\Contracts\ReportServiceInterface;
 use App\Models\AuditTrail;
 use App\Models\Department;
-use App\Models\Document;
 use App\Models\User;
+use App\Services\Document\DocumentMetrics;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
 class ReportService implements ReportServiceInterface
 {
+    public function __construct(
+        protected DocumentMetrics $metrics
+    ) {}
+
     /**
      * Build the comprehensive Reports & Analytics dashboard payload.
      * Enforces role-based visibility:
@@ -20,87 +24,23 @@ class ReportService implements ReportServiceInterface
      */
     public function getReportsPayload(User $user, array $filters = []): array
     {
-        $userRole = strtolower($user->role->role_name ?? '');
-        $isFullAccess = in_array($userRole, ['admin', 'cart']);
-
-        // Determine current role slug for navigation and links
-        $currentRole = match ($userRole) {
-            'admin'           => 'admin',
-            'cart'            => 'cart',
-            'receiving clerk' => 'receiving',
-            'department head' => 'department-head',
-            'mayor'           => 'mayor',
-            'hr'              => 'hr',
-            default           => 'receiving',
-        };
+        $isFullAccess = $user->hasFullAccess();
 
         // Filter parameters
         $range = $filters['range'] ?? 'all';
         $departmentFilter = $filters['department'] ?? 'all';
 
         // ── 1. Scoped Document Query ─────────────────────────────────────────
-        $docQuery = Document::with(['department', 'type', 'submitter', 'currentHolder', 'currentHolderDepartment']);
-
-        if (!$isFullAccess) {
-            $docQuery->where(function (Builder $q) use ($user) {
-                // User directly involved as submitter or current holder
-                $q->where('submitted_by', $user->id)
-                  ->orWhere('current_holder_id', $user->id);
-
-                if ($user->department_id) {
-                    $q->orWhere('department_id', $user->department_id)
-                      ->orWhere('current_holder_department_id', $user->department_id)
-                      ->orWhereHas('routingSlips', function (Builder $rq) use ($user) {
-                          $rq->where('from_department_id', $user->department_id)
-                             ->orWhere('target_department_id', $user->department_id)
-                             ->orWhere('from_user_id', $user->id)
-                             ->orWhere('to_user_id', $user->id);
-                      });
-                }
-            });
-        }
-
-        // Apply department filter if explicitly chosen in the UI
-        if ($departmentFilter !== 'all' && is_numeric($departmentFilter)) {
-            $docQuery->where(function (Builder $q) use ($departmentFilter) {
-                $q->where('department_id', $departmentFilter)
-                  ->orWhere('current_holder_department_id', $departmentFilter);
-            });
-        }
-
-        // Apply date range filter
-        if ($range === 'today') {
-            $docQuery->whereDate('created_at', Carbon::today());
-        } elseif ($range === '7days') {
-            $docQuery->where('created_at', '>=', Carbon::now()->subDays(7));
-        } elseif ($range === '30days') {
-            $docQuery->where('created_at', '>=', Carbon::now()->subDays(30));
-        } elseif ($range === 'this_month') {
-            $docQuery->whereMonth('created_at', Carbon::now()->month)
-                     ->whereYear('created_at', Carbon::now()->year);
-        }
-
-        $documents = $docQuery->get();
+        $documents = $this->metrics
+            ->scopedQuery($user, ['department', 'type', 'submitter', 'currentHolder', 'currentHolderDepartment'], $range, $departmentFilter)
+            ->get();
         $totalDocs = $documents->count();
 
         // ── 2. Total Documents Processed & Status Breakdown ───────────────────
-        $completedDocs = $documents->filter(function ($doc) {
-            $s = strtolower($doc->status ?? '');
-            return in_array($s, ['completed', 'approved', 'archived']) || !empty($doc->completed_at);
-        });
-        $completedCount = $completedDocs->count();
-
-        $returnedDocs = $documents->filter(function ($doc) {
-            $s = strtolower($doc->status ?? '');
-            return in_array($s, ['returned', 'rejected']);
-        });
-        $returnedCount = $returnedDocs->count();
-
-        $activeDocs = $documents->filter(function ($doc) {
-            $s = strtolower($doc->status ?? '');
-            return !in_array($s, ['completed', 'approved', 'archived', 'returned', 'rejected']);
-        });
-        $activeCount = $activeDocs->count();
+        $statusTotals = $this->metrics->statusCounts($documents);
+        $completedCount = $statusTotals['completed'];
+        $returnedCount = $statusTotals['returned'];
+        $activeCount = $statusTotals['active'];
 
         // Status counts for distribution chart
         $statusCounts = [];
@@ -122,58 +62,20 @@ class ReportService implements ReportServiceInterface
 
         // ── 3. SLA Compliance and Violations ─────────────────────────────────
         $now = Carbon::now();
-        $violationsCount = 0;
-        $compliantCount = 0;
-        $totalTurnaroundDays = 0;
-        $turnaroundCount = 0;
-        $nearDeadlineCount = 0;
+        $sla = $this->metrics->slaCompliance($documents, $now);
+        $violationsCount = $sla['violations'];
+        $compliantCount = $sla['compliant'];
 
-        foreach ($documents as $doc) {
-            $dueDate = $doc->arta_due_date ? Carbon::parse($doc->arta_due_date) : null;
-            $submitted = $doc->submitted_at ?? $doc->date_filed ?? $doc->created_at;
-            $submittedDate = $submitted ? Carbon::parse($submitted) : null;
-            $completedDate = $doc->completed_at ? Carbon::parse($doc->completed_at) : null;
-
-            if ($completedDate && $submittedDate) {
-                $days = max(1, $submittedDate->diffInDays($completedDate));
-                $totalTurnaroundDays += $days;
-                $turnaroundCount++;
-            }
-
-            if ($dueDate) {
-                if ($completedDate) {
-                    if ($completedDate->gt($dueDate)) {
-                        $violationsCount++;
-                    } else {
-                        $compliantCount++;
-                    }
-                } else {
-                    if ($now->gt($dueDate)) {
-                        $violationsCount++;
-                    } else {
-                        $compliantCount++;
-                        if ($now->diffInDays($dueDate, false) <= 2) {
-                            $nearDeadlineCount++;
-                        }
-                    }
-                }
-            } else {
-                $compliantCount++;
-            }
-        }
-
-        $complianceRate = $totalDocs > 0 ? round(($compliantCount / $totalDocs) * 100, 1) : 100;
-        $avgTurnaround = $turnaroundCount > 0 ? round($totalTurnaroundDays / $turnaroundCount, 1) : 2.8;
+        $complianceRate = $this->metrics->complianceRate($compliantCount, $totalDocs);
+        // Overall turnaround counts finished documents only (filing to completion)
+        $avgTurnaround = $this->metrics->averageTurnaroundDays($documents->filter(fn ($doc) => $doc->completed_at), $now, 2.8);
 
         // ── 4. Department Bottlenecks and Delays ──────────────────────────────
         $allDepartments = Department::where('is_active', true)->orderBy('department_name')->get();
         $deptStats = [];
 
         foreach ($allDepartments as $dept) {
-            $deptDocs = $documents->filter(function ($doc) use ($dept) {
-                return $doc->current_holder_department_id == $dept->department_id 
-                    || $doc->department_id == $dept->department_id;
-            });
+            $deptDocs = $this->metrics->forDepartment($documents, $dept);
 
             // If not full access and no docs in this department, skip
             if ($deptDocs->isEmpty() && !$isFullAccess && $user->department_id != $dept->department_id) {
@@ -192,28 +94,10 @@ class ReportService implements ReportServiceInterface
                 return $doc->arta_due_date && Carbon::parse($doc->arta_due_date)->lt($now);
             })->count();
 
-            $deptTurnaroundSum = 0;
-            $deptTurnaroundCount = 0;
-            foreach ($deptDocs as $doc) {
-                $sub = $doc->submitted_at ?? $doc->date_filed ?? $doc->created_at;
-                if ($sub) {
-                    $end = $doc->completed_at ? Carbon::parse($doc->completed_at) : $now;
-                    $deptTurnaroundSum += max(1, Carbon::parse($sub)->diffInDays($end));
-                    $deptTurnaroundCount++;
-                }
-            }
-            $deptAvgDays = $deptTurnaroundCount > 0 ? round($deptTurnaroundSum / $deptTurnaroundCount, 1) : 2.5;
+            $deptAvgDays = $this->metrics->averageTurnaroundDays($deptDocs, $now, 2.5);
 
             // Statutory SLA benchmark for department
-            $deptSla = 3.0;
-            $dnameLower = strtolower($dept->department_name);
-            if (str_contains($dnameLower, 'legal') || str_contains($dnameLower, 'ordinance')) {
-                $deptSla = 7.0;
-            } elseif (str_contains($dnameLower, 'engineer') || str_contains($dnameLower, 'public works')) {
-                $deptSla = 5.0;
-            } elseif (str_contains($dnameLower, 'budget') || str_contains($dnameLower, 'accounting') || str_contains($dnameLower, 'treasurer')) {
-                $deptSla = 4.0;
-            }
+            $deptSla = $this->metrics->departmentSla($dept->department_name);
 
             $diff = $deptAvgDays - $deptSla;
             $status = 'Normal';
@@ -257,25 +141,12 @@ class ReportService implements ReportServiceInterface
         }, $deptStats), 0, 6);
 
         // ── 5. Weekly/Monthly Document Volume Trends ─────────────────────────
-        $dayNames = ['Mon' => 0, 'Tue' => 0, 'Wed' => 0, 'Thu' => 0, 'Fri' => 0, 'Sat' => 0, 'Sun' => 0];
-        foreach ($documents as $doc) {
-            $d = $doc->submitted_at ?? $doc->date_filed ?? $doc->created_at;
-            if ($d) {
-                $dayStr = Carbon::parse($d)->format('D');
-                if (isset($dayNames[$dayStr])) {
-                    $dayNames[$dayStr]++;
-                }
-            }
-        }
-        $weeklyVolumeData = [];
-        foreach ($dayNames as $day => $vol) {
-            $weeklyVolumeData[] = ['day' => $day, 'volume' => $vol];
-        }
+        $weeklyVolumeData = $this->metrics->weeklyVolume($documents);
 
         // Monthly trends
         $monthGroups = [];
         foreach ($documents as $doc) {
-            $d = $doc->submitted_at ?? $doc->date_filed ?? $doc->created_at;
+            $d = $this->metrics->filedAt($doc);
             if ($d) {
                 $m = Carbon::parse($d)->format('M Y');
                 $monthGroups[$m] = ($monthGroups[$m] ?? 0) + 1;
@@ -360,7 +231,7 @@ class ReportService implements ReportServiceInterface
                 'slaComplianceRate'   => $complianceRate,
                 'slaViolations'       => $violationsCount,
                 'slaCompliant'        => $compliantCount,
-                'nearDeadline'        => $nearDeadlineCount,
+                'nearDeadline'        => $sla['nearDeadline'],
                 'avgTurnaroundDays'   => $avgTurnaround,
             ],
             'bottlenecks'         => $deptStats,
@@ -370,20 +241,7 @@ class ReportService implements ReportServiceInterface
             'statusDistribution'  => $statusDistribution,
             'activityLogs'        => $activityLogs,
             'insights'            => $insights,
-            'isFullAccess'        => $isFullAccess,
-            'currentRole'         => $currentRole,
-            'userRoleName'        => $user->role->role_name ?? 'User',
-            'userName'            => $user->name,
-            'userDepartment'      => $user->department->department_name ?? 'LGU Mati',
-            'filters'             => [
-                'range'               => $range,
-                'department'          => $departmentFilter,
-            ],
-            'departments'         => $allDepartments->map(fn($d) => [
-                'id'   => $d->department_id,
-                'name' => $d->department_name,
-                'code' => $d->code,
-            ])->values()->all(),
+            ...$this->metrics->viewerContext($user, $range, $departmentFilter, $allDepartments),
         ];
     }
 }

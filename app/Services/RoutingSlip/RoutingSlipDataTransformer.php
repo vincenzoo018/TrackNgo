@@ -16,44 +16,6 @@ class RoutingSlipDataTransformer
     {
         $doc = $slip->document;
 
-        // Determine sender name and department
-        $fromName = $slip->sender_name
-            ?: ($slip->fromUser ? $slip->fromUser->name : ($doc && $doc->submitter ? $doc->submitter->name : 'Staff Submitter'));
-
-        $fromDept = $slip->fromDepartment
-            ? $slip->fromDepartment->department_name
-            : ($slip->fromUser && $slip->fromUser->department
-                ? $slip->fromUser->department->department_name
-                : ($doc && $doc->department ? $doc->department->department_name : 'General Office'));
-
-        // Determine recipient name and department
-        $toDept = $slip->targetDepartment
-            ? $slip->targetDepartment->department_name
-            : ($slip->toUser && $slip->toUser->department
-                ? $slip->toUser->department->department_name
-                : 'Department Pool');
-
-        $toName = $slip->toUser
-            ? $slip->toUser->name
-            : 'Department Pool';
-
-        // Standardize action type
-        $rawAction = strtolower($slip->action ?? 'forward');
-        $action = match ($rawAction) {
-            'endorse', 'endorsed' => 'Endorse',
-            'return', 'returned'   => 'Return',
-            'approve', 'approved' => 'Approve',
-            default               => 'Forward',
-        };
-
-        // Standardize status: Active, Completed, Returned
-        $rawStatus = strtolower($slip->status ?? 'pending');
-        $status = match ($rawStatus) {
-            'completed' => 'Completed',
-            'returned'  => 'Returned',
-            default     => 'Active', // pending, active, received
-        };
-
         // Tracking number fallback
         $trackingNumber = $slip->tracking_number
             ?: ($doc ? $doc->tracking_number : 'RS-' . str_pad($slip->slip_id, 4, '0', STR_PAD_LEFT));
@@ -69,16 +31,16 @@ class RoutingSlipDataTransformer
             documentTitle: $doc ? $doc->visibleTitle() : 'Document #' . $slip->document_id,
             documentStatus: $doc ? $doc->status : 'Ongoing',
             documentClassification: $doc ? $doc->classification : 'normal',
-            fromName: $fromName,
-            fromDepartment: $fromDept,
+            fromName: RoutingSlipLabels::senderName($slip, $doc),
+            fromDepartment: RoutingSlipLabels::senderDepartment($slip, $doc),
             fromRole: $slip->fromUser && $slip->fromUser->role ? $slip->fromUser->role->role_name : 'Staff',
-            toName: $toName,
-            toDepartment: $toDept,
-            action: $action,
+            toName: RoutingSlipLabels::recipientName($slip),
+            toDepartment: RoutingSlipLabels::recipientDepartment($slip),
+            action: RoutingSlipLabels::action($slip->action),
             instruction: $doc && !$doc->contentsVisibleTo()
                 ? DocumentConfidentiality::HIDDEN_REMARKS
                 : ($slip->instruction ?: 'For review and appropriate action.'),
-            status: $status,
+            status: RoutingSlipLabels::status($slip->status),
             date: $createdAt->toIso8601String(),
             formattedDate: $createdAt->format('Y-m-d'),
             formattedDatetime: $createdAt->format('M d, Y h:i A'),

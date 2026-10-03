@@ -1,7 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
     Activity,
-    Search,
     Download,
     Shield,
     ShieldCheck,
@@ -36,6 +35,8 @@ import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import { StatCard } from '@/components/trackngo/StatCard';
+import { DateRangeSelect, FilterSelect, FilterToolbar } from '@/components/trackngo/ListFilters';
+import { downloadCsv } from '@/lib/csv';
 
 type Props = {
     systemLogs?: AuditTrailEntry[];
@@ -66,6 +67,12 @@ export default function AuditTrailIndex({
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [liveSyncEnabled, setLiveSyncEnabled] = useState(true);
     const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+
+    // Changing the search or a filter goes back to the first page of results
+    const filterBy = <T,>(setFilter: (value: T) => void) => (value: T) => {
+        setFilter(value);
+        setCurrentPage(1);
+    };
 
     // Live background polling every 4 seconds for real-time audit updates
     useEffect(() => {
@@ -213,17 +220,7 @@ export default function AuditTrailIndex({
             `"${log.ip_address || ''}"`,
         ]);
 
-        const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute(
-            'download',
-            `trackngo_audit_trail_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`
-        );
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadCsv(`trackngo_audit_trail_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
     };
 
     // Action Badge Visual Helper
@@ -441,129 +438,47 @@ export default function AuditTrailIndex({
                 </div>
 
                 {/* ── Filters & Search Toolbar ──────────────────────────────── */}
-                <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] p-4 shadow-xs space-y-3">
-                    <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-                        {/* Search Input */}
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tng-slate-400)]" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                placeholder="Search by reference number, tracking number, type, or name..."
-                                className="w-full pl-10 pr-4 py-2 bg-[var(--tng-slate-50)] border border-[var(--tng-slate-200)] rounded-lg text-sm text-[var(--tng-slate-900)] placeholder-[var(--tng-slate-400)] focus:bg-white focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] transition-all outline-none"
-                            />
-                            {searchQuery && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--tng-slate-400)] hover:text-[var(--tng-slate-600)]"
-                                >
-                                    Clear
-                                </button>
-                            )}
-                        </div>
+                <FilterToolbar
+                    search={searchQuery}
+                    onSearchChange={filterBy(setSearchQuery)}
+                    onSearchClear={() => setSearchQuery('')}
+                    searchPlaceholder="Search by reference number, tracking number, type, or name..."
+                    filterTags={[
+                        { active: actionFilter !== 'all', label: <>Action: {actionFilter}</> },
+                        { active: roleFilter !== 'all', label: <>Role: {roleFilter}</> },
+                        { active: dateRangeFilter !== 'all', label: <>Range: {dateRangeFilter}</> },
+                    ]}
+                    onResetFilters={() => {
+                        setSearchQuery('');
+                        setActionFilter('all');
+                        setRoleFilter('all');
+                        setDateRangeFilter('all');
+                    }}
+                >
+                    {/* Action Type Filter */}
+                    <FilterSelect value={actionFilter} onChange={filterBy(setActionFilter)} withIcon>
+                        <option value="all">All Actions</option>
+                        {uniqueActions.map((act) => (
+                            <option key={act} value={act}>
+                                {act}
+                            </option>
+                        ))}
+                    </FilterSelect>
 
-                        {/* Dropdown Filters */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Action Type Filter */}
-                            <div className="flex items-center gap-1.5">
-                                <Filter className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
-                                <select
-                                    value={actionFilter}
-                                    onChange={(e) => {
-                                        setActionFilter(e.target.value);
-                                        setCurrentPage(1);
-                                    }}
-                                    className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none"
-                                >
-                                    <option value="all">All Actions</option>
-                                    {uniqueActions.map((act) => (
-                                        <option key={act} value={act}>
-                                            {act}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Role Filter */}
-                            {uniqueRoles.length > 1 && (
-                                <select
-                                    value={roleFilter}
-                                    onChange={(e) => {
-                                        setRoleFilter(e.target.value);
-                                        setCurrentPage(1);
-                                    }}
-                                    className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none"
-                                >
-                                    <option value="all">All Roles</option>
-                                    {uniqueRoles.map((role) => (
-                                        <option key={role} value={role}>
-                                            {role}
-                                        </option>
-                                    ))}
-                                </select>
-                            )}
-
-                            {/* Date Filter */}
-                            <select
-                                value={dateRangeFilter}
-                                onChange={(e) => {
-                                    setDateRangeFilter(e.target.value as any);
-                                    setCurrentPage(1);
-                                }}
-                                className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none"
-                            >
-                                <option value="all">All Time</option>
-                                <option value="today">Past 24 Hours</option>
-                                <option value="7days">Past 7 Days</option>
-                                <option value="30days">Past 30 Days</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Filter Summary pills */}
-                    {(searchQuery || actionFilter !== 'all' || roleFilter !== 'all' || dateRangeFilter !== 'all') && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-[var(--tng-slate-100)] text-xs text-[var(--tng-slate-500)] flex-wrap">
-                            <span>Active Filters:</span>
-                            {searchQuery && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)]">
-                                    Keyword: "{searchQuery}"
-                                </span>
-                            )}
-                            {actionFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)]">
-                                    Action: {actionFilter}
-                                </span>
-                            )}
-                            {roleFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)]">
-                                    Role: {roleFilter}
-                                </span>
-                            )}
-                            {dateRangeFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)]">
-                                    Range: {dateRangeFilter}
-                                </span>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setActionFilter('all');
-                                    setRoleFilter('all');
-                                    setDateRangeFilter('all');
-                                }}
-                                className="text-[var(--tng-blue-600)] hover:underline ml-1 font-medium"
-                            >
-                                Reset all
-                            </button>
-                        </div>
+                    {/* Role Filter */}
+                    {uniqueRoles.length > 1 && (
+                        <FilterSelect value={roleFilter} onChange={filterBy(setRoleFilter)}>
+                            <option value="all">All Roles</option>
+                            {uniqueRoles.map((role) => (
+                                <option key={role} value={role}>
+                                    {role}
+                                </option>
+                            ))}
+                        </FilterSelect>
                     )}
-                </div>
+
+                    <DateRangeSelect value={dateRangeFilter} onChange={filterBy(setDateRangeFilter)} />
+                </FilterToolbar>
 
                 {/* ── Table / Timeline Section ─────────────────────────────────────────── */}
                 {viewMode === 'timeline' ? (

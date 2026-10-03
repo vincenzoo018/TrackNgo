@@ -1,5 +1,7 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import { EmployeeFormFields } from '@/components/EmployeeFormFields';
+import { isSignaturePadEmpty, signaturePadDataUrl } from '@/lib/signature-pad';
 import { UserPlus, Save, Eraser, ChevronRight, Home, Users } from 'lucide-react';
 import { useState, useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
@@ -35,45 +37,12 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
         if (e) e.preventDefault();
         
         try {
-            let isSignatureEmpty = true;
-            if (signatureRef.current) {
-                if (typeof signatureRef.current.isEmpty === 'function') {
-                    isSignatureEmpty = signatureRef.current.isEmpty();
-                } else {
-                    // Fallback if isEmpty is not available
-                    isSignatureEmpty = false;
-                }
-            }
-
-            if (isSignatureEmpty) {
+            if (isSignaturePadEmpty(signatureRef.current)) {
                 setSignatureError('Signature is required for new employees.');
                 return;
             }
 
-            let signatureDataUrl = '';
-            try {
-                let canvas = null;
-                if (signatureRef.current) {
-                    if (typeof signatureRef.current.getTrimmedCanvas === 'function') {
-                        try {
-                            canvas = signatureRef.current.getTrimmedCanvas();
-                        } catch (e) {
-                            console.warn('getTrimmedCanvas failed, trying getCanvas');
-                            if (typeof signatureRef.current.getCanvas === 'function') {
-                                canvas = signatureRef.current.getCanvas();
-                            }
-                        }
-                    } else if (typeof signatureRef.current.getCanvas === 'function') {
-                        canvas = signatureRef.current.getCanvas();
-                    } else if (signatureRef.current instanceof HTMLCanvasElement) {
-                        canvas = signatureRef.current;
-                    }
-                }
-                signatureDataUrl = canvas ? canvas.toDataURL('image/png') : '';
-            } catch (err) {
-                console.error('Error extracting signature canvas:', err);
-                signatureDataUrl = '';
-            }
+            const signatureDataUrl = signaturePadDataUrl(signatureRef.current);
 
             // Use Sonner toast for non-blocking confirmation
             toast('Are you sure you want to save this new employee?', {
@@ -142,113 +111,14 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
 
             <div className="bg-white rounded-2xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
                 <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4 md:col-span-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Employee Name</label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-1">
-                                    <input
-                                        type="text"
-                                        maxLength={60}
-                                        value={data.first_name}
-                                        onChange={e => setData('first_name', e.target.value)}
-                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.first_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                        placeholder="First Name (e.g. Juan)"
-                                    />
-                                    {errors.first_name && <p className="text-xs text-red-500">{errors.first_name}</p>}
-                                </div>
-                                <div className="space-y-1">
-                                    <input
-                                        type="text"
-                                        maxLength={60}
-                                        value={data.middle_name}
-                                        onChange={e => setData('middle_name', e.target.value)}
-                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.middle_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                        placeholder="Middle Name (Optional)"
-                                    />
-                                    {errors.middle_name && <p className="text-xs text-red-500">{errors.middle_name}</p>}
-                                </div>
-                                <div className="space-y-1">
-                                    <input
-                                        type="text"
-                                        maxLength={60}
-                                        value={data.last_name}
-                                        onChange={e => setData('last_name', e.target.value)}
-                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.last_name ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                        placeholder="Last Name (e.g. Dela Cruz)"
-                                    />
-                                    {errors.last_name && <p className="text-xs text-red-500">{errors.last_name}</p>}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Email Address</label>
-                            <input
-                                type="email"
-                                maxLength={100}
-                                value={data.email}
-                                onChange={e => setData('email', e.target.value)}
-                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.email ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                placeholder="juan@mati.gov.ph"
-                            />
-                            {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Department</label>
-                            <select
-                                value={data.department_id}
-                                onChange={e => setData('department_id', e.target.value)}
-                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.department_id ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                            >
-                                <option value="">Select Department</option>
-                                {dbDepartments.map(dept => (
-                                    <option key={dept.department_id} value={dept.department_id}>{dept.department_name}</option>
-                                ))}
-                            </select>
-                            {errors.department_id && <p className="text-xs text-red-500">{errors.department_id}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">System Role</label>
-                            <select
-                                value={data.role_id}
-                                onChange={e => setData('role_id', e.target.value)}
-                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.role_id ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                            >
-                                <option value="">Select Role</option>
-                                {dbRoles.map(role => (
-                                    <option key={role.role_id} value={role.role_id}>{role.role_name}</option>
-                                ))}
-                            </select>
-                            {errors.role_id && <p className="text-xs text-red-500">{errors.role_id}</p>}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Mobile Number (Optional)</label>
-                            <input
-                                type="text"
-                                value={data.mobile_number}
-                                onChange={e => setData('mobile_number', e.target.value)}
-                                className="w-full rounded-xl border border-[var(--tng-slate-200)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                                placeholder="09171234567"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-[var(--tng-slate-700)]">Password</label>
-                            <input
-                                type="password"
-                                value={data.password}
-                                onChange={e => setData('password', e.target.value)}
-                                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.password ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
-                                placeholder="Set login password"
-                            />
-                            {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
-                        </div>
-                    </div>
+                    <EmployeeFormFields
+                        data={data}
+                        setData={setData}
+                        errors={errors}
+                        departments={dbDepartments}
+                        roles={dbRoles}
+                        passwordPlaceholder="Set login password"
+                    />
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">

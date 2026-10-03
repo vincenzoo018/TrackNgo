@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Document\DocumentConfidentiality;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -81,6 +82,29 @@ class Document extends Model
     public function visibleTitle(?User $user = null): string
     {
         return $this->contentsVisibleTo($user) ? (string) $this->title : DocumentConfidentiality::HIDDEN_TITLE;
+    }
+
+    /**
+     * Documents the user filed or holds, plus (when they belong to a department) those owned by, held by
+     * or routed through their department. Used for the role-scoped dashboards, reports and escalations.
+     */
+    public function scopeInvolving(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $q) use ($user) {
+            $q->where('submitted_by', $user->id)
+              ->orWhere('current_holder_id', $user->id);
+
+            if ($user->department_id) {
+                $q->orWhere('department_id', $user->department_id)
+                  ->orWhere('current_holder_department_id', $user->department_id)
+                  ->orWhereHas('routingSlips', function (Builder $rq) use ($user) {
+                      $rq->where('from_department_id', $user->department_id)
+                         ->orWhere('target_department_id', $user->department_id)
+                         ->orWhere('from_user_id', $user->id)
+                         ->orWhere('to_user_id', $user->id);
+                  });
+            }
+        });
     }
 
     public function submitter()

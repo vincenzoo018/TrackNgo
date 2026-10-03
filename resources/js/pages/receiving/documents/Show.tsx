@@ -1,59 +1,21 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { Head } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
-import { ForwardModal } from '@/components/trackngo/ForwardModal';
-import { ReturnModal } from '@/components/trackngo/ReturnModal';
-import { ConfirmActionModal } from '@/components/trackngo/ConfirmActionModal';
-import { SuccessModal } from '@/components/trackngo/SuccessModal';
-import { DocumentDetailView, actionButton } from '@/components/trackngo/DocumentDetailView';
+import { actionButton } from '@/components/trackngo/DocumentDetailView';
+import { DocumentPageView, ReturnButton, ReturnedActions } from '@/components/trackngo/DocumentPageActions';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
 import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
-import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
+import { useDocumentPage, type DocumentPageProps } from '@/hooks/use-document-page';
 
-export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComments, dbDepartments, dbUsers, dbAttachments }: any) {
-    const { auth } = usePage<any>().props;
-    const doc = dbDocument || mockDocuments[0];
-    const trail = dbAuditTrail || mockAuditTrail.filter((a: any) => a.document_ref === doc.reference_number);
-    const comments = dbComments || [];
-    const departments = dbDepartments || [];
-    const users = dbUsers || [];
-    const attachments = dbAttachments || doc.attachments || [];
-
-    const [forwardModalOpen, setForwardModalOpen] = useState(false);
-    const [returnModalOpen, setReturnModalOpen] = useState(false);
-    const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
-
-    const [confirmState, setConfirmState] = useState({ isOpen: false, action: '', title: '', message: '', btnText: '' });
-    const [successState, setSuccessState] = useState({ isOpen: false, title: '', message: '' });
-    const [isActionLoading, setIsActionLoading] = useState(false);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments', 'dbAttachments'] });
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
+export default function ReceivingDocumentShow(props: DocumentPageProps) {
+    const page = useDocumentPage(props);
+    const { auth, doc, users, confirmState, requestAction } = page;
 
     const handleEndorse = (destType: string, destId: string, rem: string) => {
-        router.post(`/documents/${doc.document_id}/endorse`, {
-            destination_type: destType,
-            destination_id: destId,
-            remarks: rem
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                setForwardModalOpen(false);
-                setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document endorsed successfully.' });
-                window.dispatchEvent(new CustomEvent('tng:fsm-refresh'));
-                window.dispatchEvent(new CustomEvent('tng:document-sent'));
-            }
+        page.postEndorse(`/documents/${doc.document_id}/endorse`, destType, destId, rem, () => {
+            page.setForwardModalOpen(false);
+            page.setSuccessState({ isOpen: true, title: 'Successfully', message: 'Document endorsed successfully.' });
         });
-    };
-
-    const requestAction = (action: string, title: string, message: string, btnText: string) => {
-        setConfirmState({ isOpen: true, action, title, message, btnText });
     };
 
     // Confirmed FSM transitions: endpoint, events to broadcast and the success message
@@ -89,38 +51,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const handleConfirmAction = () => {
         const config = CONFIRM_ACTIONS[confirmState.action === 'receive' ? 'accept' : confirmState.action];
         if (!config) return;
-        setIsActionLoading(true);
-        router.post(`/documents/${doc.document_id}/${config.url}`, {}, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                config.events.forEach(name => window.dispatchEvent(new CustomEvent(name)));
-                setConfirmState(prev => ({ ...prev, isOpen: false }));
-                setIsActionLoading(false);
-                setSuccessState({ isOpen: true, title: 'Successfully', message: config.message });
-            },
-            // Close the dialog so the reason (e.g. a signature still missing) shows in the Actions panel
-            onError: () => {
-                setIsActionLoading(false);
-                setConfirmState(prev => ({ ...prev, isOpen: false }));
-            },
-        });
-    };
-
-    const handleReturn = (reason: string) => {
-        setIsActionLoading(true);
-        router.post(`/documents/${doc.document_id}/return`, {
-            reason
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                setReturnModalOpen(false);
-                setIsActionLoading(false);
-                setSuccessState({ isOpen: true, title: 'Returned', message: 'Document returned successfully.' });
-            },
-            onError: () => setIsActionLoading(false)
-        });
+        page.postAction(`/documents/${doc.document_id}/${config.url}`, { events: config.events, message: config.message, closeOnError: true });
     };
 
     const userRole = (auth?.user?.role?.role_name || auth?.user?.role || 'receiving').toString().toLowerCase();
@@ -131,11 +62,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
     const backToListUrl = `/${rolePrefix}/documents`;
     const homeUrl = `/${rolePrefix}`;
 
-    const returnButton = (
-        <button onClick={() => setReturnModalOpen(true)} className={actionButton.secondary}>
-            Return Document
-        </button>
-    );
+    const returnButton = <ReturnButton page={page} />;
 
     const renderActions = () => {
         const std = getStandardizedStatus(doc.status);
@@ -213,7 +140,7 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                     >
                         Mark as Reviewed
                     </button>
-                    <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
+                    <button onClick={() => page.setForwardModalOpen(true)} className={actionButton.secondary}>
                         Forward / Endorse
                     </button>
                     {returnButton}
@@ -254,33 +181,12 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
                 </p>
             );
         }
-        if (std === 'Returned' && !isHolder) {
-            return (
-                <HolderStatusCard
-                    variant="waiting"
-                    title="Returned for Correction"
-                    holder={describeHolder(doc, users)}
-                    message="Waiting for the missing / corrected files to be uploaded."
-                />
-            );
-        }
         if (std === 'Returned') {
-            return (
-                <>
-                    <button type="button" onClick={() => setCorrectionModalOpen(true)} className={actionButton.danger}>
-                        Upload Correction
-                    </button>
-                    <button onClick={() => setForwardModalOpen(true)} className={actionButton.secondary}>
-                        Re-route / Endorse
-                    </button>
-                    {/* Returned to you: pass it further back unless you are where it started */}
-                    {String(doc.submitted_by) !== String(auth?.user?.id) && returnButton}
-                </>
-            );
+            return <ReturnedActions page={page} isHolder={isHolder} rerouteLabel="Re-route / Endorse" />;
         }
         return (
             <>
-                <button onClick={() => setForwardModalOpen(true)} className={actionButton.primary}>
+                <button onClick={() => page.setForwardModalOpen(true)} className={actionButton.primary}>
                     Forward / Endorse
                 </button>
                 {returnButton}
@@ -298,53 +204,15 @@ export default function ReceivingDocumentShow({ dbDocument, dbAuditTrail, dbComm
         >
             <Head title={`${doc.reference_number || doc.tracking_number} — TrackNGo Mati`} />
 
-            <DocumentDetailView
-                doc={doc}
-                trail={trail}
-                comments={comments}
-                attachments={attachments}
-                users={users}
+            <DocumentPageView
+                page={page}
                 role={rolePrefix}
                 backUrl={backToListUrl}
                 actionsTitle="Core Actions"
                 actions={renderActions()}
-                correctionOpen={correctionModalOpen}
-                onCorrectionOpenChange={setCorrectionModalOpen}
-            />
-
-            <ForwardModal
-                open={forwardModalOpen}
-                onClose={() => setForwardModalOpen(false)}
-                onConfirm={handleEndorse}
-                departments={departments}
-                users={users}
-                identifier={doc.reference_number}
-            />
-
-            <ReturnModal
-                open={returnModalOpen}
-                onClose={() => setReturnModalOpen(false)}
-                onConfirm={(reason) => handleReturn(reason)}
-                identifier={doc.reference_number}
-            />
-
-            <ConfirmActionModal
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onEndorse={handleEndorse}
+                onReturn={(reason) => page.postReturn(reason, 'Document returned successfully.')}
                 onConfirm={handleConfirmAction}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.btnText}
-                identifier={doc.reference_number}
-                isLoading={isActionLoading}
-            />
-
-            <SuccessModal
-                isOpen={successState.isOpen}
-                onClose={() => setSuccessState(prev => ({ ...prev, isOpen: false }))}
-                title={successState.title}
-                identifier={doc.reference_number}
-                message={successState.message}
             />
         </TrackngoLayout>
     );

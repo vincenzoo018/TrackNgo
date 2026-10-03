@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Users, Search, Filter, UserPlus, Mail, Phone, Edit, Trash2, Building2, ShieldCheck, UserX } from 'lucide-react';
+import { Users, Filter, UserPlus, Mail, Phone, Edit, Trash2, Building2, ShieldCheck, UserX } from 'lucide-react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
+import { SearchInput } from '@/components/trackngo/ListFilters';
 import { useState, useMemo } from 'react';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import AddEmployeeModal from '@/components/AddEmployeeModal';
@@ -159,16 +160,7 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
 
                 {/* ── Filters Toolbar ───────────────────────────────────────── */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative flex-1 min-w-[250px] max-w-md">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tng-slate-400)]" />
-                        <input
-                            type="text"
-                            placeholder="Search by reference number, tracking number, type, or name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-[var(--tng-slate-200)] bg-white pl-9 pr-4 text-sm text-[var(--tng-slate-700)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                        />
-                    </div>
+                    <SearchInput value={searchQuery} onChange={setSearchQuery} />
 
                     {/* Department Dropdown */}
                     <select

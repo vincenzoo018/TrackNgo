@@ -24,8 +24,7 @@ class RoutingSlipService implements RoutingSlipServiceInterface
      */
     public function getRoutingSlipsPayload(User $user): array
     {
-        $userRole = strtolower($user->role->role_name ?? '');
-        $isFullAccess = in_array($userRole, ['admin', 'cart']);
+        $isFullAccess = $user->hasFullAccess();
 
         // 1. Maintain data integrity: synchronize missing, returned, and endorsed routing slips
         $this->synchronizer->syncAll();
@@ -64,15 +63,7 @@ class RoutingSlipService implements RoutingSlipServiceInterface
         }
 
         // 6. Current role slug for layout & route links
-        $currentRole = match ($userRole) {
-            'admin'           => 'admin',
-            'cart'            => 'cart',
-            'receiving clerk' => 'receiving',
-            'department head' => 'department-head',
-            'mayor'           => 'mayor',
-            'hr'              => 'hr',
-            default           => 'receiving',
-        };
+        $currentRole = $user->roleSlug();
 
         // 7. Active departments for filter dropdown
         $departments = Department::where('is_active', true)

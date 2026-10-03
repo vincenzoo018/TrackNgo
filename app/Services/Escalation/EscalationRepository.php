@@ -24,21 +24,7 @@ class EscalationRepository
         ]);
 
         if (!$isFullAccess) {
-            $docQuery->where(function ($q) use ($user) {
-                $q->where('submitted_by', $user->id)
-                  ->orWhere('current_holder_id', $user->id);
-
-                if ($user->department_id) {
-                    $q->orWhere('department_id', $user->department_id)
-                      ->orWhere('current_holder_department_id', $user->department_id)
-                      ->orWhereHas('routingSlips', function ($rq) use ($user) {
-                          $rq->where('from_department_id', $user->department_id)
-                             ->orWhere('target_department_id', $user->department_id)
-                             ->orWhere('from_user_id', $user->id)
-                             ->orWhere('to_user_id', $user->id);
-                      });
-                }
-            });
+            $docQuery->involving($user);
         }
 
         return $docQuery->orderBy('document_id', 'desc')->get();

@@ -91,4 +91,24 @@ class User extends Authenticatable implements PasskeyUser
         return $this->role && $this->role->role_name === $roleName;
     }
 
+    /** Admin and CART see system-wide data; every other role is scoped to its own documents and department. */
+    public function hasFullAccess(): bool
+    {
+        return in_array(strtolower($this->role->role_name ?? ''), ['admin', 'cart'], true);
+    }
+
+    /** URL prefix of the user's role area (/admin, /receiving, /department-head, ...) for page links. */
+    public function roleSlug(string $default = 'receiving'): string
+    {
+        return match (strtolower($this->role->role_name ?? '')) {
+            'admin'           => 'admin',
+            'cart'            => 'cart',
+            'receiving clerk' => 'receiving',
+            'department head' => 'department-head',
+            'mayor'           => 'mayor',
+            'hr'              => 'hr',
+            default           => $default,
+        };
+    }
+
 }

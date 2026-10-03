@@ -81,8 +81,7 @@ class AuditTrailService implements AuditTrailServiceInterface
      */
     public function getAuditTrailPayload(User $user): array
     {
-        $userRole = strtolower($user->role->role_name ?? '');
-        $isFullAccess = in_array($userRole, ['admin', 'cart']);
+        $isFullAccess = $user->hasFullAccess();
 
         // Ensure system records exist
         $this->ensureInitialSystemLogs();
@@ -90,21 +89,11 @@ class AuditTrailService implements AuditTrailServiceInterface
         $systemLogs = $this->repository->getSystemLogs($user, $isFullAccess)->map(fn ($log) => $this->formatLog($log))->values()->all();
         $actionLogs = $this->repository->getActionLogs($user, $isFullAccess)->map(fn ($log) => $this->formatLog($log))->values()->all();
 
-        $currentRole = match ($userRole) {
-            'admin'           => 'admin',
-            'cart'            => 'cart',
-            'receiving clerk' => 'receiving',
-            'department head' => 'department-head',
-            'mayor'           => 'mayor',
-            'hr'              => 'hr',
-            default           => 'receiving',
-        };
-
         return [
             'systemLogs'   => $systemLogs,
             'actionLogs'   => $actionLogs,
             'isFullAccess' => $isFullAccess,
-            'currentRole'  => $currentRole,
+            'currentRole'  => $user->roleSlug(),
             'userRoleName' => $user->role->role_name ?? 'User',
             'userName'     => $user->name,
         ];

@@ -17,8 +17,7 @@ class EscalationService implements EscalationServiceInterface
 
     public function getEscalationPayload(User $user, array $filters = []): array
     {
-        $userRole = strtolower($user->role->role_name ?? '');
-        $isFullAccess = in_array($userRole, ['admin', 'cart']);
+        $isFullAccess = $user->hasFullAccess();
 
         $severityFilter = $filters['severity'] ?? 'all';
         $deptFilter = $filters['department'] ?? 'all';
@@ -149,15 +148,7 @@ class EscalationService implements EscalationServiceInterface
         // Sort by urgency score descending
         usort($escalatedDocs, fn ($a, $b) => $b['urgency_score'] <=> $a['urgency_score']);
 
-        $currentRole = match ($userRole) {
-            'admin'           => 'admin',
-            'cart'            => 'cart',
-            'receiving clerk' => 'receiving',
-            'department head' => 'department-head',
-            'mayor'           => 'mayor',
-            'hr'              => 'hr',
-            default           => 'cart',
-        };
+        $currentRole = $user->roleSlug('cart');
 
         return [
             'escalatedDocuments' => $escalatedDocs,

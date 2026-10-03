@@ -554,6 +554,215 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SHARED: USER ACCOUNT FORM SECTIONS (Add & Edit modals)
+// ─────────────────────────────────────────────────────────────────────────────
+type UserFormData = {
+    first_name: string;
+    middle_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    department_id: number | string;
+    role_id: number | string;
+    mobile_number: string;
+    is_active: number;
+};
+
+/** Wording that differs between the Add and Edit forms. */
+type UserFormCopy = {
+    nameDescription: string;
+    credentialsDescription: string;
+    password: { label: string; description?: string; required: boolean; placeholder: string };
+    assignmentDescription: string;
+    contactDescription: string;
+    mobileDescription?: string;
+    activeLabel: string;
+    inactiveLabel: string;
+    /** Show example placeholders in the name and email inputs (Add form) */
+    examples: boolean;
+};
+
+function UserAccountFields({
+    data,
+    setData,
+    errors,
+    roles,
+    departments,
+    copy,
+    lockedRoleName,
+    showPassword,
+    setShowPassword,
+}: {
+    data: UserFormData;
+    setData: (key: keyof UserFormData, value: string | number) => void;
+    errors: Partial<Record<keyof UserFormData, string>>;
+    roles: RoleItem[];
+    departments: DepartmentItem[];
+    copy: UserFormCopy;
+    /** HR edits: the role is shown read-only (only the Administrator assigns roles) */
+    lockedRoleName?: string;
+    showPassword: boolean;
+    setShowPassword: (show: boolean) => void;
+}) {
+    const placeholderClass = copy.examples ? ' placeholder:text-slate-400' : '';
+    const inputClass = `w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all${placeholderClass} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15`;
+    const selectClass = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15';
+    const example = (text: string) => (copy.examples ? text : undefined);
+
+    return (
+        <div className="space-y-6">
+            {/* Section 1: User Information */}
+            <ModalSection title="User Information" description={copy.nameDescription}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <ModalField label="First Name" required error={errors.first_name}>
+                        <input
+                            type="text"
+                            required
+                            value={data.first_name}
+                            onChange={(e) => setData('first_name', e.target.value)}
+                            placeholder={example('e.g. Juan')}
+                            className={inputClass}
+                        />
+                    </ModalField>
+
+                    <ModalField label="Middle Name" error={errors.middle_name}>
+                        <input
+                            type="text"
+                            value={data.middle_name}
+                            onChange={(e) => setData('middle_name', e.target.value)}
+                            placeholder={example('e.g. Santos')}
+                            className={inputClass}
+                        />
+                    </ModalField>
+
+                    <ModalField label="Last Name" required error={errors.last_name}>
+                        <input
+                            type="text"
+                            required
+                            value={data.last_name}
+                            onChange={(e) => setData('last_name', e.target.value)}
+                            placeholder={example('e.g. Dela Cruz')}
+                            className={inputClass}
+                        />
+                    </ModalField>
+                </div>
+            </ModalSection>
+
+            {/* Section 2: Account Credentials */}
+            <ModalSection title="Account Credentials" description={copy.credentialsDescription}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <ModalField label="Email Address" required error={errors.email}>
+                        <input
+                            type="email"
+                            required
+                            value={data.email}
+                            onChange={(e) => setData('email', e.target.value)}
+                            placeholder={example('staff@maticity.gov.ph')}
+                            className={inputClass}
+                        />
+                    </ModalField>
+
+                    <ModalField label={copy.password.label} description={copy.password.description} required={copy.password.required} error={errors.password}>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                required={copy.password.required}
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                                placeholder={copy.password.placeholder}
+                                className={`w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm outline-none transition-all${placeholderClass} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 font-mono`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
+                    </ModalField>
+                </div>
+            </ModalSection>
+
+            {/* Section 3: Role & Department Assignment */}
+            <ModalSection title="Role & Department Assignment" description={copy.assignmentDescription}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <ModalField
+                        label="System Role"
+                        description={lockedRoleName ? "System role assignment is reserved for Administrator" : undefined}
+                        required={!lockedRoleName}
+                        error={errors.role_id}
+                    >
+                        {lockedRoleName ? (
+                            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm font-semibold text-slate-700">
+                                <span>{lockedRoleName}</span>
+                                <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                                    Admin Managed
+                                </span>
+                            </div>
+                        ) : (
+                            <select
+                                required
+                                value={data.role_id}
+                                onChange={(e) => setData('role_id', Number(e.target.value))}
+                                className={selectClass}
+                            >
+                                {roles.map((r) => (
+                                    <option key={r.role_id} value={r.role_id}>
+                                        {r.role_name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </ModalField>
+
+                    <ModalField label="Assigned Department" required error={errors.department_id}>
+                        <select
+                            required
+                            value={data.department_id}
+                            onChange={(e) => setData('department_id', Number(e.target.value))}
+                            className={selectClass}
+                        >
+                            {departments.map((d) => (
+                                <option key={d.department_id} value={d.department_id}>
+                                    {d.department_name}
+                                </option>
+                            ))}
+                        </select>
+                    </ModalField>
+                </div>
+            </ModalSection>
+
+            {/* Section 4: Contact & Account Status */}
+            <ModalSection title="Contact & Status" description={copy.contactDescription}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <ModalField label="Mobile Number" description={copy.mobileDescription} error={errors.mobile_number}>
+                        <input
+                            type="text"
+                            value={data.mobile_number}
+                            onChange={(e) => setData('mobile_number', e.target.value)}
+                            placeholder="09171234567"
+                            className={inputClass}
+                        />
+                    </ModalField>
+
+                    <ModalField label="Account Status" required>
+                        <select
+                            value={data.is_active}
+                            onChange={(e) => setData('is_active', Number(e.target.value))}
+                            className={selectClass}
+                        >
+                            <option value={1}>{copy.activeLabel}</option>
+                            <option value={0}>{copy.inactiveLabel}</option>
+                        </select>
+                    </ModalField>
+                </div>
+            </ModalSection>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MODAL: CREATE NEW USER (Standardized)
 // ─────────────────────────────────────────────────────────────────────────────
 function CreateUserModal({
@@ -611,153 +820,26 @@ function CreateUserModal({
                 </>
             }
         >
-            <div className="space-y-6">
-                {/* Section 1: User Information */}
-                <ModalSection
-                    title="User Information"
-                    description="Enter the legal employee name for official records and audit trails."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <ModalField label="First Name" required error={errors.first_name}>
-                            <input
-                                type="text"
-                                required
-                                value={data.first_name}
-                                onChange={(e) => setData('first_name', e.target.value)}
-                                placeholder="e.g. Juan"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Middle Name" error={errors.middle_name}>
-                            <input
-                                type="text"
-                                value={data.middle_name}
-                                onChange={(e) => setData('middle_name', e.target.value)}
-                                placeholder="e.g. Santos"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Last Name" required error={errors.last_name}>
-                            <input
-                                type="text"
-                                required
-                                value={data.last_name}
-                                onChange={(e) => setData('last_name', e.target.value)}
-                                placeholder="e.g. Dela Cruz"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-                    </div>
-                </ModalSection>
-
-                {/* Section 2: Account Credentials */}
-                <ModalSection
-                    title="Account Credentials"
-                    description="Authentication credentials used by the staff member to log in."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="Email Address" required error={errors.email}>
-                            <input
-                                type="email"
-                                required
-                                value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
-                                placeholder="staff@maticity.gov.ph"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Initial Password" required error={errors.password}>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    required
-                                    value={data.password}
-                                    onChange={(e) => setData('password', e.target.value)}
-                                    placeholder="••••••••"
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 font-mono"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                                >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                            </div>
-                        </ModalField>
-                    </div>
-                </ModalSection>
-
-                {/* Section 3: Role & Department Assignment */}
-                <ModalSection
-                    title="Role & Department Assignment"
-                    description="Assign system permissions tier and governing department unit."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="System Role" required error={errors.role_id}>
-                            <select
-                                required
-                                value={data.role_id}
-                                onChange={(e) => setData('role_id', Number(e.target.value))}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            >
-                                {roles.map((r) => (
-                                    <option key={r.role_id} value={r.role_id}>
-                                        {r.role_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </ModalField>
-
-                        <ModalField label="Assigned Department" required error={errors.department_id}>
-                            <select
-                                required
-                                value={data.department_id}
-                                onChange={(e) => setData('department_id', Number(e.target.value))}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            >
-                                {departments.map((d) => (
-                                    <option key={d.department_id} value={d.department_id}>
-                                        {d.department_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </ModalField>
-                    </div>
-                </ModalSection>
-
-                {/* Section 4: Contact & Account Status */}
-                <ModalSection
-                    title="Contact & Status"
-                    description="Mobile phone for automated SMS notifications and account availability."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="Mobile Number" description="Used for urgent escalation alerts" error={errors.mobile_number}>
-                            <input
-                                type="text"
-                                value={data.mobile_number}
-                                onChange={(e) => setData('mobile_number', e.target.value)}
-                                placeholder="09171234567"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Account Status" required>
-                            <select
-                                value={data.is_active}
-                                onChange={(e) => setData('is_active', Number(e.target.value))}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            >
-                                <option value={1}>Active (Full System Access)</option>
-                                <option value={0}>Inactive (Access Suspended)</option>
-                            </select>
-                        </ModalField>
-                    </div>
-                </ModalSection>
-            </div>
+            <UserAccountFields
+                data={data}
+                setData={setData}
+                errors={errors}
+                roles={roles}
+                departments={departments}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                copy={{
+                    nameDescription: 'Enter the legal employee name for official records and audit trails.',
+                    credentialsDescription: 'Authentication credentials used by the staff member to log in.',
+                    password: { label: 'Initial Password', required: true, placeholder: '••••••••' },
+                    assignmentDescription: 'Assign system permissions tier and governing department unit.',
+                    contactDescription: 'Mobile phone for automated SMS notifications and account availability.',
+                    mobileDescription: 'Used for urgent escalation alerts',
+                    activeLabel: 'Active (Full System Access)',
+                    inactiveLabel: 'Inactive (Access Suspended)',
+                    examples: true,
+                }}
+            />
         </BaseModal>
     );
 }
@@ -822,162 +904,26 @@ function EditUserModal({
                 </>
             }
         >
-            <div className="space-y-6">
-                {/* Section 1: Personal Information */}
-                <ModalSection
-                    title="User Information"
-                    description="Update the employee's official name."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <ModalField label="First Name" required error={errors.first_name}>
-                            <input
-                                type="text"
-                                required
-                                value={data.first_name}
-                                onChange={(e) => setData('first_name', e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Middle Name" error={errors.middle_name}>
-                            <input
-                                type="text"
-                                value={data.middle_name}
-                                onChange={(e) => setData('middle_name', e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Last Name" required error={errors.last_name}>
-                            <input
-                                type="text"
-                                required
-                                value={data.last_name}
-                                onChange={(e) => setData('last_name', e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-                    </div>
-                </ModalSection>
-
-                {/* Section 2: Account Credentials & Password Reset */}
-                <ModalSection
-                    title="Account Credentials"
-                    description="Official email and security credentials. Leave password blank to retain current."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="Email Address" required error={errors.email}>
-                            <input
-                                type="email"
-                                required
-                                value={data.email}
-                                onChange={(e) => setData('email', e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Reset Password" description="Leave blank to keep unchanged" error={errors.password}>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={data.password}
-                                    onChange={(e) => setData('password', e.target.value)}
-                                    placeholder="Enter new password..."
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 font-mono"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                                >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                            </div>
-                        </ModalField>
-                    </div>
-                </ModalSection>
-
-                {/* Section 3: Role & Department Assignment */}
-                <ModalSection
-                    title="Role & Department Assignment"
-                    description="System access tier and organizational department."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField
-                            label="System Role"
-                            description={isHr ? "System role assignment is reserved for Administrator" : undefined}
-                            required={!isHr}
-                            error={errors.role_id}
-                        >
-                            {isHr ? (
-                                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm font-semibold text-slate-700">
-                                    <span>{user.role?.role_name || 'Assigned Role'}</span>
-                                    <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                                        Admin Managed
-                                    </span>
-                                </div>
-                            ) : (
-                                <select
-                                    required
-                                    value={data.role_id}
-                                    onChange={(e) => setData('role_id', Number(e.target.value))}
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                                >
-                                    {roles.map((r) => (
-                                        <option key={r.role_id} value={r.role_id}>
-                                            {r.role_name}
-                                        </option>
-                                    ))}
-                                </select>
-                            )}
-                        </ModalField>
-
-                        <ModalField label="Assigned Department" required error={errors.department_id}>
-                            <select
-                                required
-                                value={data.department_id}
-                                onChange={(e) => setData('department_id', Number(e.target.value))}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            >
-                                {departments.map((d) => (
-                                    <option key={d.department_id} value={d.department_id}>
-                                        {d.department_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </ModalField>
-                    </div>
-                </ModalSection>
-
-                {/* Section 4: Contact & Status */}
-                <ModalSection
-                    title="Contact & Status"
-                    description="Mobile phone for alerts and account authorization status."
-                >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="Mobile Number" error={errors.mobile_number}>
-                            <input
-                                type="text"
-                                value={data.mobile_number}
-                                onChange={(e) => setData('mobile_number', e.target.value)}
-                                placeholder="09171234567"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            />
-                        </ModalField>
-
-                        <ModalField label="Account Status" required>
-                            <select
-                                value={data.is_active}
-                                onChange={(e) => setData('is_active', Number(e.target.value))}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
-                            >
-                                <option value={1}>Active (Full Permissions)</option>
-                                <option value={0}>Inactive (Suspended)</option>
-                            </select>
-                        </ModalField>
-                    </div>
-                </ModalSection>
-            </div>
+            <UserAccountFields
+                data={data}
+                setData={setData}
+                errors={errors}
+                roles={roles}
+                departments={departments}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                lockedRoleName={isHr ? (user.role?.role_name || 'Assigned Role') : undefined}
+                copy={{
+                    nameDescription: "Update the employee's official name.",
+                    credentialsDescription: 'Official email and security credentials. Leave password blank to retain current.',
+                    password: { label: 'Reset Password', description: 'Leave blank to keep unchanged', required: false, placeholder: 'Enter new password...' },
+                    assignmentDescription: 'System access tier and organizational department.',
+                    contactDescription: 'Mobile phone for alerts and account authorization status.',
+                    activeLabel: 'Active (Full Permissions)',
+                    inactiveLabel: 'Inactive (Suspended)',
+                    examples: false,
+                }}
+            />
         </BaseModal>
     );
 }

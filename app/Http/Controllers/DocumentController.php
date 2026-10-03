@@ -32,6 +32,14 @@ class DocumentController extends Controller
         return response()->json($document);
     }
 
+    public function ocrWorkspace($id)
+    {
+        return Inertia::render('receiving/documents/OcrWorkspace', [
+            'dbDocument' => Document::find($id),
+            'documentId' => $id,
+        ]);
+    }
+
     /**
      * Role document page ($view comes from the route defaults). Confidential contents — file, text,
      * comments, attachments, signature images — only reach the sender, the people on its route and its

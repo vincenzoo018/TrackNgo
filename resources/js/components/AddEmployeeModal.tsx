@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
+import { isSignaturePadEmpty, signaturePadDataUrl } from '@/lib/signature-pad';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -90,44 +91,12 @@ export default function AddEmployeeModal({ isOpen, onClose, departments = [], ro
         e.preventDefault();
 
         // Validate signature
-        let isSignatureEmpty = true;
-        if (signatureRef.current) {
-            if (typeof signatureRef.current.isEmpty === 'function') {
-                isSignatureEmpty = signatureRef.current.isEmpty();
-            } else {
-                isSignatureEmpty = false;
-            }
-        }
-
-        if (isSignatureEmpty) {
+        if (isSignaturePadEmpty(signatureRef.current)) {
             setSignatureError('Digital signature is required for official employee records.');
             return;
         }
 
-        let signatureDataUrl = '';
-        try {
-            let canvas = null;
-            if (signatureRef.current) {
-                if (typeof signatureRef.current.getTrimmedCanvas === 'function') {
-                    try {
-                        canvas = signatureRef.current.getTrimmedCanvas();
-                    } catch {
-                        if (typeof signatureRef.current.getCanvas === 'function') {
-                            canvas = signatureRef.current.getCanvas();
-                        }
-                    }
-                } else if (typeof signatureRef.current.getCanvas === 'function') {
-                    canvas = signatureRef.current.getCanvas();
-                } else if (signatureRef.current instanceof HTMLCanvasElement) {
-                    canvas = signatureRef.current;
-                }
-            }
-            signatureDataUrl = canvas ? canvas.toDataURL('image/png') : '';
-        } catch (err) {
-            console.error('Error getting canvas signature:', err);
-            signatureDataUrl = '';
-        }
-
+        const signatureDataUrl = signaturePadDataUrl(signatureRef.current);
         if (!signatureDataUrl) {
             setSignatureError('Failed to capture signature pad. Please sign again.');
             return;

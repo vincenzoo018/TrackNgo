@@ -1,11 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
     Route as RouteIcon,
-    Search,
     Download,
     Shield,
     ShieldCheck,
-    Filter,
     RefreshCw,
     ExternalLink,
     Clock,
@@ -34,7 +32,8 @@ import { RoutingSlipModal } from '@/components/trackngo/RoutingSlipModal';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
-import { StatCard } from '@/components/trackngo/StatCard';
+import { DateRangeSelect, DepartmentSelect, FilterSelect, FilterToolbar, StatFilterCards } from '@/components/trackngo/ListFilters';
+import { downloadCsv } from '@/lib/csv';
 
 export type RoutingSlipItem = {
     slip_id: number;
@@ -144,6 +143,12 @@ export default function RoutingSlipsIndex({
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectedSlip, setSelectedSlip] = useState<any | null>(null);
     const [collapsedDocs, setCollapsedDocs] = useState<Record<number, boolean>>({});
+
+    // Changing the search or a filter goes back to the first page of results
+    const filterBy = <T,>(setFilter: (value: T) => void) => (value: T) => {
+        setFilter(value);
+        setCurrentPage(1);
+    };
 
     // Toggle collapse state for a document group in timeline view
     const toggleCollapse = (docId: number) => {
@@ -346,14 +351,7 @@ export default function RoutingSlipsIndex({
             `"${s.formatted_datetime || s.date}"`,
         ]);
 
-        const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `trackngo_routing_slips_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadCsv(`trackngo_routing_slips_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
     };
 
     // Action Badge Helper
@@ -476,55 +474,16 @@ export default function RoutingSlipsIndex({
 
 
                 {/* ── KPI Metric Cards (Standardized System Blue) ─────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-                    <StatCard
-                        title="Total Routing Slips"
-                        value={metrics.total}
-                        sublabel="All recorded transactions"
-                        icon={RouteIcon}
-                        active={statusFilter === 'all'}
-                        onClick={() => {
-                            setStatusFilter('all');
-                            setCurrentPage(1);
-                        }}
-                    />
-
-                    <StatCard
-                        title="Active / In Transit"
-                        value={metrics.active}
-                        sublabel="Pending routing actions"
-                        icon={Clock}
-                        active={statusFilter === 'active'}
-                        onClick={() => {
-                            setStatusFilter('active');
-                            setCurrentPage(1);
-                        }}
-                    />
-
-                    <StatCard
-                        title="Completed Hops"
-                        value={metrics.completed}
-                        sublabel="Processed & dispatched"
-                        icon={CheckCircle2}
-                        active={statusFilter === 'completed'}
-                        onClick={() => {
-                            setStatusFilter('completed');
-                            setCurrentPage(1);
-                        }}
-                    />
-
-                    <StatCard
-                        title="SLA Bottlenecks"
-                        value={metrics.bottlenecks ?? 0}
-                        sublabel="Exceeded statutory SLA"
-                        icon={AlertTriangle}
-                        active={statusFilter === 'returned'}
-                        onClick={() => {
-                            setStatusFilter('returned');
-                            setCurrentPage(1);
-                        }}
-                    />
-                </div>
+                <StatFilterCards
+                    cards={[
+                        { filter: 'all', title: 'Total Routing Slips', value: metrics.total, sublabel: 'All recorded transactions', icon: RouteIcon },
+                        { filter: 'active', title: 'Active / In Transit', value: metrics.active, sublabel: 'Pending routing actions', icon: Clock },
+                        { filter: 'completed', title: 'Completed Hops', value: metrics.completed, sublabel: 'Processed & dispatched', icon: CheckCircle2 },
+                        { filter: 'returned', title: 'SLA Bottlenecks', value: metrics.bottlenecks ?? 0, sublabel: 'Exceeded statutory SLA', icon: AlertTriangle },
+                    ]}
+                    active={statusFilter}
+                    onSelect={filterBy(setStatusFilter)}
+                />
 
                 {/* ── Standardized Tabbed Navigation (Routing Slips: All, Active, Completed, Returned) ── */}
                 <TabNavigation
@@ -535,155 +494,49 @@ export default function RoutingSlipsIndex({
                         { id: 'returned', label: 'Returned', icon: <RotateCcw className="h-4 w-4 text-amber-600" />, count: metrics.returned },
                     ]}
                     activeTab={statusFilter}
-                    onChange={(tabId) => {
-                        setStatusFilter(tabId);
-                        setCurrentPage(1);
-                    }}
+                    onChange={filterBy(setStatusFilter)}
                 />
 
                 {/* ── Toolbar & Filters ─────────────────────────────────────── */}
-                <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] p-4 shadow-xs space-y-3">
-                    <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-                        {/* Search Input */}
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--tng-slate-400)]" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                placeholder="Search by document reference, tracking number, department, or personnel..."
-                                className="w-full pl-10 pr-4 py-2 bg-[var(--tng-slate-50)] border border-[var(--tng-slate-200)] rounded-lg text-sm text-[var(--tng-slate-900)] placeholder-[var(--tng-slate-400)] focus:bg-white focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] transition-all outline-none"
-                            />
-                            {searchQuery && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--tng-slate-400)] hover:text-[var(--tng-slate-600)]"
-                                >
-                                    Clear
-                                </button>
-                            )}
-                        </div>
+                <FilterToolbar
+                    search={searchQuery}
+                    onSearchChange={filterBy(setSearchQuery)}
+                    onSearchClear={() => setSearchQuery('')}
+                    searchPlaceholder="Search by document reference, tracking number, department, or personnel..."
+                    filterTags={[
+                        { active: statusFilter !== 'all', label: <>Status: {statusFilter}</>, className: 'capitalize' },
+                        { active: actionFilter !== 'all', label: <>Action: {actionFilter}</>, className: 'capitalize' },
+                        { active: deptFilter !== 'all', label: <>Dept: {deptFilter}</>, className: 'truncate max-w-xs' },
+                        { active: dateRangeFilter !== 'all', label: <>Range: {dateRangeFilter}</> },
+                    ]}
+                    onResetFilters={() => {
+                        setSearchQuery('');
+                        setStatusFilter('all');
+                        setActionFilter('all');
+                        setDeptFilter('all');
+                        setDateRangeFilter('all');
+                    }}
+                >
+                    {/* Status Filter: Active, Completed, Returned */}
+                    <FilterSelect value={statusFilter} onChange={filterBy(setStatusFilter)} withIcon>
+                        <option value="all">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="returned">Returned</option>
+                    </FilterSelect>
 
-                        {/* Filter Dropdowns */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Status Filter: Active, Completed, Returned */}
-                            <div className="flex items-center gap-1.5">
-                                <Filter className="h-3.5 w-3.5 text-[var(--tng-slate-400)]" />
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => {
-                                        setStatusFilter(e.target.value);
-                                        setCurrentPage(1);
-                                    }}
-                                    className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none"
-                                >
-                                    <option value="all">All Statuses</option>
-                                    <option value="active">Active</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="returned">Returned</option>
-                                </select>
-                            </div>
+                    {/* Action Type Filter: Forward, Endorse, Return, Approve */}
+                    <FilterSelect value={actionFilter} onChange={filterBy(setActionFilter)}>
+                        <option value="all">All Actions</option>
+                        <option value="forward">Forward</option>
+                        <option value="endorse">Endorse</option>
+                        <option value="return">Return</option>
+                        <option value="approve">Approve</option>
+                    </FilterSelect>
 
-                            {/* Action Type Filter: Forward, Endorse, Return, Approve */}
-                            <select
-                                value={actionFilter}
-                                onChange={(e) => {
-                                    setActionFilter(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none"
-                            >
-                                <option value="all">All Actions</option>
-                                <option value="forward">Forward</option>
-                                <option value="endorse">Endorse</option>
-                                <option value="return">Return</option>
-                                <option value="approve">Approve</option>
-                            </select>
-
-                            {/* Department Filter */}
-                            <select
-                                value={deptFilter}
-                                onChange={(e) => {
-                                    setDeptFilter(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none max-w-[200px] truncate"
-                            >
-                                <option value="all">All Departments</option>
-                                {departments.map((dept) => (
-                                    <option key={dept.department_id} value={dept.department_name}>
-                                        {dept.code ? `[${dept.code}] ` : ''}
-                                        {dept.department_name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            {/* Date Range Filter */}
-                            <select
-                                value={dateRangeFilter}
-                                onChange={(e) => {
-                                    setDateRangeFilter(e.target.value as any);
-                                    setCurrentPage(1);
-                                }}
-                                className="bg-white border border-[var(--tng-slate-200)] rounded-lg text-xs font-medium text-[var(--tng-slate-700)] py-2 px-3 focus:border-[var(--tng-blue-600)] focus:ring-1 focus:ring-[var(--tng-blue-600)] outline-none"
-                            >
-                                <option value="all">All Time</option>
-                                <option value="today">Past 24 Hours</option>
-                                <option value="7days">Past 7 Days</option>
-                                <option value="30days">Past 30 Days</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Filter Summary Tags */}
-                    {(searchQuery || statusFilter !== 'all' || actionFilter !== 'all' || deptFilter !== 'all' || dateRangeFilter !== 'all') && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-[var(--tng-slate-100)] text-xs text-[var(--tng-slate-500)] flex-wrap">
-                            <span>Active Filters:</span>
-                            {searchQuery && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)]">
-                                    Keyword: "{searchQuery}"
-                                </span>
-                            )}
-                            {statusFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)] capitalize">
-                                    Status: {statusFilter}
-                                </span>
-                            )}
-                            {actionFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)] capitalize">
-                                    Action: {actionFilter}
-                                </span>
-                            )}
-                            {deptFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)] truncate max-w-xs">
-                                    Dept: {deptFilter}
-                                </span>
-                            )}
-                            {dateRangeFilter !== 'all' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--tng-slate-100)] text-[var(--tng-slate-700)]">
-                                    Range: {dateRangeFilter}
-                                </span>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setStatusFilter('all');
-                                    setActionFilter('all');
-                                    setDeptFilter('all');
-                                    setDateRangeFilter('all');
-                                }}
-                                className="text-[var(--tng-blue-600)] hover:underline ml-1 font-medium"
-                            >
-                                Reset all
-                            </button>
-                        </div>
-                    )}
-                </div>
+                    <DepartmentSelect value={deptFilter} onChange={filterBy(setDeptFilter)} departments={departments} className="max-w-[200px] truncate" />
+                    <DateRangeSelect value={dateRangeFilter} onChange={filterBy(setDateRangeFilter)} />
+                </FilterToolbar>
 
                 {/* ── View Presentation: Timeline View or Table View ────────── */}
                 {viewMode === 'timeline' ? (

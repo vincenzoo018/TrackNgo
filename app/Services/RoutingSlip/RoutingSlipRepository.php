@@ -16,8 +16,7 @@ class RoutingSlipRepository
      */
     public function getSlipsForUser(User $user): Collection
     {
-        $userRole = strtolower($user->role->role_name ?? '');
-        $isFullAccess = in_array($userRole, ['admin', 'cart']);
+        $isFullAccess = $user->hasFullAccess();
 
         $query = RoutingSlip::with([
             'document.department',
