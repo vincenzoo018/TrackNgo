@@ -215,12 +215,18 @@ export type AuditTrailEntry = {
 // ── SMS Notification ────────────────────────────────────────────────
 export type SmsNotification = {
     id: number;
-    document_ref: string;
+    document_id?: number | null;
+    document_ref: string | null;
+    notification_type?: string | null;
     recipient_name: string;
     mobile_number: string;
     message: string;
-    status: 'sent' | 'failed' | 'pending';
-    sent_at?: string;
+    status: 'queued' | 'sending' | 'pending' | 'sent' | 'failed' | 'refunded' | 'simulated' | 'skipped' | 'invalid_number';
+    simulation?: boolean;
+    attempts?: number;
+    provider_message_id?: string | null;
+    error_message?: string | null;
+    sent_at?: string | null;
     created_at: string;
 };
 

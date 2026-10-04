@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\PhilippineMobileNumber;
+use App\Support\PhilippineMobile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
 
@@ -62,12 +64,12 @@ class StoreDocumentRequest extends FormRequest
     /** Letters (incl. ñ / accented), spaces, periods, apostrophes and hyphens */
     public const NAME_PATTERN = "/^[\pL\s.'-]+$/u";
 
-    /** PH mobile numbers are typed with spaces / dashes; store the plain 11 digits (09XXXXXXXXX). */
+    /** PH mobile numbers arrive as 0917…, 63917… or +63917… (with spaces / dashes); store the plain 09XXXXXXXXX. */
     protected function prepareForValidation(): void
     {
         $client = $this->input('client');
         if (is_array($client) && isset($client['contact_number'])) {
-            $client['contact_number'] = preg_replace('/[\s\-()]/', '', (string) $client['contact_number']);
+            $client['contact_number'] = PhilippineMobile::normalizeInput((string) $client['contact_number']);
             $this->merge(['client' => $client]);
         }
     }
@@ -107,7 +109,8 @@ class StoreDocumentRequest extends FormRequest
                 'client.barangay'            => 'required|string|max:100',
                 'client.city_municipality'   => 'required|string|max:100',
                 'client.province'            => 'required|string|max:100',
-                'client.contact_number'      => ['required', 'string', 'regex:/^09\d{9}$/'],
+                // The applicant is texted when the document is ready for pickup and when it is released
+                'client.contact_number'      => ['required', 'string', new PhilippineMobileNumber()],
                 'client.email'               => 'nullable|email:rfc|max:100',
                 'client.id_type'             => 'nullable|string|max:50',
                 'client.id_number'           => 'nullable|required_with:client.id_type|string|max:50',
@@ -154,7 +157,6 @@ class StoreDocumentRequest extends FormRequest
             'file.mimes'    => 'Upload a PDF, Word (.docx) or image (PNG/JPG) file. Old .doc files cannot be viewed in the system; save them as .docx or PDF first.',
             'signatories.max'        => 'Choose up to ' . self::MAX_SIGNATORIES . ' signatories.',
             'signatories.*.distinct' => 'Each signatory can only be listed once.',
-            'client.contact_number.regex' => 'The contact number must be 11 digits and start with 09, e.g. 09171234567.',
             'client.first_name.regex'          => 'The first name may only contain letters, spaces, periods, apostrophes and hyphens.',
             'client.middle_name.regex'         => 'The middle name may only contain letters, spaces, periods, apostrophes and hyphens.',
             'client.last_name.regex'           => 'The last name may only contain letters, spaces, periods, apostrophes and hyphens.',

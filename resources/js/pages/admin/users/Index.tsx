@@ -736,7 +736,7 @@ function UserAccountFields({
             {/* Section 4: Contact & Account Status */}
             <ModalSection title="Contact & Status" description={copy.contactDescription}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <ModalField label="Mobile Number" description={copy.mobileDescription} error={errors.mobile_number}>
+                    <ModalField label="Mobile Number" required description={copy.mobileDescription} error={errors.mobile_number}>
                         <input
                             type="text"
                             value={data.mobile_number}

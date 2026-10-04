@@ -108,14 +108,16 @@ export function EmployeeFormFields({ data, setData, errors, departments, roles, 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Mobile Number (Optional)</label>
+                    <label className="text-sm font-medium text-[var(--tng-slate-700)]">Mobile Number</label>
                     <input
                         type="text"
+                        maxLength={20}
                         value={data.mobile_number}
                         onChange={e => setData('mobile_number', e.target.value)}
-                        className="w-full rounded-xl border border-[var(--tng-slate-200)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
+                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.mobile_number ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
                         placeholder="09171234567"
                     />
+                    {errors.mobile_number && <p className="text-xs text-red-500">{errors.mobile_number}</p>}
                 </div>
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-[var(--tng-slate-700)]">Password</label>

@@ -7,6 +7,7 @@ use App\Models\AuditTrail;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\RoutingSlip;
+use App\Services\Sms\DocumentSmsNotifier;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -28,7 +29,8 @@ class ArtaMonitor
     public const NON_HANDLER_ROLES = ['CART', self::ACTOR, 'System / ARTA Monitor'];
 
     public function __construct(
-        protected ArtaClock $clock
+        protected ArtaClock $clock,
+        protected DocumentSmsNotifier $smsNotifier
     ) {}
 
     public function syncIfDue(): void
@@ -156,7 +158,7 @@ class ArtaMonitor
             $allowed, $overdue, $overdue === 1 ? '' : 's', $allowed + $overdue, $allowed
         );
 
-        ArtaEscalation::create([
+        $escalation = ArtaEscalation::create([
             'document_id'          => $document->document_id,
             'arta_threshold'       => $allowed,
             'days_elapsed'         => $allowed + $overdue,
@@ -175,6 +177,9 @@ class ArtaMonitor
         CartAlerts::raise($document, CartAlerts::ESCALATED, "Escalated ({$level}): " . CartAlerts::reference($document) . " — {$timing['overdue_days']} day(s) overdue with {$holder}");
         $this->log($document, 'ARTA Escalation', "Escalation level {$level} reached on " . $escalatedAt->copy()->setTimezone(config('arta.timezone'))->format('M d, Y')
             . ". {$reason} Now {$timing['overdue_days']} day(s) overdue. Responsible: {$holder}. CART and the responsible office were notified.");
+
+        // Texted once per escalation record; the monitor never records the same level twice
+        $this->smsNotifier->escalated($document, $escalation);
     }
 
     /** Recorded from the handler's own "Escalate to CART" action, which is already in the audit trail */

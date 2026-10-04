@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\PhilippineMobileNumber;
+use App\Support\PhilippineMobile;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateUserRequest extends FormRequest
@@ -9,6 +11,12 @@ class UpdateUserRequest extends FormRequest
     public function authorize(): bool
     {
         return auth()->check();
+    }
+
+    /** 0917…, 63917… and +63917… are stored (and checked for duplicates) as one form, 0917… */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(['mobile_number' => PhilippineMobile::normalizeInput($this->input('mobile_number'))]);
     }
 
     public function rules(): array
@@ -23,8 +31,13 @@ class UpdateUserRequest extends FormRequest
             'password'      => 'nullable|string|min:6',
             'department_id' => 'required|exists:departments,department_id',
             'role_id'       => 'required|exists:roles,role_id',
-            'mobile_number' => 'nullable|string|max:20',
+            'mobile_number' => PhilippineMobileNumber::forAccount($userId ? (int) $userId : null),
             'is_active'     => 'required|boolean',
         ];
+    }
+
+    public function messages(): array
+    {
+        return PhilippineMobileNumber::accountMessages();
     }
 }

@@ -182,14 +182,15 @@ export default function ProfileShow() {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="mb-1.5 block text-base font-medium text-[var(--tng-slate-700)]">
-                                            Contact Number
+                                            Contact Number <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
+                                            maxLength={20}
                                             value={profileForm.data.mobile_number}
                                             onChange={(e) => profileForm.setData('mobile_number', e.target.value)}
                                             className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
-                                            placeholder="+63 9XX XXX XXXX"
+                                            placeholder="09171234567"
                                         />
                                         {profileForm.errors.mobile_number && <p className="mt-1 text-sm text-red-600">{profileForm.errors.mobile_number}</p>}
                                     </div>

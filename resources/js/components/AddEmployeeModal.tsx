@@ -260,7 +260,7 @@ export default function AddEmployeeModal({ isOpen, onClose, departments = [], ro
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="Mobile Number" description="Optional contact for alerts" error={errors.mobile_number}>
+                        <ModalField label="Mobile Number" required description="For TrackNGo SMS alerts, e.g. 09171234567" error={errors.mobile_number}>
                             <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <input

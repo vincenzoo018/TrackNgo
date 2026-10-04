@@ -38,16 +38,17 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = $request->user();
+        $request->merge(['mobile_number' => \App\Support\PhilippineMobile::normalizeInput($request->input('mobile_number'))]);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'mobile_number' => ['nullable', 'string', 'max:50'],
+            'mobile_number' => \App\Rules\PhilippineMobileNumber::forAccount($user->id),
             'role_id' => ['required', 'integer', 'exists:roles,role_id'],
             'department_id' => ['required', 'integer', 'exists:departments,department_id'],
-        ]);
+        ], \App\Rules\PhilippineMobileNumber::accountMessages());
 
         $user->update($validated);
 

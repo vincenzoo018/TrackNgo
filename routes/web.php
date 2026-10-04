@@ -155,7 +155,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/system', fn() => Inertia::render('admin/system/SystemConfiguration'));
         Route::get('/compliance-reports', [\App\Http\Controllers\ReportController::class, 'index']);
-        Route::get('/notifications/sms', fn() => Inertia::render('cart/notifications/SmsDashboard'));
+        Route::get('/notifications/sms', [\App\Http\Controllers\Admin\SmsDashboardController::class, 'index']);
         Route::get('/templates', fn() => Inertia::render('admin/templates/Index'));
         Route::get('/escalations', [\App\Http\Controllers\CartEscalationController::class, 'index']);
         Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\CartEscalationController::class, 'resolve']);

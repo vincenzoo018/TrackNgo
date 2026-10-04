@@ -9,6 +9,7 @@ use App\Models\Document;
 use App\Models\DocumentAttachment;
 use App\Models\RoutingSlip;
 use App\Models\User;
+use App\Services\Sms\DocumentSmsNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +17,8 @@ use Illuminate\Validation\ValidationException;
 class DocumentWorkflowService
 {
     public function __construct(
-        protected AuditTrailServiceInterface $auditTrailService
+        protected AuditTrailServiceInterface $auditTrailService,
+        protected DocumentSmsNotifier $smsNotifier
     ) {}
 
     /**
@@ -398,6 +400,8 @@ class DocumentWorkflowService
             sender: $actor
         );
 
+        $this->smsNotifier->readyForPickup($document);
+
         return $document;
     }
 
@@ -457,6 +461,7 @@ class DocumentWorkflowService
                 sender: $actor,
                 title: 'Document Approved & Completed'
             );
+            $this->smsNotifier->documentCompleted($document, $sender);
         }
 
         return $document;
@@ -480,6 +485,8 @@ class DocumentWorkflowService
             actor: $actor,
             ipAddress: $ip
         );
+
+        $this->smsNotifier->documentReleased($document);
 
         return $document;
     }

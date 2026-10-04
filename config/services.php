@@ -35,4 +35,32 @@ return [
         ],
     ],
 
+    // Semaphore SMS gateway (https://semaphore.co). The API key lives only in .env; never commit it.
+    'semaphore' => [
+        'api_key'         => env('SEMAPHORE_API_KEY'),
+        // Must be a sender name approved on the Semaphore account; blank = Semaphore's default sender
+        'sender_name'     => env('SEMAPHORE_SENDER_NAME'),
+        'base_url'        => env('SEMAPHORE_BASE_URL', 'https://api.semaphore.co/api/v4'),
+        'timeout'         => (int) env('SEMAPHORE_TIMEOUT', 10),
+        'connect_timeout' => (int) env('SEMAPHORE_CONNECT_TIMEOUT', 5),
+    ],
+
+    /*
+    | SMS switches (see app/Services/SmsService.php):
+    |   SMS_ENABLED=false                    -> never calls Semaphore; SMS are logged as "simulated"
+    |   SMS_ENABLED=true,  SMS_DRY_RUN=true  -> still simulated (dry run always wins)
+    |   SMS_ENABLED=true,  SMS_DRY_RUN=false -> real SMS through Semaphore
+    | Run `php artisan config:clear` after changing these if the config is cached.
+    */
+    'sms' => [
+        'enabled'              => (bool) env('SMS_ENABLED', false),
+        'dry_run'              => (bool) env('SMS_DRY_RUN', true),
+        // Safety limits against loops, duplicate runs and accidental bulk sends
+        'max_per_user_per_day' => (int) env('SMS_MAX_PER_USER_PER_DAY', 10),
+        'max_per_document'     => (int) env('SMS_MAX_PER_DOCUMENT', 10),
+        'min_interval_seconds' => (int) env('SMS_MIN_INTERVAL_SECONDS', 60),
+        'max_per_day'          => (int) env('SMS_MAX_PER_DAY', 200),
+        'max_attempts'         => (int) env('SMS_MAX_ATTEMPTS', 3),
+    ],
+
 ];

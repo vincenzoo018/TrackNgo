@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use App\Rules\PhilippineMobileNumber;
+use App\Support\PhilippineMobile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
@@ -43,6 +45,10 @@ class EmployeeController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge(['mobile_number' => PhilippineMobile::normalizeInput($request->input('mobile_number'))]);
+        // Saving an existing email updates that account, so its own number is not a duplicate
+        $existingId = User::where('email', $request->input('email'))->value('id');
+
         $validated = $request->validate([
             'first_name' => 'required|string|max:60',
             'middle_name' => 'nullable|string|max:60',
@@ -51,9 +57,9 @@ class EmployeeController extends Controller
             'password' => 'required|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',
-            'mobile_number' => 'nullable|string|max:20',
+            'mobile_number' => PhilippineMobileNumber::forAccount($existingId),
             'signature' => 'required|string', // Base64 data URL
-        ]);
+        ], PhilippineMobileNumber::accountMessages());
 
         $user = User::where('email', $validated['email'])->first();
 
@@ -95,6 +101,8 @@ class EmployeeController extends Controller
 
     public function update(Request $request, User $employee)
     {
+        $request->merge(['mobile_number' => PhilippineMobile::normalizeInput($request->input('mobile_number'))]);
+
         $validated = $request->validate([
             'first_name' => 'required|string|max:60',
             'middle_name' => 'nullable|string|max:60',
@@ -103,11 +111,11 @@ class EmployeeController extends Controller
             'password' => 'nullable|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',
-            'mobile_number' => 'nullable|string|max:20',
+            'mobile_number' => PhilippineMobileNumber::forAccount($employee->id),
             'is_active' => 'required|boolean',
             // Optional: a newly drawn signature (base64 PNG data URL) replaces the registered one
             'signature' => ['nullable', 'string', 'max:2000000', 'regex:/^data:image\/(png|jpe?g);base64,[A-Za-z0-9+\/=]+$/'],
-        ]);
+        ], PhilippineMobileNumber::accountMessages());
 
         $data = $validated;
         if (!empty($validated['password'])) {
