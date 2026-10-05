@@ -64,6 +64,11 @@ class StoreDocumentRequest extends FormRequest
     /** Letters (incl. ñ / accented), spaces, periods, apostrophes and hyphens */
     public const NAME_PATTERN = "/^[\pL\s.'-]+$/u";
 
+    /** People on a route (the Receiving Clerk, Admin and CART never process documents) */
+    public const MAX_ROUTE_STOPS = 10;
+
+    private const NOT_ON_ROUTE_ROLES = ['Receiving Clerk', 'Admin', 'CART'];
+
     /** PH mobile numbers arrive as 0917…, 63917… or +63917… (with spaces / dashes); store the plain 09XXXXXXXXX. */
     protected function prepareForValidation(): void
     {
@@ -72,6 +77,38 @@ class StoreDocumentRequest extends FormRequest
             $client['contact_number'] = PhilippineMobile::normalizeInput((string) $client['contact_number']);
             $this->merge(['client' => $client]);
         }
+
+        $this->prepareRoute();
+    }
+
+    /**
+     * A route (ordered people, each signing or reviewing) replaces Forward to / Recipient / Signatories: the
+     * first person (after the sender, when the sender heads it to sign) receives the document and the signers,
+     * in route order, become its signatories.
+     */
+    private function prepareRoute(): void
+    {
+        if (!is_array($this->input('route')) || $this->input('route') === []) {
+            return;
+        }
+
+        $route = collect($this->input('route'))
+            ->filter(fn ($stop) => is_array($stop) && filled($stop['user_id'] ?? null))
+            ->map(fn ($stop) => [
+                'user_id' => (int) $stop['user_id'],
+                'signs'   => filter_var($stop['signs'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            ])
+            ->values();
+
+        $receiverId = collect($route)->first(fn ($stop) => $stop['user_id'] !== (int) $this->user()?->id)['user_id'] ?? null;
+        $receiver = $receiverId ? User::find($receiverId) : null;
+
+        $this->merge([
+            'route'           => $route->all(),
+            'forward_to'      => $receiver?->department_id,
+            'forward_to_user' => $receiver?->id,
+            'signatories'     => $route->where('signs', true)->pluck('user_id')->all(),
+        ]);
     }
 
     public function rules(): array
@@ -92,6 +129,10 @@ class StoreDocumentRequest extends FormRequest
             // Signatories in signing order; the document cannot be completed until all of them have signed
             'signatories'           => 'nullable|array|max:' . self::MAX_SIGNATORIES,
             'signatories.*'         => 'integer|distinct|exists:users,id',
+            // The route: who receives it, in order, and who signs (see prepareRoute)
+            'route'                 => 'nullable|array|max:' . self::MAX_ROUTE_STOPS,
+            'route.*.user_id'       => 'required|integer|distinct|exists:users,id',
+            'route.*.signs'         => 'boolean',
         ];
 
         // Receiving Clerks file documents for external clients, whose details are recorded with the document
@@ -157,6 +198,10 @@ class StoreDocumentRequest extends FormRequest
             'file.mimes'    => 'Upload a PDF, Word (.docx) or image (PNG/JPG) file. Old .doc files cannot be viewed in the system; save them as .docx or PDF first.',
             'signatories.max'        => 'Choose up to ' . self::MAX_SIGNATORIES . ' signatories.',
             'signatories.*.distinct' => 'Each signatory can only be listed once.',
+            'route.max'              => 'A route can have up to ' . self::MAX_ROUTE_STOPS . ' people.',
+            'route.*.user_id.distinct' => 'Each person can only be on the route once.',
+            // With a route, a missing first recipient means the sender listed only themselves
+            'forward_to.required'    => $this->filled('route') ? 'Add at least one person after yourself.' : 'Choose who receives the document first.',
             'client.first_name.regex'          => 'The first name may only contain letters, spaces, periods, apostrophes and hyphens.',
             'client.middle_name.regex'         => 'The middle name may only contain letters, spaces, periods, apostrophes and hyphens.',
             'client.last_name.regex'           => 'The last name may only contain letters, spaces, periods, apostrophes and hyphens.',
@@ -189,8 +234,15 @@ class StoreDocumentRequest extends FormRequest
                 // Signatures are stamped from the image HR registered; nobody signs on the spot
                 $unsigned = $signatories->filter(fn (User $u) => empty($u->signature));
                 if ($unsigned->isNotEmpty()) {
-                    $validator->errors()->add('signatories', $unsigned->pluck('name')->join(', ', ' and ')
+                    $validator->errors()->add($this->filled('route') ? 'route' : 'signatories', $unsigned->pluck('name')->join(', ', ' and ')
                         . ($unsigned->count() > 1 ? ' have' : ' has') . ' no registered signature yet. Ask HR to add it first.');
+                }
+            }
+
+            if ($this->filled('route')) {
+                $this->validateRoute($validator, $actor);
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
                 }
             }
 
@@ -211,7 +263,8 @@ class StoreDocumentRequest extends FormRequest
             } elseif (!DB::table('ph_barangays')->where('city_code', $city->code)->where('name', $this->input('client.barangay'))->exists()) {
                 $validator->errors()->add('client.barangay', 'Select a barangay of ' . $city->name . '.');
             }
-            if ($validator->errors()->isNotEmpty()) {
+            // With a route the Clerk names exactly who receives it first (Mayor, an office head, ...)
+            if ($validator->errors()->isNotEmpty() || $this->filled('route')) {
                 return;
             }
 
@@ -228,6 +281,37 @@ class StoreDocumentRequest extends FormRequest
                 $validator->errors()->add('forward_to_user', 'The selected recipient must be a Department Head of the selected department.');
             }
         });
+    }
+
+    /**
+     * Everyone on a route must be an active official with an office. The sender may appear only first, to sign
+     * as they submit, and then someone else must follow.
+     */
+    private function validateRoute($validator, User $actor): void
+    {
+        $route = collect($this->input('route'));
+        $users = User::with('role')->whereIn('id', $route->pluck('user_id'))->get()->keyBy('id');
+
+        foreach ($route as $index => $stop) {
+            $user = $users->get($stop['user_id']);
+            if (!$user) {
+                continue;
+            }
+            $role = $user->role?->role_name;
+            if ((int) $user->id === (int) $actor->id) {
+                if ($index > 0 || !$stop['signs']) {
+                    $validator->errors()->add('route', 'You can only be first on your own route, to sign the document as you submit it.');
+                } elseif ($route->count() === 1) {
+                    $validator->errors()->add('route', 'Add at least one person after yourself.');
+                }
+            } elseif (!$user->is_active) {
+                $validator->errors()->add('route', "{$user->name} is not an active account.");
+            } elseif (in_array($role, self::NOT_ON_ROUTE_ROLES, true)) {
+                $validator->errors()->add('route', "{$user->name} ({$role}) cannot be on a route; only officials who review or sign documents can.");
+            } elseif (!$user->department_id) {
+                $validator->errors()->add('route', "{$user->name} has no office assigned. Ask HR to assign one first.");
+            }
+        }
     }
 
     /**

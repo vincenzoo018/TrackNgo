@@ -67,7 +67,6 @@ export default function ReceivingDocumentsIndex() {
                     { id: 'received', label: 'Received', match: (d) => classifyDoc(d) === 'received' },
                     { id: 'sent', label: 'Sent', match: (d) => classifyDoc(d) === 'sent' },
                     { id: 'forwarded', label: 'Forwarded', match: (d) => classifyDoc(d) === 'forwarded' },
-                    { id: 'returned', label: 'Returned', match: (d) => classifyDoc(d) === 'returned' },
                 ]}
                 onCreate={() => setIsCreateModalOpen(true)}
                 exportFileName="documents.csv"

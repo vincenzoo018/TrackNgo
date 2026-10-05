@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Contracts\DocumentServiceInterface;
 use App\Http\Requests\StoreDocumentRequest;
+use App\Http\Requests\StoreDocumentRevisionRequest;
 use App\Models\Document;
+use App\Models\DocumentRevision;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use App\Contracts\AuditTrailServiceInterface;
@@ -55,11 +58,22 @@ class DocumentController extends Controller
             'signatories.user.role', 'signatories.user.department', 'signatories.signature',
         ])->findOrFail($id);
         $canView = $document->contentsVisibleTo($user);
+        if ($document->route_based) {
+            // Steps for the progress bar and where approving sends it next
+            $document->setAttribute('route_info', app(\App\Services\Document\DocumentRoute::class)->present($document));
+        }
+        // Versions of the main file (for those who may open it) and whether this viewer may edit the details or
+        // upload a new version; the server checks again on every request
+        $revisions = app(\App\Services\Document\DocumentRevisionService::class);
+        $document->setAttribute('revision_info', $canView ? $revisions->present($document) : null);
+        $document->setAttribute('abilities', $revisions->abilities($document, $user));
 
         return Inertia::render($view, [
             'dbDocument'    => $document,
             'dbAuditTrail'  => \App\Models\AuditTrail::with(['user.role', 'user.department'])->where('document_id', $id)->orderBy('timestamp', 'asc')->get(),
             'dbDepartments' => \App\Models\Department::all(),
+            // Edit Metadata: the document type list
+            'dbDocumentTypes' => \App\Models\DocumentType::orderBy('type_name')->get(['type_id', 'type_name']),
             'dbUsers'       => \App\Models\User::leftJoin('roles', 'users.role_id', '=', 'roles.role_id')
                 ->leftJoin('departments', 'users.department_id', '=', 'departments.department_id')
                 ->select('users.*', 'roles.role_name', 'departments.department_name')
@@ -178,6 +192,19 @@ class DocumentController extends Controller
         }
 
         return redirect()->back()->with('success', 'Document accepted successfully');
+    }
+
+    /** Route-based documents: approve (and sign, when this stop signs) and send it to the next person on the route. */
+    public function approveOnRoute(Request $request, $id)
+    {
+        $actor = $request->user() ?: auth()->user();
+        $document = $this->documentService->executeWorkflowAction((int) $id, 'approveRoute', $request->all(), $actor, $request->ip());
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Document approved.', 'document' => $document]);
+        }
+
+        return redirect()->back()->with('success', 'Document approved and sent on its route.');
     }
 
     public function review(Request $request, $id)
@@ -328,22 +355,36 @@ class DocumentController extends Controller
 
     public function resubmit(Request $request, $id)
     {
-        $request->validate([
-            'files'   => 'required|array|min:1|max:5',
-            'files.*' => 'file|mimes:' . implode(',', StoreDocumentRequest::VIEWABLE_TYPES) . '|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
-            'note'    => 'nullable|string|max:500',
-        ], [
-            'files.required'   => 'Attach at least one corrected or missing file.',
-            'files.max'        => 'Attach up to 5 files at a time.',
-            'files.*.mimes'    => 'Files must be PDF, Word (.docx) or images (PNG/JPG).',
-            'files.*.max'      => 'Each file must not be larger than ' . (StoreDocumentRequest::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
-            'files.*.uploaded' => 'A file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
-        ]);
+        // mode=version: the corrected main file becomes a new version (earlier versions are kept), with a reason
+        if ($request->input('mode') === 'version') {
+            Gate::authorize('createRevision', Document::findOrFail($id));
+            $request->validate(StoreDocumentRevisionRequest::fileRules('main_file') + [
+                'note'     => 'required|string|min:5|max:500',
+                'ocr_text' => 'nullable|string',
+            ], StoreDocumentRevisionRequest::fileMessages('main_file') + [
+                'note.required' => 'Give the reason for the corrected version.',
+                'note.min'      => 'Describe the correction in a few words.',
+            ]);
+        } else {
+            $request->validate([
+                'files'   => 'required|array|min:1|max:5',
+                'files.*' => 'file|mimes:' . implode(',', StoreDocumentRequest::VIEWABLE_TYPES) . '|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
+                'note'    => 'nullable|string|max:500',
+            ], [
+                'files.required'   => 'Attach at least one corrected or missing file.',
+                'files.max'        => 'Attach up to 5 files at a time.',
+                'files.*.mimes'    => 'Files must be PDF, Word (.docx) or images (PNG/JPG).',
+                'files.*.max'      => 'Each file must not be larger than ' . (StoreDocumentRequest::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
+                'files.*.uploaded' => 'A file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
+            ]);
+        }
 
         $actor = $request->user() ?: auth()->user();
         $document = $this->documentService->executeWorkflowAction((int) $id, 'resubmit', [
-            'files' => $request->file('files', []),
-            'note'  => $request->input('note'),
+            'files'     => $request->input('mode') === 'version' ? [] : $request->file('files', []),
+            'note'      => $request->input('note'),
+            'main_file' => $request->input('mode') === 'version' ? $request->file('main_file') : null,
+            'ocr_text'  => $request->input('ocr_text'),
         ], $actor, $request->ip());
 
         $document->loadMissing('currentHolder');
@@ -387,39 +428,52 @@ class DocumentController extends Controller
             return response()->json(['message' => 'This document is confidential. Only its sender and recipients can download it.'], 403);
         }
 
-        // The final signed copy, a correction / supporting file attached to the document, or the main document file
+        // An earlier version of the main file (revision_id; with variant=signed, the copy signed on that version),
+        // the signed copy, a correction / supporting file attached to the document, or the main document file
         $signedCopy = $request->input('variant') === 'signed';
-        $attachment = !$signedCopy && $request->filled('attachment_id')
+        $revision = $request->filled('revision_id')
+            ? DocumentRevision::where('document_id', $document->document_id)->findOrFail($request->input('revision_id'))
+            : null;
+        $attachment = !$signedCopy && !$revision && $request->filled('attachment_id')
             ? \App\Models\DocumentAttachment::where('document_id', $document->document_id)->findOrFail($request->input('attachment_id'))
             : null;
-        $storedPath = $signedCopy ? $document->signed_file_path : ($attachment?->file_path ?? $document->attachment_path);
+        $storedPath = match (true) {
+            $revision !== null => $signedCopy ? $revision->signed_file_path : $revision->file_path,
+            $signedCopy        => $document->signed_file_path,
+            default            => $attachment?->file_path ?? $document->attachment_path,
+        };
 
         if (!$storedPath || !Storage::disk('public')->exists($storedPath)) {
             return response()->json(['message' => 'Original document file is not found on disk.'], 404);
         }
 
+        $currentVersion = $document->currentVersionNumber();
         app(AuditTrailServiceInterface::class)->logDocumentAction(
             document: $document,
             action: 'Exported',
-            description: $signedCopy
-                ? 'Final signed copy downloaded after password verification'
-                : ($attachment
-                    ? "Attached file {$attachment->file_name} downloaded after password verification"
-                    : 'Original document exported after password verification'),
+            description: match (true) {
+                $revision !== null   => ($signedCopy ? "Signed copy of Version {$revision->version_number}" : "Version {$revision->version_number} ({$revision->file_name})")
+                    . ' downloaded after password verification',
+                $signedCopy          => 'Final signed copy downloaded after password verification',
+                $attachment !== null => "Attached file {$attachment->file_name} downloaded after password verification",
+                $currentVersion > 1  => "Document (Version {$currentVersion}) exported after password verification",
+                default              => 'Original document exported after password verification',
+            },
             actor: $user,
             ipAddress: $request->ip()
         );
 
-        $filePath = Storage::disk('public')->path($storedPath);
-        if ($signedCopy) {
-            return response()->download($filePath, "Signed_{$document->reference_number}.pdf");
-        }
-        if ($attachment) {
-            return response()->download($filePath, $attachment->file_name);
-        }
-
+        $reference = $document->reference_number;
+        // Signed copies of Word files stay Word files
         $extension = pathinfo($storedPath, PATHINFO_EXTENSION) ?: 'pdf';
-        return response()->download($filePath, "Document_{$document->reference_number}.{$extension}");
+        $downloadName = match (true) {
+            $revision !== null   => ($signedCopy ? 'Signed_' : 'Document_') . "{$reference}_v{$revision->version_number}.{$extension}",
+            $signedCopy          => "Signed_{$reference}.{$extension}",
+            $attachment !== null => $attachment->file_name,
+            default              => "Document_{$reference}.{$extension}",
+        };
+
+        return response()->download(Storage::disk('public')->path($storedPath), $downloadName);
     }
 
     public function update(Request $request, $id): RedirectResponse
@@ -504,6 +558,8 @@ class DocumentController extends Controller
                 'status'                       => $document->status,
                 'current_step_index'           => $document->current_step_index,
                 'total_steps'                  => $document->total_steps,
+                'route_based'                  => (bool) $document->route_based,
+                'route_info'                   => $document->route_based ? app(\App\Services\Document\DocumentRoute::class)->present($document) : null,
                 'is_internal'                  => (bool) $document->is_internal,
                 'is_escalated'                 => (bool) $document->is_escalated,
                 'return_reason'                => $canView ? $document->return_reason : null,

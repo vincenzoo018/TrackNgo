@@ -29,6 +29,8 @@ export function describeHolder(doc: any, users: any[] = []): string {
     const details = [role, office].filter(Boolean).join(', ');
 
     if (name) return details ? `${name} (${details})` : name;
+    // Finished documents have no holder any more
+    if (!office && ['completed', 'released', 'archived'].includes(String(doc?.status || '').toLowerCase())) return 'None (completed)';
     return office || 'the next office';
 }
 

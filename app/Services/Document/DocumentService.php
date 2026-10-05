@@ -10,6 +10,7 @@ use App\Models\Document;
 use App\Models\DocumentAttachment;
 use App\Models\DocumentClient;
 use App\Models\DocumentComment;
+use App\Models\DocumentRouteStop;
 use App\Models\DocumentSignatory;
 use App\Models\RoutingSlip;
 use App\Models\User;
@@ -28,12 +29,15 @@ class DocumentService implements DocumentServiceInterface
      * view the document.
      */
     private const HOLDER_ONLY_ACTIONS = [
-        'register', 'receive', 'accept', 'review', 'endorse', 'forward',
+        'register', 'receive', 'accept', 'review', 'endorse', 'forward', 'approveRoute',
         'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit', 'link',
     ];
 
     /** Passing the document on is the holder's approval: a signatory's registered signature is stamped then */
-    private const APPROVING_ACTIONS = ['endorse', 'forward', 'approveAndRouteToReceiving'];
+    private const APPROVING_ACTIONS = ['endorse', 'forward', 'approveAndRouteToReceiving', 'approveRoute'];
+
+    /** Route-based documents follow the route chosen at filing; nobody picks the next person by hand */
+    private const MANUAL_ROUTING_ACTIONS = ['endorse', 'forward', 'approveAndRouteToReceiving'];
 
     /** Routing slip instruction to the clerk when the sender left no instructions */
     public const REGISTRATION_INSTRUCTION = 'Submitted for registration and routing.';
@@ -43,7 +47,9 @@ class DocumentService implements DocumentServiceInterface
         protected DocumentNumberGenerator $numberGenerator,
         protected DocumentWorkflowService $workflowService,
         protected AuditTrailServiceInterface $auditTrailService,
-        protected SignatureServiceInterface $signatureService
+        protected SignatureServiceInterface $signatureService,
+        protected DocumentRoute $route,
+        protected DocumentRevisionService $revisionService
     ) {}
 
     public function getDocumentsForUser(User $user): Collection
@@ -64,7 +70,15 @@ class DocumentService implements DocumentServiceInterface
         // Document, routing slip, audit entry and notification are saved atomically;
         // on any failure nothing is half-written and the uploaded file is removed.
         try {
-            return DB::transaction(fn () => $this->persistDocument($data, $path, $actor, $ipAddress));
+            return DB::transaction(function () use ($data, $file, $path, $actor, $ipAddress) {
+                $document = $this->persistDocument($data, $path, $actor, $ipAddress);
+                if ($file && $path) {
+                    // The submitted file is Version 1; corrections become later versions and never overwrite it
+                    $this->revisionService->recordOriginal($document, $file, $path, $actor);
+                }
+
+                return $document;
+            });
         } catch (\Throwable $e) {
             if ($path) {
                 Storage::disk('public')->delete($path);
@@ -185,6 +199,23 @@ class DocumentService implements DocumentServiceInterface
                 'sign_order'  => $index + 1,
             ]);
         }
+
+        // Flexible route chosen at filing (StoreDocumentRequest derived forward_to / signatories from it)
+        foreach (array_values($data['route'] ?? []) as $index => $stop) {
+            $isFiler = (int) $stop['user_id'] === (int) $actor->id;
+            DocumentRouteStop::create([
+                'document_id' => $document->document_id,
+                'user_id'     => (int) $stop['user_id'],
+                'position'    => $index + 1,
+                'signs'       => !empty($stop['signs']),
+                // The sender heading their own route signs as they submit
+                'approved_at' => $isFiler ? now() : null,
+            ]);
+        }
+        if (!empty($data['route'])) {
+            $document->update(['route_based' => true]);
+        }
+
         // A sender who listed themselves signs by submitting it
         $this->signatureService->stampIfDue($document, $actor, $ipAddress);
 
@@ -240,6 +271,10 @@ class DocumentService implements DocumentServiceInterface
             sender: $actor
         );
 
+        if ($document->route_based) {
+            $this->route->sync($document);
+        }
+
         return $document;
     }
 
@@ -255,18 +290,31 @@ class DocumentService implements DocumentServiceInterface
         if (in_array($action, self::HOLDER_ONLY_ACTIONS, true)) {
             $this->ensureActorHoldsDocument($document, $actor);
         }
+        if ($document->route_based && in_array($action, self::MANUAL_ROUTING_ACTIONS, true)) {
+            throw ValidationException::withMessages([
+                'route' => 'This document follows the route set when it was filed. Use Approve to send it to the next person.',
+            ]);
+        }
+        if ($action === 'approveRoute' && !$document->route_based) {
+            throw ValidationException::withMessages(['route' => 'This document has no set route; forward it from the document page.']);
+        }
         $this->ensureSignaturesAllow($document, $action, $actor);
 
-        if (in_array($action, self::APPROVING_ACTIONS, true)) {
+        $result = in_array($action, self::APPROVING_ACTIONS, true)
             // The signature and the move succeed or fail together
-            return DB::transaction(function () use ($document, $action, $params, $actor, $ipAddress) {
+            ? DB::transaction(function () use ($document, $action, $params, $actor, $ipAddress) {
                 $this->signatureService->stampIfDue($document, $actor, $ipAddress);
 
                 return $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
-            });
+            })
+            : $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
+
+        // The progress bar of a routed document is rebuilt from its route and history after every action
+        if ($result->route_based) {
+            $this->route->sync($result);
         }
 
-        return $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
+        return $result;
     }
 
     protected function performWorkflowAction(Document $document, string $action, array $params, User $actor, ?string $ipAddress): Document
@@ -280,11 +328,14 @@ class DocumentService implements DocumentServiceInterface
             'escalate'                  => $this->workflowService->escalate($document, $params['justification'] ?? '', $actor, $ipAddress),
             'link'                      => $this->workflowService->link($document, $params['tracking_number'] ?? '', $actor, $ipAddress),
             'approveAndRouteToReceiving'=> $this->workflowService->approveAndRouteToReceiving($document, $actor, $ipAddress),
+            'approveRoute'              => $this->workflowService->approveOnRoute($document, $actor, $ipAddress),
             'releaseToApplicant'        => $this->workflowService->releaseToApplicant($document, $actor, $ipAddress),
             'archive'                   => $this->workflowService->archive($document, $actor, $ipAddress),
             'return'                    => $this->workflowService->returnDocument($document, $params['reason'] ?? '', $actor, $ipAddress),
             'forward'                   => $this->workflowService->forward($document, $params, $actor, $ipAddress),
-            'resubmit'                  => $this->workflowService->resubmit($document, $params['files'] ?? [], $params['note'] ?? null, $actor, $ipAddress),
+            'resubmit'                  => $this->workflowService->resubmit(
+                $document, $params['files'] ?? [], $params['note'] ?? null, $actor, $ipAddress, $params['main_file'] ?? null, $params['ocr_text'] ?? null
+            ),
             default                     => throw new \InvalidArgumentException("Unknown workflow action: {$action}"),
         };
     }
@@ -299,12 +350,7 @@ class DocumentService implements DocumentServiceInterface
             return;
         }
 
-        $holdsIt = $document->current_holder_id
-            ? (int) $document->current_holder_id === (int) $actor->id
-            : (!$document->current_holder_department_id
-                || (int) $document->current_holder_department_id === (int) $actor->department_id);
-
-        if (!$holdsIt) {
+        if (!$document->isHeldBy($actor)) {
             $holder = $document->currentHolder?->name
                 ?? $document->currentHolderDepartment?->department_name
                 ?? 'another office';
@@ -320,12 +366,15 @@ class DocumentService implements DocumentServiceInterface
      */
     protected function ensureSignaturesAllow(Document $document, string $action, User $actor): void
     {
-        if (!$document->requires_signature || !in_array($action, ['approveAndRouteToReceiving', 'releaseToApplicant'], true)) {
+        // On a route only the last approval sends it out, and the route order has already collected the signatures
+        $finalApproval = $action === 'approveAndRouteToReceiving'
+            || ($action === 'approveRoute' && !$this->route->nextAfter($document, $actor));
+        if (!$document->requires_signature || (!$finalApproval && $action !== 'releaseToApplicant')) {
             return;
         }
 
         $pending = $document->signatories()->whereNull('signed_at')->with('user')->get()
-            ->reject(fn ($s) => $action === 'approveAndRouteToReceiving' && (int) $s->user_id === (int) $actor->id);
+            ->reject(fn ($s) => $finalApproval && (int) $s->user_id === (int) $actor->id);
 
         if ($pending->isNotEmpty()) {
             throw ValidationException::withMessages([
@@ -334,9 +383,10 @@ class DocumentService implements DocumentServiceInterface
             ]);
         }
 
-        if ($action === 'releaseToApplicant' && !$document->signed_file_path) {
+        // A copy built while signatures were still being collected is not the final one
+        if ($action === 'releaseToApplicant' && !$document->hasFinalSignedCopy()) {
             throw ValidationException::withMessages([
-                'signature' => 'All signatures are stamped, but the final signed copy is not attached yet. It is generated when the sender or a signatory opens the document.',
+                'signature' => 'All signatures are stamped, but the final signed copy is not attached yet. Open the document once more to attach it, then release it.',
             ]);
         }
     }

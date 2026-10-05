@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, FileSignature, Loader2 } from 'lucide-react';
+import { ArrowDownToLine, CheckCircle2, Clock, FileSignature, Loader2 } from 'lucide-react';
 
 export type SignatureSummary = {
     required: boolean;
@@ -73,6 +73,12 @@ export function SignatoriesPanel({
     }
 
     const holderId = String(doc.current_holder_id ?? '');
+    // The stamped copy is rebuilt after every signature; it is up to date when it carries all given so far
+    const copyCount = Number(doc.signed_copy_signatures || 0);
+    const copyUpToDate = Boolean(doc.signed_file_path) && copyCount >= summary.signed;
+    const whereStamped = /\.docx$/i.test(String(doc.attachment_path || ''))
+        ? 'The signatures are in a "Signatures" table at the end of the Word document.'
+        : 'The signatures are stamped at the bottom of the last page.';
 
     return (
         <div className="space-y-4 p-5">
@@ -135,32 +141,35 @@ export function SignatoriesPanel({
                 })}
             </ol>
 
-            {summary.allSigned ? (
-                doc.signed_file_path ? (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+            {summary.signed > 0 && (
+                copyUpToDate ? (
+                    <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3">
                         <p className="flex items-center gap-2 text-[13px] font-medium text-emerald-800">
-                            <FileSignature className="h-4 w-4 shrink-0" /> Final
-                            signed copy attached
+                            <FileSignature className="h-4 w-4 shrink-0" />
+                            {summary.allSigned
+                                ? 'Final signed copy attached'
+                                : `Signed copy attached (${copyCount} of ${summary.total} signatures)`}
                         </p>
+                        <p className="text-[12px] text-emerald-800/80">{whereStamped}</p>
                         <button
                             type="button"
                             onClick={onViewSignedCopy}
-                            className="text-[13px] font-medium text-emerald-800 underline underline-offset-2"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100"
                         >
-                            View
+                            <ArrowDownToLine className="h-4 w-4" /> Go to signatures
                         </button>
                     </div>
                 ) : (
                     <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] text-amber-900">
                         <p className="font-medium">
-                            All {summary.total} signatures are stamped.
+                            {summary.signed} of {summary.total} signatures given.
                         </p>
                         {canGenerate ? (
                             <>
                                 <p>
                                     {generating
-                                        ? 'Attaching the final signed copy…'
-                                        : 'The final signed copy could not be attached automatically.'}
+                                        ? 'Stamping the signatures on the document…'
+                                        : 'The signed copy could not be updated automatically.'}
                                 </p>
                                 <button
                                     type="button"
@@ -175,14 +184,14 @@ export function SignatoriesPanel({
                                     )}
                                     {generating
                                         ? 'Stamping signatures…'
-                                        : 'Generate Final Signed Copy'}
+                                        : 'Stamp Signatures Now'}
                                 </button>
                             </>
                         ) : (
                             <p>
-                                Waiting for the sender or a signatory to open
-                                the document so the final signed copy is
-                                attached.
+                                The signatures are stamped on the document as
+                                soon as the sender or someone on its route opens
+                                it.
                             </p>
                         )}
                         {generateError && (
@@ -192,7 +201,8 @@ export function SignatoriesPanel({
                         )}
                     </div>
                 )
-            ) : (
+            )}
+            {!summary.allSigned && (
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-[12px] text-slate-600">
                     {summary.signed} of {summary.total} stamped. The document
                     cannot be completed until every signatory has approved it

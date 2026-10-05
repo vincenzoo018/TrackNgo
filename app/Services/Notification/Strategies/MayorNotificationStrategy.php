@@ -17,7 +17,8 @@ class MayorNotificationStrategy implements NotificationStrategyInterface
             ->where(function ($q) use ($user) {
                 $q->where('current_holder_id', $user->id)
                   ->orWhere('submitted_by', $user->id)
-                  ->orWhereIn('current_step_index', [4, 5, 6])
+                  // Fixed-flow documents at the Mayor's stage (routed ones count only when the Mayor holds them)
+                  ->orWhere(fn ($stage) => $stage->whereIn('current_step_index', [4, 5, 6])->where('route_based', false))
                   ->orWhereHas('currentHolderDepartment', function ($dq) {
                       $dq->where('department_name', 'like', '%Mayor%');
                   })

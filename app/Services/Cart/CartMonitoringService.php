@@ -168,6 +168,11 @@ class CartMonitoringService
     /** Workflow stage in plain words, e.g. "Department review" (step 3 of 7) */
     private function stage(Document $document, bool $closed): array
     {
+        // Route-based documents: the step of their own route, e.g. "Signature — Hon. Mayor"
+        if ($document->route_based && !$closed) {
+            return app(\App\Services\Document\DocumentRoute::class)->stage($document);
+        }
+
         $total = (int) ($document->total_steps ?: ($document->is_internal ? 6 : 7));
         $step = max(1, min((int) ($document->current_step_index ?: 1), $total));
         $status = strtolower((string) $document->status);

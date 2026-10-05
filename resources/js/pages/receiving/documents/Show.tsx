@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { actionButton } from '@/components/trackngo/DocumentDetailView';
-import { DocumentPageView, ReturnButton, ReturnedActions } from '@/components/trackngo/DocumentPageActions';
+import { DocumentPageView, ReturnButton, ReturnedActions, RouteActions } from '@/components/trackngo/DocumentPageActions';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
 import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
@@ -49,6 +49,7 @@ export default function ReceivingDocumentShow(props: DocumentPageProps) {
     };
 
     const handleConfirmAction = () => {
+        if (page.confirmRouteAction()) return;
         const config = CONFIRM_ACTIONS[confirmState.action === 'receive' ? 'accept' : confirmState.action];
         if (!config) return;
         page.postAction(`/documents/${doc.document_id}/${config.url}`, { events: config.events, message: config.message, closeOnError: true });
@@ -68,10 +69,18 @@ export default function ReceivingDocumentShow(props: DocumentPageProps) {
         const std = getStandardizedStatus(doc.status);
         // This page is shared with Admin/CART/HR; Admin keeps override rights (see DocumentService)
         const isHolder = isCurrentHolder(doc, auth?.user) || auth?.user?.role === 'admin';
-        // Internal docs arrive at the clerk as step 1 (status "Ongoing") and must be registered (step 2)
-        const needsRegistration = doc.status === 'submitted' || doc.status === 'pending_registration' ||
-            (Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1 && isHolder);
+        // Internal docs arrive at the clerk as step 1 (status "Ongoing") and must be registered (step 2);
+        // a routed document says so in its own steps
+        const needsRegistration = doc.route_based
+            ? Boolean(doc.is_internal) && isHolder && (doc.route_info?.steps ?? []).some((s: any) => s.label === 'Registration' && s.status === 'current')
+            : doc.status === 'submitted' || doc.status === 'pending_registration' ||
+                (Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1 && isHolder);
         const rawStatus = (doc.status || '').toLowerCase();
+
+        // Documents filed with a route move along it automatically (the clerk still registers internal ones)
+        if (doc.route_based && !needsRegistration) {
+            return <RouteActions page={page} isHolder={isHolder} />;
+        }
 
         // Once the clerk has sent/forwarded the document, it is read-only here until it comes back for release
         if (!isHolder && !needsRegistration && std !== 'Returned' && !isClosedStatus(doc.status)) {

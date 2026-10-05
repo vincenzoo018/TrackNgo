@@ -17,11 +17,13 @@ type Props = {
     attachmentId?: number | null;
     /** 'signed' downloads the final copy with every signature stamped on it */
     variant?: 'signed' | null;
+    /** An earlier version of the main file (with variant 'signed': the copy signed on that version) */
+    revisionId?: number | null;
     onSuccess: (message: string) => void;
     identifier?: string;
 };
 
-export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId, variant = null, onSuccess, identifier }: Props) {
+export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId, variant = null, revisionId = null, onSuccess, identifier }: Props) {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -45,7 +47,11 @@ export function ExportPasswordModal({ isOpen, onClose, documentId, attachmentId,
                     ...csrfHeaders(),
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify(variant ? { password, variant } : attachmentId ? { password, attachment_id: attachmentId } : { password }),
+                body: JSON.stringify({
+                    password,
+                    ...(variant ? { variant } : {}),
+                    ...(revisionId ? { revision_id: revisionId } : !variant && attachmentId ? { attachment_id: attachmentId } : {}),
+                }),
             });
 
             const isJson = (response.headers.get('content-type') || '').includes('application/json');

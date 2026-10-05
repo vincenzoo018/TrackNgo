@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { actionButton } from '@/components/trackngo/DocumentDetailView';
-import { DocumentPageView, NoActionsAvailable, ReturnButton, ReturnedActions } from '@/components/trackngo/DocumentPageActions';
+import { DocumentPageView, NoActionsAvailable, ReturnButton, ReturnedActions, RouteActions } from '@/components/trackngo/DocumentPageActions';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
 import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
@@ -26,6 +26,7 @@ export default function MayorDocumentShow(props: DocumentPageProps) {
     };
 
     const handleConfirmAction = () => {
+        if (page.confirmRouteAction()) return;
         if (confirmState.action === 'accept') {
             page.postAction(`/mayor/documents/${doc.document_id}/accept`, {
                 events: ['tng:fsm-refresh'],
@@ -68,6 +69,8 @@ export default function MayorDocumentShow(props: DocumentPageProps) {
     const returnButton = <ReturnButton page={page} />;
 
     const renderActions = () => {
+        // Documents filed with a route move along it automatically
+        if (doc.route_based) return <RouteActions page={page} isHolder={isCurrentHolder(doc, auth?.user)} />;
         const std = getStandardizedStatus(doc.status);
         // Mayor actions unlock only once the document is endorsed to the Mayor (Mayor becomes current holder)
         if (!isCurrentHolder(doc, auth?.user) && std !== 'Returned' && !isClosedStatus(doc.status)) {
@@ -144,7 +147,7 @@ export default function MayorDocumentShow(props: DocumentPageProps) {
         <TrackngoLayout role="mayor"
             breadcrumbs={[
                 { title: 'Dashboard', href: '/mayor' },
-                { title: 'Final Approvals', href: '/mayor/documents' },
+                { title: 'My Documents', href: '/mayor/documents' },
                 { title: doc.reference_number, href: '#' },
             ]}
         >

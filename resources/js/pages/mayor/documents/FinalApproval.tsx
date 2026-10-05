@@ -24,8 +24,9 @@ export default function MayorFinalApproval() {
     // Anything still with a Department Head is "Waiting to be routed" and has no Mayor actions yet.
     const isForMayorApproval = (doc: any) =>
         isCurrentHolder(doc, authUser) && !['approved', 'completed', 'archived', 'returned'].includes(statusOf(doc));
+    // A routed document is waiting when the Mayor is on its route but it has not reached the Mayor yet
     const isWaitingToBeRouted = (doc: any) =>
-        !isCurrentHolder(doc, authUser) && (doc.current_step_index || 1) < 4 &&
+        !isCurrentHolder(doc, authUser) && (doc.route_based || (doc.current_step_index || 1) < 4) &&
         String(doc.submitted_by) !== String(authUser?.id) &&
         !['approved', 'completed', 'archived', 'returned'].includes(statusOf(doc));
 
@@ -66,7 +67,7 @@ export default function MayorFinalApproval() {
             )}
 
             <DocumentListView
-                title="Office of the Mayor — Final Approvals"
+                title="Office of the Mayor — My Documents"
                 documents={documents}
                 departments={departments}
                 documentTypes={documentTypes}
@@ -76,7 +77,6 @@ export default function MayorFinalApproval() {
                 allFilter={(doc) => statusOf(doc) !== 'archived'}
                 tabs={[
                     { id: 'approved', label: 'Approved', match: (d) => ['approved', 'completed'].includes(statusOf(d)) },
-                    { id: 'returned', label: 'Returned', match: (d) => statusOf(d) === 'returned' },
                 ]}
                 rowNote={(doc) => isWaitingToBeRouted(doc) && (
                     <span className="mt-1 block text-[11px] font-medium text-amber-700">Waiting to be routed</span>

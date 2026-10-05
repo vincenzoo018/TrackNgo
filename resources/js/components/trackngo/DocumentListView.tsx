@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Lock, Search } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
@@ -8,6 +8,7 @@ import { SeverityPill } from '@/components/trackngo/SeverityPill';
 import { StepDots } from '@/components/trackngo/StepProgress';
 import TablePagination from '@/components/trackngo/TablePagination';
 import { getArtaDaysLeft } from '@/lib/arta';
+import { isCurrentHolder } from '@/lib/document-holder';
 import { qrDataUrl, useTrackingLink } from '@/lib/qr';
 import type { StandardizedStatus } from '@/lib/status-helper';
 import { getStandardizedStatus } from '@/lib/status-helper';
@@ -138,11 +139,22 @@ export function DocumentListView({
         setTimeout(() => setToast(null), 3500);
     };
 
+    // Every role that handles documents finds what was sent back to them in one place
+    // (Admin holds no documents, so its tab lists every returned one)
+    const authUser = (usePage().props as any).auth?.user;
+    const isAdmin = authUser?.role === 'admin';
+    const returnedTab: DocumentListTab = useMemo(() => ({
+        id: 'returned_to_me',
+        label: isAdmin ? 'Returned' : 'Returned to Me',
+        match: (doc: any) => String(doc.status || '').toLowerCase() === 'returned' && (isAdmin || isCurrentHolder(doc, authUser)),
+    }), [isAdmin, authUser]);
+
     const allTabs: DocumentListTab[] = useMemo(() => [
         { id: 'needs_action', label: needsActionLabel, match: needsAction },
         { id: 'all', label: allLabel, match: allFilter },
+        returnedTab,
         ...tabs,
-    ], [needsAction, needsActionLabel, allLabel, allFilter, tabs]);
+    ], [needsAction, needsActionLabel, allLabel, allFilter, returnedTab, tabs]);
 
     const tabCounts = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -454,7 +466,8 @@ export function DocumentListView({
                                             <td className="px-4 py-3">
                                                 <StepDots
                                                     current={doc.current_step_index}
-                                                    total={doc.is_internal ? 6 : 7}
+                                                    // Routed documents size their own progress (one step per person, plus returns)
+                                                    total={doc.route_based ? doc.total_steps : (doc.is_internal ? 6 : 7)}
                                                     isInternal={doc.is_internal}
                                                     isSlaBreached={Boolean(doc.is_escalated || (getArtaDaysLeft(doc) ?? 0) < 0)}
                                                 />

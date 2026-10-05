@@ -28,6 +28,15 @@ export type StepProgressProps = {
     onDocumentUpdate?: (updatedDoc: any) => void;
 };
 
+/** A step of a route-based document, computed by the server (App\Services\Document\DocumentRoute) */
+type RouteStepInfo = {
+    label: string;
+    actor: string;
+    office?: string | null;
+    status: 'done' | 'current' | 'pending';
+    at: string | null;
+};
+
 /**
  * Determine the exact step definition and total count
  */
@@ -252,15 +261,22 @@ export function StepProgress({
 
     const [activeProcessType, setActiveProcessType] = useState<FsmProcessType>(initialProcessType);
 
-    // 3. Resolve step array
-    const steps = resolveSteps(activeProcessType);
+    // 3. Resolve step array. Route-based documents bring their own steps from the server (DocumentRoute):
+    // one per person on the route, plus two for every return, so the length follows the document.
+    const routeSteps: RouteStepInfo[] | undefined = Array.isArray(doc?.route_info?.steps) ? doc.route_info.steps : undefined;
+    const steps: FsmStepDefinition[] = routeSteps
+        ? routeSteps.map((s, i) => ({ step: i + 1, label: s.label, role: s.actor }))
+        : resolveSteps(activeProcessType);
 
     // 4. Resolve current step
-    const effectiveStep = resolveCurrentStep(doc, activeProcessType, currentStep);
+    const routeCurrent = routeSteps ? routeSteps.findIndex(s => s.status === 'current') : -1;
+    const effectiveStep = routeSteps
+        ? (routeCurrent === -1 ? steps.length + 1 : routeCurrent + 1)
+        : resolveCurrentStep(doc, activeProcessType, currentStep);
     // Released documents show every stage as completed (clampedStep past the last step)
     const isReleased = ['completed', 'released', 'archived'].includes((doc?.status || '').toLowerCase());
     const isReturned = (doc?.status || '').toLowerCase() === 'returned';
-    const clampedStep = isReleased
+    const clampedStep = isReleased || (routeSteps && effectiveStep > steps.length)
         ? steps.length + 1
         : Math.max(1, Math.min(effectiveStep, steps.length));
 
@@ -300,7 +316,9 @@ export function StepProgress({
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-[#0066cc]/10 border border-[#0066cc]/20 px-2.5 py-1 text-[12px] font-medium text-[#0066cc]">
-                            {activeProcessType === 'external' ? (
+                            {routeSteps ? (
+                                <span>{isInternal ? 'Internal' : 'External'} Route ({steps.length} Steps)</span>
+                            ) : activeProcessType === 'external' ? (
                                 <>
                                     <span>📤</span>
                                     <span>External Process (7 Steps)</span>
@@ -390,8 +408,11 @@ export function StepProgress({
                         const isCurrent = stepNum === clampedStep;
                         const isPending = stepNum > clampedStep;
 
+                        // Route steps already carry who handled them and when
+                        const routeStep = routeSteps?.[idx];
+
                         // ⚙️ Database Binding: Match database action, handler user_id, handler_role, timestamp
-                        const matchingAudit = auditTrails
+                        const matchingAudit = routeStep ? undefined : auditTrails
                             .slice()
                             .reverse()
                             .find(
@@ -408,14 +429,17 @@ export function StepProgress({
                                     (stepNum === steps.length && ['release', 'completed'].includes((a.action || '').toLowerCase()))
                             );
 
-                        const auditActor =
-                            matchingAudit?.user?.name || matchingAudit?.user_name || matchingAudit?.user;
+                        // On a route the person is already the step's subtitle, so it is not repeated below
+                        const auditActor = routeStep
+                            ? undefined
+                            : matchingAudit?.user?.name || matchingAudit?.user_name || matchingAudit?.user;
                         const auditUserId = matchingAudit?.user_id;
                         const auditRole = matchingAudit?.user_role || step.role;
 
                         // Database bound timestamp
-                        const stageTimestamp =
-                            stepNum === 1
+                        const stageTimestamp = routeStep
+                            ? routeStep.at
+                            : stepNum === 1
                                 ? doc?.date_filed || doc?.created_at || matchingAudit?.timestamp
                                 : isCompleted
                                 ? matchingAudit?.timestamp || (stepNum === steps.length ? doc?.completed_at : null)
@@ -500,11 +524,17 @@ export function StepProgress({
                                     >
                                         {step.role}
                                     </span>
+                                    {/* Route steps: the person's office on its own line */}
+                                    {routeStep?.office && (
+                                        <span className="text-[10px] leading-tight text-slate-400 max-w-[130px] truncate" title={routeStep.office}>
+                                            {routeStep.office}
+                                        </span>
+                                    )}
 
                                     {/* GENERAL RULE: Submitted Stage (Step 1) -> ALWAYS display authenticated user directly below Submitted */}
                                     {idx === 0 && compact && (
                                         <div className="flex flex-col items-center mt-1">
-                                            <span className="text-[11px] text-slate-600 max-w-[130px] truncate">{uploaderName}</span>
+                                            {!routeStep && <span className="text-[11px] text-slate-600 max-w-[130px] truncate">{uploaderName}</span>}
                                             {formattedTime && <span className="text-[10px] text-slate-400">{formattedTime}</span>}
                                         </div>
                                     )}
@@ -528,7 +558,9 @@ export function StepProgress({
                                     {/* Active Stage Details (if not step 1) */}
                                     {idx > 0 && isCurrent && compact && (
                                         <span className={cn('mt-1 text-[11px] max-w-[130px] truncate', isReturned || isSlaBreached ? 'text-red-600 font-medium' : 'text-slate-600')}>
-                                            {isReturned
+                                            {routeStep
+                                                ? (isSlaBreached ? 'Overdue' : 'In progress')
+                                                : isReturned
                                                 ? `Returned to ${currentHolder || 'sender'}`
                                                 : isSlaBreached ? 'Overdue' : (currentHolder || auditActor || 'In progress')}
                                         </span>

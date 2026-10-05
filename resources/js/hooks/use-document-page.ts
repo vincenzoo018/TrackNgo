@@ -21,6 +21,15 @@ type ConfirmedActionOptions = {
     closeOnError?: boolean;
 };
 
+/** Actions on a route-based document and their endpoints (DocumentController) */
+export type RouteAction = 'route:accept' | 'route:approve' | 'route:release';
+
+const ROUTE_ENDPOINTS: Record<RouteAction, string> = {
+    'route:accept': 'accept',
+    'route:approve': 'approve-next',
+    'route:release': 'release',
+};
+
 const broadcast = (events: string[]) => events.forEach((name) => window.dispatchEvent(new CustomEvent(name)));
 
 /**
@@ -54,6 +63,14 @@ export function useDocumentPage({ dbDocument, dbAuditTrail, dbComments, dbDepart
 
     const requestAction = (action: string, title: string, message: string, btnText: string) => {
         setConfirmState({ isOpen: true, action, title, message, btnText });
+    };
+
+    // Route-based documents (see RouteActions): the same three actions on every role's page
+    const [routeSuccessMessage, setRouteSuccessMessage] = useState('');
+
+    const requestRouteAction = (action: RouteAction, title: string, message: string, btnText: string, successMessage: string) => {
+        setRouteSuccessMessage(successMessage);
+        requestAction(action, title, message, btnText);
     };
 
     const closeConfirm = () => setConfirmState((prev) => ({ ...prev, isOpen: false }));
@@ -114,6 +131,27 @@ export function useDocumentPage({ dbDocument, dbAuditTrail, dbComments, dbDepart
         });
     };
 
+    /**
+     * Confirm handler for route-based documents. Each page's confirm handler calls it first; it returns
+     * false when the pending action is not a route action, so the page handles it as before.
+     */
+    const confirmRouteAction = (): boolean => {
+        const endpoint = ROUTE_ENDPOINTS[confirmState.action as RouteAction];
+
+        if (!endpoint) {
+            return false;
+        }
+
+        postAction(`/documents/${doc.document_id}/${endpoint}`, {
+            events: ['tng:fsm-refresh', 'tng:document-sent'],
+            message: routeSuccessMessage,
+            // Close the dialog so the reason (e.g. a signature still missing) shows in the Actions panel
+            closeOnError: true,
+        });
+
+        return true;
+    };
+
     return {
         auth,
         doc,
@@ -135,6 +173,8 @@ export function useDocumentPage({ dbDocument, dbAuditTrail, dbComments, dbDepart
         closeSuccess,
         isActionLoading,
         requestAction,
+        requestRouteAction,
+        confirmRouteAction,
         postAction,
         postEndorse,
         postReturn,

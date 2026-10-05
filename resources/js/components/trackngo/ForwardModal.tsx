@@ -31,7 +31,7 @@ export function ForwardModal({
     const [remarks, setRemarks] = useState(defaultRemarks);
 
     const systemRoles = [
-        { id: 'Mayor', name: 'Office of the Mayor (Mayor)', description: 'Hon. Michelle N. Rabat — Final Approval Authority' },
+        { id: 'Mayor', name: 'Office of the Mayor (Mayor)', description: 'Hon. Michelle N. Rabat — Approval Authority' },
         { id: 'Department Head', name: 'Department Head', description: 'Assigned Department Head — Review & Endorsement' },
         { id: 'Receiving Clerk', name: 'Receiving Clerk', description: 'Document Receiving & Registration Desk (Juan Reyes)' },
         { id: 'HR', name: 'Human Resource (HR)', description: 'City Human Resource Management Office (Ana Gonzales)' },

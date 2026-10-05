@@ -1,9 +1,10 @@
 /**
- * Final signed copy. Each signatory's HR-registered signature is stamped automatically at the bottom of the
- * last page, side by side in signing order, with their name, position and date underneath. The same layout
- * (signatureBlocks) is drawn over the page in the viewer, so what people see is what the final PDF carries.
- * PDFs are stamped in place, photos become a one-page PDF stamped in place, and Word files (which the browser
- * cannot stamp) get a separate signature page. The result is uploaded and attached to the document.
+ * Signed copy. Each signatory's HR-registered signature is stamped automatically at the bottom of the last
+ * page, side by side in signing order, with their name, position and date underneath. The same layout
+ * (signatureBlocks) is drawn over the page in the viewer, so what people see is what the signed PDF carries.
+ * PDFs are stamped in place, photos become a one-page PDF stamped in place, and Word files get a Signatures
+ * table at the end of the document itself (signed-docx.ts). The copy is rebuilt after every signature and
+ * attached to the document; it is final once it carries every signatory.
  */
 import { degrees, PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import type { PDFFont, PDFImage, PDFPage } from 'pdf-lib';
@@ -426,17 +427,33 @@ export async function buildSignedPdf(
     return signaturePage(blocks, meta);
 }
 
+const COPY_TYPES = {
+    pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
+
 export async function uploadSignedCopy(
     documentId: number | string,
     bytes: Uint8Array,
     reference: string,
+    signatureCount: number,
+    extension: keyof typeof COPY_TYPES = 'pdf',
+    /** Version of the document file the signatures were stamped on */
+    version?: number,
 ): Promise<void> {
     const form = new FormData();
     form.append(
         'file',
-        new Blob([bytes as BlobPart], { type: 'application/pdf' }),
-        `Signed_${reference}.pdf`,
+        new Blob([bytes as BlobPart], { type: COPY_TYPES[extension] }),
+        `Signed_${reference}.${extension}`,
     );
+    // The server keeps whichever copy carries the most signatures
+    form.append('signatures', String(signatureCount));
+
+    // ...and only if it was stamped on the current version of the file
+    if (version) {
+        form.append('version', String(version));
+    }
 
     const res = await fetch(`/documents/${documentId}/signed-copy`, {
         method: 'POST',
@@ -459,14 +476,32 @@ export async function uploadSignedCopy(
     }
 }
 
-/** Build the final copy from the document's signatories and attach it to the document. */
+/**
+ * Build the signed copy from the document's signatories (every signature given so far) and attach it to the
+ * document. Called after each signature, so the stamped file always shows who has signed. Always built from
+ * the original file, so earlier signatures are never stamped twice.
+ */
 export async function generateSignedCopy(doc: any): Promise<void> {
     const fileUrl = doc.attachment_path
         ? `/storage/${doc.attachment_path}`
         : null;
+    const blocks = signatureBlocks(doc.signatories);
+    const signedCount = blocks.filter((b) => b.signed).length;
+    // A newer version of the file is signed again: the server refuses a copy stamped on an older one
+    const version = Number(doc.revision_info?.current) || undefined;
+
+    // Word files keep their format: the signatures are added to the document itself
+    if (fileUrl && /\.docx$/i.test(fileUrl.split(/[?#]/)[0])) {
+        const { stampDocx } = await import('@/lib/signed-docx');
+        const bytes = await stampDocx(await fetchBytes(fileUrl), blocks);
+        await uploadSignedCopy(doc.document_id, bytes, doc.reference_number, signedCount, 'docx', version);
+
+        return;
+    }
+
     const bytes = await buildSignedPdf(
         fileUrl,
-        signatureBlocks(doc.signatories),
+        blocks,
         {
             reference: doc.reference_number,
             tracking: doc.tracking_number,
@@ -476,5 +511,5 @@ export async function generateSignedCopy(doc: any): Promise<void> {
                 : undefined,
         },
     );
-    await uploadSignedCopy(doc.document_id, bytes, doc.reference_number);
+    await uploadSignedCopy(doc.document_id, bytes, doc.reference_number, signedCount, 'pdf', version);
 }

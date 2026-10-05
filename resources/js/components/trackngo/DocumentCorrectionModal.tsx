@@ -3,6 +3,7 @@ import { AlertCircle, UploadCloud, X } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { BaseModal } from './BaseModal';
+import { ResignNotice, VersionFileField, useVersionFile } from './DocumentRevisionModal';
 
 type DocumentCorrectionModalProps = {
     open: boolean;
@@ -11,6 +12,9 @@ type DocumentCorrectionModalProps = {
     returnReason?: string;
     onSuccess?: () => void;
 };
+
+/** version: the corrected main file becomes a new version; files: supporting files next to the main file */
+type CorrectionMode = 'files' | 'version';
 
 const MAX_FILES = 5;
 const ACCEPT = '.pdf,.doc,.docx,.png,.jpg,.jpeg';
@@ -32,8 +36,9 @@ export function findReturner(doc: any): string {
 }
 
 /**
- * Returned document → the holder attaches the missing / corrected files (kept alongside the original)
- * and the document is sent back to whoever returned it (POST /documents/{id}/resubmit).
+ * Returned document → the holder sends the correction back to whoever returned it (POST /documents/{id}/resubmit):
+ * either missing / corrected supporting files (kept alongside the original), or — when they may upload versions —
+ * the corrected main file as a new version (every earlier version is kept).
  */
 export function DocumentCorrectionModal({ open, onClose, document: doc, returnReason, onSuccess }: DocumentCorrectionModalProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,10 +47,16 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
     const [isUploading, setIsUploading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [dragActive, setDragActive] = useState(false);
+    const canUploadVersion = Boolean(doc?.abilities?.create_revision);
+    const [mode, setMode] = useState<CorrectionMode>('files');
+    const versionMode = canUploadVersion && mode === 'version';
+    const mainFile = useVersionFile();
+    const nextVersion = (Number(doc?.revision_info?.current) || 1) + 1;
 
     const docRef = doc?.reference_number ?? doc?.tracking_number ?? 'Document';
     const reasonText = returnReason || doc?.return_reason || 'Document requires remediation or missing files.';
     const returner = findReturner(doc);
+    const ready = versionMode ? Boolean(mainFile.file) && !mainFile.reading && note.trim().length >= 5 : files.length > 0;
 
     const addFiles = (list: FileList | null) => {
         if (!list) {
@@ -68,18 +79,25 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
         setFiles([]);
         setNote('');
         setErrorMessage(null);
+        setMode('files');
+        mainFile.reset();
     };
 
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (files.length === 0) {
-            setErrorMessage('Attach at least one corrected or missing file.');
+        if (!ready) {
+            setErrorMessage(versionMode
+                ? 'Choose the corrected file and describe the correction.'
+                : 'Attach at least one corrected or missing file.');
             return;
         }
 
         setIsUploading(true);
         setErrorMessage(null);
-        router.post(`/documents/${doc.document_id}/resubmit`, { files, note }, {
+        const payload = versionMode
+            ? { mode: 'version', main_file: mainFile.file, note, ...(mainFile.ocrText ? { ocr_text: mainFile.ocrText } : {}) }
+            : { files, note };
+        router.post(`/documents/${doc.document_id}/resubmit`, payload, {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
@@ -100,7 +118,9 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
             onClose={isUploading ? () => {} : onClose}
             title="Upload Document Correction"
             identifier={docRef}
-            description={`Attach the missing or corrected files. ${docRef} will be sent back to ${returner}.`}
+            description={versionMode
+                ? `Upload the corrected document as Version ${nextVersion}. ${docRef} will be sent back to ${returner}.`
+                : `Attach the missing or corrected files. ${docRef} will be sent back to ${returner}.`}
             icon={<AlertCircle className="h-5 w-5 text-rose-600" />}
             maxWidth="max-w-xl"
             headerClassName="bg-rose-50/70 rounded-t-[8px]"
@@ -118,10 +138,10 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
                     </button>
                     <button
                         type="submit"
-                        disabled={files.length === 0 || isUploading}
+                        disabled={!ready || isUploading}
                         className="rounded-lg bg-rose-600 px-5 py-2 text-[14px] font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60"
                     >
-                        {isUploading ? 'Submitting...' : `Submit & Send Back to ${returner}`}
+                        {isUploading ? 'Submitting...' : versionMode && mainFile.reading ? 'Reading file...' : `Submit & Send Back to ${returner}`}
                     </button>
                 </>
             }
@@ -136,6 +156,39 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
                     <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">{errorMessage}</div>
                 )}
 
+                {canUploadVersion && (
+                    <div role="radiogroup" aria-label="What are you sending back?" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {([
+                            ['version', 'Corrected main document', `Replaces the file as Version ${nextVersion}; earlier versions are kept`],
+                            ['files', 'Supporting files', 'Missing or extra files attached next to the main document'],
+                        ] as const).map(([value, label, hint]) => (
+                            <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={mode === value}
+                                onClick={() => {
+                                    setMode(value);
+                                    setErrorMessage(null);
+                                }}
+                                className={cn(
+                                    'rounded-lg border p-3 text-left transition-colors',
+                                    mode === value ? 'border-rose-400 bg-rose-50 ring-1 ring-rose-400' : 'border-slate-200 bg-white hover:bg-slate-50',
+                                )}
+                            >
+                                <span className="block text-[13px] font-semibold text-slate-900">{label}</span>
+                                <span className="mt-0.5 block text-[12px] text-slate-500">{hint}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {versionMode ? (
+                    <>
+                        <ResignNotice doc={doc} sendsBack />
+                        <VersionFileField picker={mainFile} tone="rose" />
+                    </>
+                ) : (
                 <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-slate-800">
                         Corrected / Missing Files <span className="text-rose-500">*</span>
@@ -177,17 +230,22 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
                         </ul>
                     )}
                 </div>
+                )}
 
                 <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-slate-800">
-                        Correction Notes <span className="font-normal text-slate-400">(Optional)</span>
+                        {versionMode
+                            ? <>What Was Corrected <span className="text-rose-500">*</span></>
+                            : <>Correction Notes <span className="font-normal text-slate-400">(Optional)</span></>}
                     </label>
                     <textarea
                         rows={3}
                         maxLength={500}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder="e.g. Attached the missing barangay clearance and updated application form."
+                        placeholder={versionMode
+                            ? 'e.g. Corrected the lot number and the applicant\'s name.'
+                            : 'e.g. Attached the missing barangay clearance and updated application form.'}
                         className="w-full rounded-lg border border-slate-200 p-3 text-[14px] focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
                     />
                 </div>

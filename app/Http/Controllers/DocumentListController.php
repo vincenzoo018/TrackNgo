@@ -67,8 +67,10 @@ class DocumentListController extends Controller
             Document::with(self::LIST_RELATIONS)->whereRaw("LOWER(status) <> 'archived'"),
             $request->user(),
             ownDepartment: false,
-            // Every document at the Mayor's stage, while it is still being processed
+            // Every fixed-flow document at the Mayor's stage, while it is still being processed
+            // (route-based documents reach the Mayor only when the Mayor is on their route)
             alsoVisible: fn (Builder $query) => $query->orWhere(fn ($stage) => $stage->whereIn('current_step_index', [4, 5, 6])
+                ->where('route_based', false)
                 ->whereRaw("LOWER(status) NOT IN ('completed', 'approved')")),
         )->get();
 
@@ -133,6 +135,8 @@ class DocumentListController extends Controller
                 $query->orWhereHas('routingSlips', function ($q) use ($user) {
                     $q->where('to_user_id', $user->id);
                 });
+                // On the route chosen at filing, including stops the document has not reached yet
+                $query->orWhereHas('routeStops', fn ($q) => $q->where('user_id', $user->id));
             })
             ->orderBy('reference_number', 'asc');
     }

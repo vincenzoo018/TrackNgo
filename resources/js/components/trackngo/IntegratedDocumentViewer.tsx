@@ -76,6 +76,10 @@ export interface IntegratedDocumentViewerProps {
     signatureBlocks?: SignatureBlock[];
     /** 'signed' downloads the final signed copy instead of the original */
     downloadVariant?: 'signed' | null;
+    /** Set when the shown file is an earlier version of the document (password-gated download of that version) */
+    revisionId?: number | null;
+    /** Bumped by the page to show where signatures are stamped: the end of the last page / of the document */
+    jumpToEndKey?: number;
     /** Called with the text read by "Scan Text" (OCR of the shown file) */
     onOcrText?: (text: string) => void;
 }
@@ -97,6 +101,8 @@ export default function IntegratedDocumentViewer({
     className,
     signatureBlocks = [],
     downloadVariant = null,
+    revisionId = null,
+    jumpToEndKey = 0,
     onOcrText,
 }: IntegratedDocumentViewerProps) {
     const url = fileUrl ?? pdfUrl ?? null;
@@ -171,6 +177,49 @@ export default function IntegratedDocumentViewer({
         setPageTextItems([]);
         setViewMode('document');
     }, [url]);
+
+    // "Go to signatures": once the file is loaded, show its last page and scroll to the bottom, where the
+    // signatures are stamped (Word files: the Signatures table at the end of the document)
+    const scrollBoxRef = useRef<HTMLDivElement>(null);
+    const pendingJumpRef = useRef(false);
+    useEffect(() => {
+        if (jumpToEndKey > 0) {
+            pendingJumpRef.current = true;
+        }
+    }, [jumpToEndKey]);
+    useEffect(() => {
+        if (!pendingJumpRef.current || !loadedCurrent) {
+            return;
+        }
+
+        if (isPdf && pageNumber !== numPages) {
+            setPageNumber(numPages);
+
+            return;
+        }
+
+        pendingJumpRef.current = false;
+        setViewMode('document');
+        // Give the page a moment to render before scrolling: Word files to their "Signatures" table (a Word page
+        // is drawn at full height, so its foot can be blank), PDFs and images to the foot of the last page
+        const timer = setTimeout(() => {
+            const box = scrollBoxRef.current;
+
+            if (!box) {
+                return;
+            }
+
+            const heading = kind === 'docx'
+                ? Array.from(docxContainerRef.current?.querySelectorAll('p') ?? []).reverse().find((el) => el.textContent?.trim() === 'Signatures')
+                : undefined;
+            const top = heading
+                ? heading.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 24
+                : box.scrollHeight;
+            box.scrollTo({ top, behavior: 'smooth' });
+        }, 600);
+
+        return () => clearTimeout(timer);
+    }, [jumpToEndKey, loadedCurrent, isPdf, kind, pageNumber, numPages]);
 
 
     // Load PDF Document
@@ -863,7 +912,7 @@ export default function IntegratedDocumentViewer({
             )}
 
             {/* Document Stage */}
-            <div className={cn("relative flex-1 bg-slate-100 overflow-auto flex justify-center p-4 sm:p-6 max-h-[780px] tng-scrollbar", canZoom && "min-h-[520px]")}>
+            <div ref={scrollBoxRef} className={cn("relative flex-1 bg-slate-100 overflow-auto flex justify-center p-4 sm:p-6 max-h-[780px] tng-scrollbar", canZoom && "min-h-[520px]")}>
                 {isLoading && viewMode === 'document' && (
                     <div className="flex flex-col items-center justify-center space-y-3 py-24 text-slate-500">
                         <RefreshCw className="h-7 w-7 animate-spin text-[var(--tng-blue-600)]" />
@@ -1142,6 +1191,7 @@ export default function IntegratedDocumentViewer({
                     documentId={documentId!}
                     attachmentId={attachmentId}
                     variant={downloadVariant}
+                    revisionId={revisionId}
                     identifier={fileName}
                     onSuccess={(msg) => {
                         setScanSuccessMessage(msg);

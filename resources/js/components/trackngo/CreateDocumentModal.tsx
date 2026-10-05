@@ -18,17 +18,21 @@ const FIELD_LABELS: Record<string, string> = {
     type_id: 'Document type',
     department_id: 'Originating department',
     classification: 'Classification',
-    forward_to: 'Forward to',
-    forward_to_user: 'Recipient',
+    forward_to: 'Route',
+    forward_to_user: 'Route',
     instruction: 'Instructions / remarks',
     ocr_text: 'Extracted text',
     urgency_justification: 'Urgency justification',
     client: 'Client information',
-    signatories: 'Signatories',
+    signatories: 'Route',
+    route: 'Route',
 };
 
-// Officials who can sign; the Receiving Clerk only registers documents and Admin accounts are not signatories
-const canBeSignatory = (u: any) => !['receiving clerk', 'admin'].includes(String(u.role_name || '').toLowerCase());
+// Officials who review or sign; the Receiving Clerk only registers documents, and Admin / CART never process them
+const canBeOnRoute = (u: any) => !['receiving clerk', 'admin', 'cart'].includes(String(u.role_name || '').toLowerCase());
+
+/** One person on the route, in order; `signs` stamps their registered signature when they approve */
+type RouteStop = { user_id: string; signs: boolean };
 // Full name as the server builds it (first, middle, last), e.g. "Dr. Elena Pascual"
 const personName = (u: any) => u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || `User #${u.id}`;
 
@@ -81,13 +85,6 @@ export default function CreateDocumentModal({
     const maxUploadLabel = uploadLimit?.max_label || '10 MB';
     // Shared auth role key is 'receiving' (see HandleInertiaRequests); clerks only file external documents
     const isReceivingClerk = authUser?.role === 'receiving' || authUser?.role === 'receiving_clerk';
-    const isDeptHeadUser = (u: any) => (u.role_name || '').toLowerCase() === 'department head';
-
-    // Receiving clerks route external documents to a Department Head, so only offer departments that have one
-    const deptHeadDeptIds = new Set((users || []).filter(isDeptHeadUser).map(u => String(u.department_id)));
-    const forwardDepartments = isReceivingClerk
-        ? departments.filter(d => deptHeadDeptIds.has(String(d.department_id)))
-        : departments;
 
     const receivingDept = (departments || []).find(d => d.code === 'REC' || (d.department_name && d.department_name.toLowerCase().includes('receiving')));
     const defaultOriginDept = authUser?.department_id || (receivingDept ? receivingDept.department_id : (departments[0]?.department_id || ''));
@@ -99,20 +96,16 @@ export default function CreateDocumentModal({
         file: null as File | null,
         classification: 'normal',
         urgency_justification: '',
-        forward_to: '',
-        forward_to_user: '',
         instruction: '',
         ocr_text: '',
         client: { ...EMPTY_CLIENT } as ClientInfo,
-        // Signing order = list order
-        signatories: [] as string[],
+        // Who receives it, in order; the server derives the first recipient and the signatories from it
+        route: [] as RouteStop[],
     });
-    const [requiresSignature, setRequiresSignature] = useState(false);
-    // Client details only apply to the clerk's external intake; signatories only when signatures are required
-    transform(({ client, signatories, ...rest }) => ({
+    // Client details only apply to the clerk's external intake
+    transform(({ client, ...rest }) => ({
         ...rest,
         ...(isReceivingClerk ? { client } : {}),
-        ...(requiresSignature ? { signatories } : {}),
     }));
     const fieldErrors = errors as Record<string, string | undefined>;
 
@@ -142,7 +135,7 @@ export default function CreateDocumentModal({
         setIsScanning(false);
         setIsUrgent(false);
         setIsConfidential(false);
-        setRequiresSignature(false);
+        setRouteOffice('');
         setSubmitError(null);
         setCreatedDoc(null);
         reset();
@@ -155,36 +148,51 @@ export default function CreateDocumentModal({
         if (isOpen) resetForm();
     }, [isOpen, defaultOriginDept]);
 
-    // Dependent dropdown for Forward To Users
-    const availableUsers = data.forward_to
-        ? (users || []).filter(u =>
-            String(u.department_id) === String(data.forward_to) &&
-            String(u.id) !== String(authUser?.id) &&
-            // The clerk registers internal documents automatically, so a clerk is never the recipient
-            (isReceivingClerk ? isDeptHeadUser(u) : (u.role_name || '').toLowerCase() !== 'receiving clerk'))
-        : [];
-
-    // Internal documents within the sender's own office must name the colleague who receives them
-    const sendingWithinOwnOffice = !isReceivingClerk && Boolean(data.forward_to) && String(data.forward_to) === String(authUser?.department_id);
-
-    const signatoryOptions = (users || []).filter(u =>
-        canBeSignatory(u) &&
-        !data.signatories.includes(String(u.id)) &&
-        (!isReceivingClerk || String(u.id) !== String(authUser?.id)));
-    const signatoryUser = (id: string) => (users || []).find(u => String(u.id) === id);
-    const addSignatory = (id: string) => {
-        if (!id || data.signatories.includes(id)) return;
-        setData('signatories', [...data.signatories, id]);
-        clearErrors('signatories' as any);
+    // ── Route: the people the document goes through, in order ───────────────────────────────────
+    const isMe = (id: string) => String(id) === String(authUser?.id);
+    const routeIds = data.route.map(stop => stop.user_id);
+    const routeUser = (id: string) => (users || []).find(u => String(u.id) === id);
+    // A sender may head their own route only to sign as they submit (never a Receiving Clerk)
+    const routeOptions = (users || []).filter(u =>
+        canBeOnRoute(u) &&
+        !routeIds.includes(String(u.id)) &&
+        (!isMe(String(u.id)) || (!isReceivingClerk && data.route.length === 0)));
+    // Offices that still have someone to add, for the "office, then person" picker
+    const [routeOffice, setRouteOffice] = useState('');
+    const routeOffices = Array.from(
+        new Map(routeOptions
+            .filter(u => u.department_id)
+            .map(u => [String(u.department_id), u.department_name
+                || departments.find(d => String(d.department_id) === String(u.department_id))?.department_name
+                || `Office #${u.department_id}`])).entries(),
+    )
+        .map(([id, name]) => ({ id, name: String(name) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    const clearRouteErrors = () => clearErrors(...(['route', 'forward_to', 'signatories'] as any[]));
+    const addToRoute = (id: string) => {
+        if (!id || routeIds.includes(id)) return;
+        const user = routeUser(id);
+        // Signing is the usual reason to route to someone; review-only is one click away
+        setData('route', [...data.route, { user_id: id, signs: isMe(id) || Boolean(user?.has_signature) }]);
+        clearRouteErrors();
     };
-    const removeSignatory = (id: string) => setData('signatories', data.signatories.filter(s => s !== id));
-    const moveSignatory = (index: number, offset: -1 | 1) => {
-        const next = [...data.signatories];
+    const removeFromRoute = (index: number) => setData('route', data.route.filter((_, i) => i !== index));
+    const moveOnRoute = (index: number, offset: -1 | 1) => {
+        const next = [...data.route];
         const target = index + offset;
         if (target < 0 || target >= next.length) return;
         [next[index], next[target]] = [next[target], next[index]];
-        setData('signatories', next);
+        setData('route', next);
     };
+    const toggleSigns = (index: number) =>
+        setData('route', data.route.map((stop, i) => (i === index ? { ...stop, signs: !stop.signs } : stop)));
+    const anyoneSigns = data.route.some(stop => stop.signs);
+    // Server errors for the route arrive as route, route.N.user_id, signatories or forward_to
+    const routeError = fieldErrors.route
+        || Object.entries(fieldErrors).find(([key]) => key.startsWith('route.'))?.[1]
+        || fieldErrors.signatories
+        || fieldErrors.forward_to
+        || fieldErrors.forward_to_user;
     const fileStampable = !data.file || /\.(pdf|png|jpe?g)$/i.test(data.file.name);
 
     const updateClient = (field: keyof ClientInfo, value: string) => {
@@ -270,9 +278,11 @@ export default function CreateDocumentModal({
         if (data.file && !String(data.title).trim()) found.title = 'Title is required.';
         if (data.file && !data.type_id) found.type_id = 'Select a document type.';
         if (!data.department_id) found.department_id = 'Select the originating department.';
-        if (!data.forward_to) found.forward_to = 'Select the destination department.';
-        if (sendingWithinOwnOffice && !data.forward_to_user) found.forward_to_user = 'Choose the person in your office who should receive this document.';
-        if (requiresSignature && data.signatories.length === 0) found.signatories = 'Add at least one signatory, or untick "Requires signatures".';
+        if (data.route.filter(stop => !isMe(stop.user_id)).length === 0) {
+            found.route = data.route.length ? 'Add at least one person after yourself.' : 'Add the people this document goes to, in order.';
+        }
+        const unsigned = data.route.filter(stop => stop.signs && !isMe(stop.user_id) && !routeUser(stop.user_id)?.has_signature);
+        if (unsigned.length) found.route = `${unsigned.map(stop => personName(routeUser(stop.user_id))).join(', ')} cannot sign yet (no registered signature). Set them to review only, or ask HR to add it.`;
         if (isUrgent && !String(data.urgency_justification).trim()) found.urgency_justification = 'State the justification for urgency.';
         if (isReceivingClerk) Object.assign(found, validateClient(data.client));
         return found;
@@ -486,49 +496,103 @@ export default function CreateDocumentModal({
 
     const routingFields = (
         <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                    <label className={labelClass}>
-                        Forward To <span className="text-red-500 font-semibold">*</span>
-                    </label>
+            <div className="space-y-2">
+                <label className={labelClass}>
+                    Route <span className="text-red-500 font-semibold">*</span>
+                </label>
+                <p className="text-[11px] leading-tight text-[var(--tng-slate-500)]">
+                    {isReceivingClerk
+                        ? 'The people this document goes to, in order. Each one approves (and signs, if ticked); it then moves to the next person automatically. After the last person it comes back to Receiving for release to the client.'
+                        : 'The people this document goes to after the Receiving Clerk registers it, in order. Each one approves (and signs, if ticked); it then moves to the next person automatically. After the last person it is completed and returned to you.'}
+                </p>
+
+                {data.route.length > 0 && (
+                    <ol className="space-y-1.5">
+                        {data.route.map((stop, index) => {
+                            const user = routeUser(stop.user_id);
+                            const me = isMe(stop.user_id);
+                            return (
+                                <li key={stop.user_id} className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] px-3 py-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-semibold text-[var(--tng-slate-600)] border border-[var(--tng-slate-200)]">{index + 1}</span>
+                                    <div className="min-w-0 flex-1">
+                                        {/* The office and the person in it are shown apart, so it is clear exactly where it goes */}
+                                        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-[var(--tng-slate-500)]">
+                                            {user?.department_name || 'No office'}
+                                        </p>
+                                        <p className="truncate text-sm text-[var(--tng-slate-900)]">
+                                            {user ? personName(user) : `User #${stop.user_id}`}{me ? ' (you, signs as you submit)' : ''}
+                                            {user?.role_name && <span className="text-[12px] text-[var(--tng-slate-500)]"> · {user.role_name}</span>}
+                                        </p>
+                                    </div>
+                                    {!me && (
+                                        <label
+                                            className="flex items-center gap-1.5 rounded-md border border-[var(--tng-slate-200)] bg-white px-2 py-1 text-[11px] font-medium text-[var(--tng-slate-700)] cursor-pointer"
+                                            title={user?.has_signature ? 'Stamp their registered signature when they approve' : 'No registered signature yet (HR adds it); this person can only review'}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={stop.signs}
+                                                disabled={!user?.has_signature && !stop.signs}
+                                                onChange={() => toggleSigns(index)}
+                                                className="h-3.5 w-3.5 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
+                                            />
+                                            {stop.signs ? 'Signs' : 'Reviews'}
+                                        </label>
+                                    )}
+                                    <button type="button" onClick={() => moveOnRoute(index, -1)} disabled={index === 0 || me || isMe(data.route[index - 1]?.user_id)} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white disabled:opacity-30" title="Earlier on the route">
+                                        <ChevronUp className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button type="button" onClick={() => moveOnRoute(index, 1)} disabled={index === data.route.length - 1 || me} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white disabled:opacity-30" title="Later on the route">
+                                        <ChevronDown className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button type="button" onClick={() => removeFromRoute(index)} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white hover:text-red-600" title="Remove">
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ol>
+                )}
+
+                {/* Add a stop: the office first, then the person in that office */}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <select
-                        value={data.forward_to}
-                        onChange={e => setData(d => ({ ...d, forward_to: e.target.value, forward_to_user: '' }))}
+                        value={routeOffice}
+                        onChange={e => setRouteOffice(e.target.value)}
                         className={inputClass}
+                        aria-label="Office of the next person on the route"
                     >
-                        <option value="">Select destination office...</option>
-                        {forwardDepartments.map(dept => (
-                            <option key={dept.department_id} value={dept.department_id}>{dept.department_name}</option>
+                        <option value="">{data.route.length ? 'Next office...' : 'First office...'}</option>
+                        {routeOffices.map(office => (
+                            <option key={office.id} value={office.id}>{office.name}</option>
                         ))}
                     </select>
-                    {errors.forward_to && <p className={errorClass}>{errors.forward_to}</p>}
-                </div>
-
-                <div>
-                    <label className={labelClass}>
-                        {isReceivingClerk
-                            ? 'Department Head (Optional)'
-                            : sendingWithinOwnOffice
-                                ? <>Recipient <span className="text-red-500 font-semibold">*</span></>
-                                : 'Recipient (Optional)'}
-                    </label>
                     <select
-                        value={data.forward_to_user}
-                        onChange={e => setData('forward_to_user', e.target.value)}
-                        disabled={!data.forward_to}
+                        value=""
+                        onChange={e => {
+                            addToRoute(e.target.value);
+                            setRouteOffice('');
+                        }}
+                        disabled={!routeOffice}
                         className={`${inputClass} disabled:bg-[var(--tng-slate-50)] disabled:text-[var(--tng-slate-400)]`}
+                        aria-label="Add a person to the route"
                     >
-                        <option value="">
-                            {isReceivingClerk ? 'Department Head of this office...' : sendingWithinOwnOffice ? 'Choose a colleague...' : 'Head of the office...'}
-                        </option>
-                        {availableUsers.map(user => (
+                        <option value="">{routeOffice ? 'Person in this office...' : 'Choose the office first'}</option>
+                        {routeOptions.filter(user => String(user.department_id) === routeOffice).map(user => (
                             <option key={user.id} value={user.id}>
-                                {user.first_name} {user.last_name} {user.role_name ? `(${user.role_name})` : ''}
+                                {personName(user)}{isMe(String(user.id)) ? ' (you, to sign as you submit)' : ''}
+                                {user.role_name ? ` — ${user.role_name}` : ''}
+                                {user.has_signature ? '' : ' (review only: no registered signature)'}
                             </option>
                         ))}
                     </select>
-                    {errors.forward_to_user && <p className={errorClass}>{errors.forward_to_user}</p>}
                 </div>
+                {routeError && <p className={errorClass}>{routeError}</p>}
+                {anyoneSigns && !fileStampable && (
+                    <p className="text-[11px] text-amber-700">
+                        Word files cannot be stamped in place, so the final copy will be a separate signature page. Upload a PDF to have the signatures stamped on the document itself.
+                    </p>
+                )}
             </div>
             <div>
                 <label className={labelClass}>
@@ -537,84 +601,13 @@ export default function CreateDocumentModal({
                 <textarea
                     value={data.instruction}
                     onChange={e => setData('instruction', e.target.value)}
-                    placeholder="Enter instructions for the recipient..."
+                    placeholder="Enter instructions for the people on the route..."
                     rows={3}
                     maxLength={500}
                     className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white p-3 text-sm text-[var(--tng-slate-900)] placeholder:text-[var(--tng-slate-400)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                 />
             </div>
         </>
-    );
-
-    const signatureSection = (
-        <div className="space-y-3">
-            <label className="flex items-start gap-3 rounded-lg border border-[var(--tng-slate-200)] bg-white p-3 cursor-pointer transition-colors hover:border-[var(--tng-blue-300)] hover:bg-[var(--tng-blue-50)]">
-                <input
-                    type="checkbox"
-                    checked={requiresSignature}
-                    onChange={e => {
-                        setRequiresSignature(e.target.checked);
-                        if (!e.target.checked) clearErrors('signatories' as any);
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-[var(--tng-slate-300)] text-[var(--tng-blue-600)] focus:ring-[var(--tng-blue-500)]"
-                />
-                <div>
-                    <span className="block text-xs font-semibold text-[var(--tng-slate-800)]">Requires signatures</span>
-                    <span className="block text-[11px] text-[var(--tng-slate-500)] mt-0.5 leading-tight">
-                        Each signatory's registered signature (from HR) is stamped automatically at the bottom of the last page when they forward or approve the document. It cannot be completed until everyone has signed.
-                    </span>
-                </div>
-            </label>
-
-            {requiresSignature && (
-                <div className="space-y-2">
-                    {data.signatories.length > 0 && (
-                        <ol className="space-y-1.5">
-                            {data.signatories.map((id, index) => {
-                                const user = signatoryUser(id);
-                                return (
-                                    <li key={id} className="flex items-center gap-2 rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] px-3 py-2">
-                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-semibold text-[var(--tng-slate-600)] border border-[var(--tng-slate-200)]">{index + 1}</span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm text-[var(--tng-slate-900)]">
-                                                {user ? personName(user) : `User #${id}`}{String(id) === String(authUser?.id) ? ' (you)' : ''}
-                                            </p>
-                                            <p className="truncate text-[11px] text-[var(--tng-slate-500)]">{[user?.role_name, user?.department_name].filter(Boolean).join(' · ')}</p>
-                                        </div>
-                                        <button type="button" onClick={() => moveSignatory(index, -1)} disabled={index === 0} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white disabled:opacity-30" title="Sign earlier">
-                                            <ChevronUp className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button type="button" onClick={() => moveSignatory(index, 1)} disabled={index === data.signatories.length - 1} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white disabled:opacity-30" title="Sign later">
-                                            <ChevronDown className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button type="button" onClick={() => removeSignatory(id)} className="rounded p-1 text-[var(--tng-slate-500)] hover:bg-white hover:text-red-600" title="Remove">
-                                            <X className="h-3.5 w-3.5" />
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ol>
-                    )}
-                    <select value="" onChange={e => addSignatory(e.target.value)} className={inputClass} aria-label="Add a signatory">
-                        <option value="">{data.signatories.length ? 'Add another signatory...' : 'Add a signatory...'}</option>
-                        {signatoryOptions.map(user => (
-                            // Only people with an HR-registered signature can sign
-                            <option key={user.id} value={user.id} disabled={!user.has_signature}>
-                                {personName(user)}{String(user.id) === String(authUser?.id) ? ' (you)' : ''}
-                                {user.role_name ? ` — ${user.role_name}` : ''}{user.department_name ? `, ${user.department_name}` : ''}
-                                {user.has_signature ? '' : ' (no registered signature)'}
-                            </option>
-                        ))}
-                    </select>
-                    {fieldErrors.signatories && <p className={errorClass}>{fieldErrors.signatories}</p>}
-                    {!fileStampable && (
-                        <p className="text-[11px] text-amber-700">
-                            Word files cannot be stamped in place, so the final copy will be a separate signature page. Upload a PDF to have the signatures stamped on the document itself.
-                        </p>
-                    )}
-                </div>
-            )}
-        </div>
     );
 
     // Receiving Clerk: external intake — the document comes from an outside client, so the origin is fixed
@@ -648,11 +641,6 @@ export default function CreateDocumentModal({
                     {routingFields}
                     {urgentOption}
                 </div>
-            </section>
-
-            <section>
-                <SectionHeading step={4} title="Signatures" />
-                <div className="sm:pl-7">{signatureSection}</div>
             </section>
         </>
     );
@@ -712,7 +700,7 @@ export default function CreateDocumentModal({
                                         Passes through the Receiving Clerk
                                     </span>
                                     <span className="block text-[10px] text-[var(--tng-slate-500)] mt-0.5 leading-tight">
-                                        The clerk registers it for the record, then it goes to the recipient you choose below.
+                                        The clerk registers it for the record, then it follows the route you set below.
                                     </span>
                                 </div>
                             </div>
@@ -722,13 +710,8 @@ export default function CreateDocumentModal({
             </section>
 
             <section>
-                <SectionHeading step={2} title="Initial Routing Slip" />
+                <SectionHeading step={2} title="Route" />
                 <div className="space-y-4 sm:pl-7">{routingFields}</div>
-            </section>
-
-            <section>
-                <SectionHeading step={3} title="Signatures" />
-                <div className="sm:pl-7">{signatureSection}</div>
             </section>
         </>
     );

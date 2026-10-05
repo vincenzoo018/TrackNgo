@@ -16,7 +16,9 @@ interface SignatureServiceInterface
     public function stampIfDue(Document $document, User $actor, ?string $ipAddress = null): ?DigitalSignature;
 
     /**
-     * Store the final copy with every signature stamped on it (built in the browser once all have signed).
+     * Store the copy with the signatures stamped so far (built in the browser after each signature); a copy
+     * carrying more signatures replaces the previous one. $signatureCount defaults to the signatures recorded;
+     * $version is the version of the file it was built from (it must still be the current one).
      */
-    public function storeSignedCopy(int $documentId, UploadedFile $file, User $actor, ?string $ipAddress = null): Document;
+    public function storeSignedCopy(int $documentId, UploadedFile $file, User $actor, ?string $ipAddress = null, ?int $signatureCount = null, ?int $version = null): Document;
 }

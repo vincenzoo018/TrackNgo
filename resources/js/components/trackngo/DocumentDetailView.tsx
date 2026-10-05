@@ -1,10 +1,14 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, CheckCircle2, Lock, PenLine } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, FilePlus2, Lock, PenLine, PencilLine } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
 import { DocumentCorrectionModal, findReturner } from '@/components/trackngo/DocumentCorrectionModal';
+import { DocumentMetadataModal } from '@/components/trackngo/DocumentMetadataModal';
+import { DocumentRevisionModal } from '@/components/trackngo/DocumentRevisionModal';
 import { SignatoriesPanel, summarizeSignatures } from '@/components/trackngo/DocumentSigning';
+import { DocumentVersionHistory } from '@/components/trackngo/DocumentVersionHistory';
+import type { DocumentVersion } from '@/components/trackngo/DocumentVersionHistory';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
 import { csrfHeaders } from '@/lib/csrf';
@@ -112,6 +116,8 @@ export function DocumentDetailView({
 
     const [generating, setGenerating] = useState(false);
     const [generateError, setGenerateError] = useState<string | null>(null);
+    const [metadataOpen, setMetadataOpen] = useState(false);
+    const [revisionOpen, setRevisionOpen] = useState(false);
 
     const showToast = (message: string) => {
         setToast(message);
@@ -145,13 +151,42 @@ export function DocumentDetailView({
     // Signature block drawn on the last page, where the final signed copy carries it
     const blocks = useMemo(() => signatureBlocks(doc.signatories || []), [doc.signatories]);
 
-    // Main document plus files attached later (e.g. corrections for a returned document)
-    const files: { key: string; label: string; url: string; attachmentId: number | null }[] = [
-        ...(doc.signed_file_path ? [{ key: 'signed', label: 'Final Signed Copy', url: `/storage/${doc.signed_file_path}`, attachmentId: null }] : []),
-        ...(doc.attachment_path ? [{ key: 'main', label: 'Main Document', url: `/storage/${doc.attachment_path}`, attachmentId: null }] : []),
+    // What the server allows this viewer to change (it checks again on every request)
+    const abilities = doc.abilities || {};
+    const revisionInfo = doc.revision_info || null;
+    const currentVersion = Number(revisionInfo?.current) || 1;
+    const earlierVersions: DocumentVersion[] = (revisionInfo?.versions || []).filter((v: DocumentVersion) => !v.is_current);
+
+    // Main document plus files attached later (e.g. corrections for a returned document) and earlier versions
+    const files: { key: string; label: string; url: string; attachmentId: number | null; revisionId?: number; signedCopy?: boolean }[] = [
+        ...(doc.signed_file_path ? [{
+            key: 'signed',
+            label: Number(doc.signed_copy_signatures || 0) >= signatures.total
+                ? 'Final Signed Copy'
+                : `Signed Copy (${doc.signed_copy_signatures} of ${signatures.total} signatures)`,
+            url: `/storage/${doc.signed_file_path}`,
+            attachmentId: null,
+        }] : []),
+        ...(doc.attachment_path ? [{
+            key: 'main',
+            label: currentVersion > 1 ? `Main Document (Version ${currentVersion})` : 'Main Document',
+            url: `/storage/${doc.attachment_path}`,
+            attachmentId: null,
+        }] : []),
         ...attachments
             .filter((a: any) => a.file_path)
             .map((a: any) => ({ key: `att-${a.attachment_id}`, label: a.file_name, url: `/storage/${a.file_path}`, attachmentId: a.attachment_id as number })),
+        ...earlierVersions.flatMap(v => [
+            { key: `rev-${v.revision_id}`, label: `Version ${v.version_number} (earlier)`, url: `/storage/${v.file_path}`, attachmentId: null, revisionId: v.revision_id },
+            ...(v.signed_file_path ? [{
+                key: `revsigned-${v.revision_id}`,
+                label: `Version ${v.version_number} — Signed Copy`,
+                url: `/storage/${v.signed_file_path}`,
+                attachmentId: null,
+                revisionId: v.revision_id,
+                signedCopy: true,
+            }] : []),
+        ]),
     ];
     const activeFile = files.find(f => f.key === selectedFileKey) ?? files[0] ?? null;
     const showFile = (key: string) => {
@@ -159,33 +194,45 @@ export function DocumentDetailView({
         document.getElementById('tng-document-viewer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
     const showAttachment = (attachmentId: number) => showFile(`att-${attachmentId}`);
+    const showVersion = (version: DocumentVersion, signedCopy: boolean) =>
+        showFile(version.is_current ? 'main' : `${signedCopy ? 'revsigned' : 'rev'}-${version.revision_id}`);
+    // "Go to signatures": open the signed copy (or the main file) at the place the signatures are stamped
+    const [signatureJump, setSignatureJump] = useState(0);
+    const goToSignatures = () => {
+        showFile(doc.signed_file_path ? 'signed' : 'main');
+        setSignatureJump(n => n + 1);
+    };
 
     const generateFinalCopy = async (target: any = doc) => {
         setGenerating(true);
         setGenerateError(null);
         try {
             await generateSignedCopy(target);
-            // Back to the default file, which is now the final signed copy
+            // Back to the default file, which is now the signed copy
             setSelectedFileKey(null);
             router.reload({ only: ['dbDocument', 'dbAuditTrail'] });
-            showToast('Final signed copy attached to the document.');
+            showToast(signatures.allSigned
+                ? 'Final signed copy attached to the document.'
+                : 'Signature stamped on the document. Use "Go to signatures" to see it.');
         } catch (e: any) {
-            setGenerateError(e?.message || 'The final signed copy could not be generated. Please try again.');
+            setGenerateError(e?.message || 'The signatures could not be stamped on the document. Please try again.');
         } finally {
             setGenerating(false);
         }
     };
 
-    // Once the last signature is stamped, the first person who has the document open builds the final copy
-    const needsFinalCopy = signatures.allSigned && !doc.signed_file_path && canGenerate;
-    const finalCopyStarted = useRef(false);
+    // After every signature the first person who has the document open (normally the signer, right after
+    // approving) stamps it on the file, so the signed copy always shows everyone who has signed so far
+    const signaturesOnCopy = doc.signed_file_path ? Number(doc.signed_copy_signatures || 0) : 0;
+    const needsSignedCopy = signatures.required && signatures.signed > signaturesOnCopy && canGenerate;
+    const copyStartedFor = useRef(0);
     useEffect(() => {
-        if (!needsFinalCopy || finalCopyStarted.current) {
+        if (!needsSignedCopy || copyStartedFor.current >= signatures.signed) {
             return;
         }
-        finalCopyStarted.current = true;
+        copyStartedFor.current = signatures.signed;
         void Promise.resolve().then(() => generateFinalCopy());
-    }, [needsFinalCopy]);
+    }, [needsSignedCopy, signatures.signed]);
 
     // "Scan Text" on the main document stores the text it read (fixes documents whose text was not read at upload)
     const saveOcrText = async (text: string) => {
@@ -328,10 +375,20 @@ export function DocumentDetailView({
                                 {filedAt && ` · Filed ${formatDate(filedAt, true)}`}
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             {canCorrect && (
                                 <button type="button" onClick={() => onCorrectionOpenChange(true)} className="rounded-lg bg-rose-600 px-3.5 py-2 text-[14px] font-medium text-white hover:bg-rose-700">
                                     Correct Document
+                                </button>
+                            )}
+                            {abilities.edit_metadata && (
+                                <button
+                                    type="button"
+                                    onClick={() => setMetadataOpen(true)}
+                                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[14px] font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                                >
+                                    <PencilLine className="h-4 w-4" />
+                                    Edit Metadata
                                 </button>
                             )}
                             <Link
@@ -349,13 +406,13 @@ export function DocumentDetailView({
                             <p className="flex items-center gap-2 text-[14px] font-semibold text-emerald-900">
                                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                                 Completed{doc.completed_at ? ` on ${formatDate(doc.completed_at, true)}` : ''}.
-                                {signatures.required && (doc.signed_file_path
+                                {signatures.required && (signaturesOnCopy >= signatures.total
                                     ? ' The final copy with every signature is shown below.'
                                     : ' The final signed copy is being attached.')}
                             </p>
                             {doc.signed_file_path && (
-                                <button type="button" onClick={() => showFile('signed')} className="rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-emerald-700">
-                                    View Signed Copy
+                                <button type="button" onClick={goToSignatures} className="rounded-lg bg-emerald-600 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-emerald-700">
+                                    Go to Signatures
                                 </button>
                             )}
                         </div>
@@ -444,10 +501,11 @@ export function DocumentDetailView({
                 </Card>
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 items-start">
+                    <div className="xl:col-span-8 flex min-w-0 flex-col gap-6">
                     {/* Integrated Document Viewer & OCR Workspace */}
                     <Card
                         title="Integrated Document Viewer & OCR Workspace"
-                        className="xl:col-span-8 overflow-hidden"
+                        className="overflow-hidden"
                         aside={
                             <div className="flex flex-wrap items-center gap-2">
                                 {files.length > 1 && (
@@ -457,7 +515,7 @@ export function DocumentDetailView({
                                         className="h-8 max-w-[240px] rounded-lg border border-slate-300 bg-white px-2 text-[13px] text-slate-700"
                                         aria-label="File to view"
                                     >
-                                        {files.map(f => <option key={f.key} value={f.key}>{f.key === 'main' || f.key === 'signed' ? f.label : `Attachment: ${f.label}`}</option>)}
+                                        {files.map(f => <option key={f.key} value={f.key}>{f.key.startsWith('att-') ? `Attachment: ${f.label}` : f.label}</option>)}
                                     </select>
                                 )}
                                 {!isHidden && (
@@ -491,8 +549,10 @@ export function DocumentDetailView({
                                 fileName={activeFile && activeFile.key !== 'main' ? activeFile.label : (doc.title || doc.reference_number)}
                                 documentId={doc.document_id}
                                 attachmentId={activeFile?.attachmentId ?? null}
-                                downloadVariant={activeFile?.key === 'signed' ? 'signed' : null}
+                                revisionId={activeFile?.revisionId ?? null}
+                                downloadVariant={activeFile?.key === 'signed' || activeFile?.signedCopy ? 'signed' : null}
                                 signatureBlocks={signatures.required && activeFile?.key === 'main' && mainKind !== 'other' ? blocks : []}
+                                jumpToEndKey={signatureJump}
                                 onOcrText={activeFile?.key === 'main' && !isHidden ? saveOcrText : undefined}
                                 isConfidential={isHidden}
                                 selectedText={selectedOcrText}
@@ -504,6 +564,32 @@ export function DocumentDetailView({
                             />
                         </div>
                     </Card>
+
+                    {/* Versions of the main file: a correction never overwrites an earlier one */}
+                    {revisionInfo && (
+                        <Card
+                            title={`Version History · Current: Version ${currentVersion}`}
+                            aside={abilities.create_revision && !isReturned && (
+                                <button
+                                    type="button"
+                                    onClick={() => setRevisionOpen(true)}
+                                    className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                                >
+                                    <FilePlus2 className="h-4 w-4" />
+                                    Upload New Version
+                                </button>
+                            )}
+                        >
+                            <DocumentVersionHistory
+                                documentId={doc.document_id}
+                                reference={doc.reference_number}
+                                info={revisionInfo}
+                                onView={showVersion}
+                                onDownloaded={showToast}
+                            />
+                        </Card>
+                    )}
+                    </div>
 
                     <div className="xl:col-span-4 flex flex-col gap-6">
                         <Card title={actionsTitle}>
@@ -625,7 +711,7 @@ export function DocumentDetailView({
                                 generating={generating}
                                 generateError={generateError}
                                 onGenerate={() => generateFinalCopy()}
-                                onViewSignedCopy={() => showFile('signed')}
+                                onViewSignedCopy={goToSignatures}
                             />
                         </Card>
                     </div>
@@ -746,6 +832,24 @@ export function DocumentDetailView({
                     router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments', 'dbAttachments'] });
                 }}
             />
+
+            {abilities.edit_metadata && (
+                // Remounted on every opening so the form starts from the document's current details
+                <DocumentMetadataModal key={metadataOpen ? 'open' : 'closed'} open={metadataOpen} onClose={() => setMetadataOpen(false)} doc={doc} onSaved={showToast} />
+            )}
+
+            {abilities.create_revision && (
+                <DocumentRevisionModal
+                    open={revisionOpen}
+                    onClose={() => setRevisionOpen(false)}
+                    doc={doc}
+                    onSaved={(message) => {
+                        // The new version is the main document now
+                        setSelectedFileKey(null);
+                        showToast(message);
+                    }}
+                />
+            )}
         </>
     );
 }

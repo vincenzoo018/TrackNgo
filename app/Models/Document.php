@@ -46,7 +46,9 @@ class Document extends Model
         'destination_user_id',
         'return_reason',
         'requires_signature',
+        'route_based',
         'signed_file_path',
+        'signed_copy_signatures',
     ];
 
     protected $casts = [
@@ -57,7 +59,16 @@ class Document extends Model
         'is_escalated' => 'boolean',
         'is_internal' => 'boolean',
         'requires_signature' => 'boolean',
+        'route_based' => 'boolean',
+        'signed_copy_signatures' => 'integer',
     ];
+
+    /** The stored signed copy carries every required signature (release / completion may rely on it). */
+    public function hasFinalSignedCopy(): bool
+    {
+        return $this->signed_file_path
+            && $this->signed_copy_signatures >= $this->signatories()->count();
+    }
 
     /**
      * Confidential contents are stripped for anyone outside the sender / route / signatories wherever the
@@ -168,6 +179,12 @@ class Document extends Model
         return $this->hasMany(DigitalSignature::class, 'document_id', 'document_id');
     }
 
+    /** People the document goes through, in order (route_based documents); see App\Services\Document\DocumentRoute. */
+    public function routeStops()
+    {
+        return $this->hasMany(DocumentRouteStop::class, 'document_id', 'document_id')->orderBy('position');
+    }
+
     /** Required signatories chosen by the sender, in signing order. */
     public function signatories()
     {
@@ -193,5 +210,52 @@ class Document extends Model
     public function client()
     {
         return $this->hasOne(DocumentClient::class, 'document_id', 'document_id');
+    }
+
+    /** Versions of the main file, Version 1 (the original) first; the newest is the current file. */
+    public function revisions()
+    {
+        return $this->hasMany(DocumentRevision::class, 'document_id', 'document_id')->orderBy('version_number');
+    }
+
+    public function currentRevision()
+    {
+        return $this->hasOne(DocumentRevision::class, 'document_id', 'document_id')->ofMany('version_number', 'max');
+    }
+
+    /** 1 until a corrected file has been uploaded */
+    public function currentVersionNumber(): int
+    {
+        return (int) ($this->revisions()->max('version_number') ?: 1);
+    }
+
+    /**
+     * The document is with this user: the assigned holder, or anyone in the holding office while it is
+     * unassigned. Mirrors resources/js/lib/document-holder.ts.
+     */
+    public function isHeldBy(User $user): bool
+    {
+        return $this->current_holder_id
+            ? (int) $this->current_holder_id === (int) $user->id
+            : (!$this->current_holder_department_id || (int) $this->current_holder_department_id === (int) $user->department_id);
+    }
+
+    public function isClosed(): bool
+    {
+        return in_array(strtolower((string) $this->status), ['completed', 'released', 'archived'], true);
+    }
+
+    /** Filed, but nobody has received or registered it yet (its filer may still fix what they entered). */
+    public function awaitingFirstReceipt(): bool
+    {
+        return strtolower((string) $this->status) !== 'returned'
+            && $this->routingSlips()->count() <= 1
+            && !$this->auditTrails()->where('action', 'Accepted')->exists();
+    }
+
+    /** Someone has signed the current version of the file */
+    public function hasSignaturesOnCurrentVersion(): bool
+    {
+        return $this->signatories()->whereNotNull('signed_at')->exists();
     }
 }

@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { actionButton } from '@/components/trackngo/DocumentDetailView';
-import { DocumentPageView, NoActionsAvailable, ReturnButton, ReturnedActions } from '@/components/trackngo/DocumentPageActions';
+import { DocumentPageView, NoActionsAvailable, ReturnButton, ReturnedActions, RouteActions } from '@/components/trackngo/DocumentPageActions';
 import { getStandardizedStatus } from '@/lib/status-helper';
 import { isCurrentHolder, describeHolder, isClosedStatus } from '@/lib/document-holder';
 import { HolderStatusCard } from '@/components/trackngo/HolderStatusCard';
@@ -27,6 +27,7 @@ export default function DepartmentHeadReviewAndActions(props: DocumentPageProps)
     };
 
     const handleConfirmAction = () => {
+        if (page.confirmRouteAction()) return;
         if (confirmState.action === 'accept') {
             page.postAction(`/department-head/documents/${doc.document_id}/accept`, {
                 events: ['tng:fsm-refresh'],
@@ -50,6 +51,8 @@ export default function DepartmentHeadReviewAndActions(props: DocumentPageProps)
     const returnButton = <ReturnButton page={page} />;
 
     const renderActions = () => {
+        // Documents filed with a route move along it automatically
+        if (doc.route_based) return <RouteActions page={page} isHolder={isHolder} />;
         const std = getStandardizedStatus(doc.status);
         if (std !== 'Returned' && !isClosedStatus(doc.status) && !isHolder) {
             const awaitingRegistration = Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1;

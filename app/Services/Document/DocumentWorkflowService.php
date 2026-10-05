@@ -3,6 +3,7 @@
 namespace App\Services\Document;
 
 use App\Contracts\AuditTrailServiceInterface;
+use App\Contracts\SignatureServiceInterface;
 use App\Models\AuditTrail;
 use App\Models\Department;
 use App\Models\Document;
@@ -10,6 +11,7 @@ use App\Models\DocumentAttachment;
 use App\Models\RoutingSlip;
 use App\Models\User;
 use App\Services\Sms\DocumentSmsNotifier;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +20,9 @@ class DocumentWorkflowService
 {
     public function __construct(
         protected AuditTrailServiceInterface $auditTrailService,
-        protected DocumentSmsNotifier $smsNotifier
+        protected DocumentSmsNotifier $smsNotifier,
+        protected DocumentRevisionService $revisionService,
+        protected SignatureServiceInterface $signatureService
     ) {}
 
     /**
@@ -351,6 +355,73 @@ class DocumentWorkflowService
         return $document;
     }
 
+    /**
+     * Route-based documents: the holder approves (their signature is stamped beforehand when their stop signs,
+     * see DocumentService) and the document goes to the next person on the route without anyone choosing.
+     * After the last person it goes to the Receiving Clerk for release (external) or is completed and returned
+     * to the sender (internal).
+     */
+    public function approveOnRoute(Document $document, User $actor, ?string $ip = null): Document
+    {
+        $route = app(DocumentRoute::class);
+        if (strtolower((string) $document->status) === 'returned') {
+            throw ValidationException::withMessages(['route' => 'This document was returned. Upload the correction (or return it further back) instead.']);
+        }
+        if (!$route->isOnRoute($document, $actor) && !$actor->hasRole('Admin')) {
+            throw ValidationException::withMessages(['route' => 'Only the people on this document\'s route can approve it.']);
+        }
+
+        // Someone who already approved may hold it again after a correction; their stop stays approved
+        $route->pendingStopFor($document, $actor)?->update(['approved_at' => now()]);
+
+        $next = $route->nextStop($document);
+        if (!$next) {
+            return $this->approveAndRouteToReceiving($document, $actor, $ip);
+        }
+
+        $nextUser = $next->user;
+        $nextDeptId = $nextUser?->department_id ?? $document->current_holder_department_id;
+        $task = $next->signs ? 'signature' : 'approval';
+
+        RoutingSlip::create([
+            'document_id'          => $document->document_id,
+            'tracking_number'      => $document->tracking_number ?: ('PENDING-' . $document->reference_number),
+            'from_user_id'         => $actor->id,
+            'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
+            'to_user_id'           => $nextUser?->id,
+            'target_department_id' => $nextDeptId,
+            'sender_name'          => $actor->name,
+            'action'               => 'route',
+            'instruction'          => "Approved by {$actor->name}. For your {$task}.",
+            'status'               => 'pending',
+            'date_received'        => now(),
+        ]);
+
+        $document->update([
+            'status'                       => 'Sent',
+            'current_holder_id'            => $nextUser?->id,
+            'current_holder_department_id' => $nextDeptId,
+        ]);
+
+        $this->auditTrailService->logDocumentAction(
+            document: $document,
+            action: 'Approve',
+            description: "Approved by {$actor->name} and sent to " . ($nextUser?->name ?? 'the next office') . " for {$task} (stop {$next->position} of the route).",
+            actor: $actor,
+            ipAddress: $ip
+        );
+
+        \App\Services\NotificationService::triggerDocumentReceiptNotification(
+            document: $document,
+            targetUserId: $nextUser?->id,
+            targetDeptId: $nextDeptId,
+            targetRole: $nextUser?->role?->role_name,
+            sender: $actor
+        );
+
+        return $document;
+    }
+
     public function approveAndRouteToReceiving(Document $document, User $actor, ?string $ip = null): Document
     {
         // Internal documents need no release at the counter: the final approval completes them
@@ -578,16 +649,20 @@ class DocumentWorkflowService
     }
 
     /**
-     * A returned document is corrected by its holder: the uploaded files are kept as attachments (the
-     * original stays the main file) and the document goes back to whoever returned it, at the step where
-     * they accept it again.
+     * A returned document is corrected by its holder and goes back to whoever returned it, at the step where
+     * they accept it again. The correction is either supporting files, kept as attachments next to the main
+     * file, or a corrected main file ($mainFile), stored as a new version while the earlier versions are kept.
+     * A signatory whose signature was on the earlier version signs the new one as they send it back.
      *
      * @param  \Illuminate\Http\UploadedFile[]  $files
      */
-    public function resubmit(Document $document, array $files, ?string $note, User $actor, ?string $ip = null): Document
+    public function resubmit(Document $document, array $files, ?string $note, User $actor, ?string $ip = null, ?UploadedFile $mainFile = null, ?string $ocrText = null): Document
     {
         if (strtolower((string) $document->status) !== 'returned') {
             throw ValidationException::withMessages(['files' => 'Only a returned document can be corrected and resubmitted.']);
+        }
+        if (!$mainFile && $files === []) {
+            throw ValidationException::withMessages(['files' => 'Attach the corrected file or at least one supporting file.']);
         }
 
         $returnerId = RoutingSlip::where('document_id', $document->document_id)
@@ -615,8 +690,25 @@ class DocumentWorkflowService
         $storedPaths = [];
 
         try {
-            DB::transaction(function () use ($document, $files, $note, $actor, $ip, $returner, $stepIndex, $version, &$storedPaths) {
+            DB::transaction(function () use ($document, $files, $note, $actor, $ip, $returner, $stepIndex, $version, $mainFile, $ocrText, &$storedPaths) {
                 $fileNames = [];
+                $revision = null;
+                if ($mainFile) {
+                    $signedEarlierVersion = $document->signatories()->where('user_id', $actor->id)->whereNotNull('signed_at')->exists();
+                    $revision = $this->revisionService->create(
+                        $document, $mainFile, $note ?? 'Correction for: ' . ($document->return_reason ?: 'returned document'), $actor, $ip, $ocrText
+                    );
+                    $storedPaths[] = $revision->file_path;
+                    $fileNames[] = "Version {$revision->version_number}: {$revision->file_name}";
+                    $version = "v{$revision->version_number}.0";
+
+                    // Sending the corrected file on is their approval of it: they sign the new version now
+                    if ($signedEarlierVersion) {
+                        $this->signatureService->stampIfDue($document, $actor, $ip);
+                        app(DocumentRoute::class)->pendingStopFor($document, $actor)?->update(['approved_at' => now()]);
+                    }
+                }
+
                 foreach ($files as $file) {
                     $path = $file->store('attachments', 'public');
                     $storedPaths[] = $path;
@@ -642,7 +734,7 @@ class DocumentWorkflowService
                     'target_department_id' => $returner->department_id,
                     'sender_name'          => $actor->name,
                     'action'               => 'resubmit',
-                    'instruction'          => 'Corrected and resubmitted' . ($note ? ": {$note}" : '.'),
+                    'instruction'          => 'Corrected and resubmitted' . ($revision ? " as Version {$revision->version_number}" : '') . ($note ? ": {$note}" : '.'),
                     'status'               => 'pending',
                     'date_received'        => now(),
                 ]);

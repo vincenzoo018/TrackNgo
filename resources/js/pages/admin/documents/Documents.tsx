@@ -34,7 +34,6 @@ export default function AdminDocumentsIndex() {
                     { id: 'received', label: 'Received', match: activeWithStatus('Received') },
                     { id: 'ongoing', label: 'Ongoing', match: activeWithStatus('Ongoing') },
                     { id: 'sent', label: 'Sent', match: activeWithStatus('Sent') },
-                    { id: 'returned', label: 'Returned', match: activeWithStatus('Returned') },
                     { id: 'archived', label: 'Archived', match: (d) => isFinalizedOrArchived(d.status) },
                 ]}
                 deleteUrl={(doc) => `/admin/documents/${doc.document_id}`}

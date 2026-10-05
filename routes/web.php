@@ -36,6 +36,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/release', [\App\Http\Controllers\DocumentController::class, 'releaseToApplicant'])->name('documents.release');
         // Final internal step: current holder forwards the reviewed document to the Receiving Clerk (holder-guarded in DocumentService)
         Route::post('/documents/{id}/approve-route', [\App\Http\Controllers\DocumentController::class, 'approveAndRouteToReceiving'])->name('documents.approveRoute');
+        // Route-based documents: approve and pass to the next person on the route chosen at filing
+        Route::post('/documents/{id}/approve-next', [\App\Http\Controllers\DocumentController::class, 'approveOnRoute'])->name('documents.approveNext');
         Route::post('/documents/{id}/archive', [\App\Http\Controllers\DocumentController::class, 'archiveDocument'])->name('documents.archive');
         Route::post('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'addComment'])->name('documents.comments');
         Route::get('/documents/{id}/comments', [\App\Http\Controllers\DocumentController::class, 'getComments'])->name('documents.getComments');
@@ -46,6 +48,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/documents/{id}/signed-copy', [\App\Http\Controllers\SignatureController::class, 'storeSignedCopy'])->name('documents.signedCopy');
         // Text read from the document file by OCR in the browser (upload, or "Scan Text" in the viewer)
         Route::post('/documents/{id}/ocr-text', [\App\Http\Controllers\DocumentController::class, 'saveOcrText'])->name('documents.ocrText');
+
+        // Edit Metadata and new versions of the main file; who may is checked by App\Policies\DocumentPolicy
+        // (config/document_permissions.php) on every request
+        Route::put('/documents/{id}/metadata', [\App\Http\Controllers\DocumentMetadataController::class, 'update'])->name('documents.metadata');
+        Route::post('/documents/{id}/revisions', [\App\Http\Controllers\DocumentRevisionController::class, 'store'])->name('documents.revisions.store');
     });
 
     // Philippine address lookup (PSA PSGC) for the client address dropdowns
@@ -87,6 +94,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documents', [\App\Http\Controllers\DocumentListController::class, $listAction]);
         Route::get('/archived', [\App\Http\Controllers\DocumentListController::class, 'archived'])->defaults('role', $archiveRole);
         Route::get('/documents/{id}', [\App\Http\Controllers\DocumentController::class, 'page'])->defaults('view', $documentView);
+        Route::get('/documents/{id}/versions', [\App\Http\Controllers\DocumentRevisionController::class, 'index']);
         Route::get('/routing-slips', [\App\Http\Controllers\RoutingSlipController::class, 'index']);
         Route::get('/audit-trail', [\App\Http\Controllers\AuditTrailController::class, 'index']);
         Route::get('/qr', [\App\Http\Controllers\QrCodeController::class, 'index']);
@@ -166,7 +174,6 @@ Route::middleware(['auth'])->group(function () {
         $rolePages('receiving', 'receiving', 'receiving/documents/Show');
         // GET /documents/create removed - handled via modal in Index.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
-        Route::get('/documents/{id}/versions', fn() => Inertia::render('receiving/documents/VersionHistory'));
         Route::get('/documents/{id}/arta-timeline', fn() => Inertia::render('receiving/documents/ArtaTimeline'));
         Route::get('/documents/{id}/ocr-workspace', [\App\Http\Controllers\DocumentController::class, 'ocrWorkspace']);
         Route::get('/documents/{id}/location-map', fn() => Inertia::render('receiving/documents/LocationMap'));

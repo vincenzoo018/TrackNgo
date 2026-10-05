@@ -15,6 +15,8 @@ class DigitalSignature extends Model
 
     protected $fillable = [
         'document_id',
+        // The version of the file that was signed (see DocumentRevision)
+        'revision_id',
         'signed_by_user_id',
         'signature_image',
         'signature_hash',

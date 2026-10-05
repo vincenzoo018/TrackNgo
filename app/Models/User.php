@@ -91,6 +91,14 @@ class User extends Authenticatable implements PasskeyUser
         return $this->role && $this->role->role_name === $roleName;
     }
 
+    /** e.g. "documents.edit_metadata" (config/document_permissions.php) */
+    public function hasDocumentPermission(string $permission): bool
+    {
+        $roles = config('document_permissions.roles', []);
+
+        return in_array($permission, $roles[$this->role?->role_name] ?? [], true);
+    }
+
     /** Admin and CART see system-wide data; every other role is scoped to its own documents and department. */
     public function hasFullAccess(): bool
     {

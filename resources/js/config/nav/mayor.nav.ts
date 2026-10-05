@@ -11,7 +11,7 @@ import type { NavItem } from '@/types';
 
 export const mayorNav: NavItem[] = [
     { title: 'Dashboard', href: '/mayor', icon: LayoutDashboard },
-    { title: 'Final Approval', href: '/mayor/documents', icon: FileCheck },
+    { title: 'My Documents', href: '/mayor/documents', icon: FileCheck },
     { title: 'Routing Slips', href: '/mayor/routing-slips', icon: Route },
     { title: 'QR Codes', href: '/mayor/qr', icon: QrCode },
     { title: 'Audit Trail', href: '/mayor/audit-trail', icon: Activity },

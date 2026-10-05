@@ -18,7 +18,9 @@ class DocumentConfidentiality
     public const HIDDEN_REMARKS = 'Confidential — remarks are visible to the sender and recipients only.';
 
     /** Audit actions whose description can quote the document's contents */
-    private const CONTENT_ACTIONS = ['comment', 'anchored comment', 'attachment', 'resubmitted', 'endorse', 'forward', 'return'];
+    private const CONTENT_ACTIONS = [
+        'comment', 'anchored comment', 'attachment', 'resubmitted', 'endorse', 'forward', 'return', 'metadata updated', 'revision created',
+    ];
 
     /** @var array<string, bool> "documentId:userId" => can view */
     private array $access = [];
@@ -81,7 +83,10 @@ class DocumentConfidentiality
             ? $document->routingSlips->contains(fn ($slip) => (int) $slip->to_user_id === $userId || (int) $slip->from_user_id === $userId)
             : $document->routingSlips()->where(fn ($q) => $q->where('to_user_id', $userId)->orWhere('from_user_id', $userId))->exists();
 
-        return $onRoute || $document->signatories()->where('user_id', $userId)->exists();
+        return $onRoute
+            || $document->signatories()->where('user_id', $userId)->exists()
+            // Everyone on a route chosen at filing (reviewers as well as signers)
+            || $document->routeStops()->where('user_id', $userId)->exists();
     }
 
     /**
@@ -90,12 +95,12 @@ class DocumentConfidentiality
     public function redact(array $data): array
     {
         $data['title'] = self::HIDDEN_TITLE;
-        foreach (['ocr_text', 'attachment_path', 'signed_file_path', 'urgency_justification', 'return_reason'] as $field) {
+        foreach (['ocr_text', 'attachment_path', 'signed_file_path', 'urgency_justification', 'return_reason', 'revision_info'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = null;
             }
         }
-        foreach (['attachments', 'comments', 'audit_trails'] as $relation) {
+        foreach (['attachments', 'comments', 'audit_trails', 'revisions'] as $relation) {
             if (array_key_exists($relation, $data)) {
                 $data[$relation] = [];
             }
@@ -138,6 +143,8 @@ class DocumentConfidentiality
             'attachment'                  => 'A supporting file was uploaded (confidential).',
             'resubmitted'                 => 'Correction submitted and sent back (confidential).',
             'return'                      => 'Document returned for revision (reason is confidential).',
+            'metadata updated'            => 'Document details were updated (confidential).',
+            'revision created'            => 'A new version of the document file was uploaded (confidential).',
             // "Document endorsed to X: remarks" → keep the destination, drop the remarks
             default                       => preg_replace('/^(Document (?:endorsed|forwarded) to [^:]+):.*$/s', '$1.', $description) ?? $description,
         };

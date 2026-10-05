@@ -48,9 +48,13 @@ class SignatureService implements SignatureServiceInterface
             $document->document_id, $document->reference_number, $actor->id, $fileHash, $signedAt->toIso8601String(), hash('sha256', $actor->signature),
         ]));
 
-        return DB::transaction(function () use ($document, $signatory, $actor, $signedAt, $hash, $ipAddress) {
+        // The signature belongs to the version of the file that is current now (a later version is signed again)
+        $revision = $document->currentRevision()->first();
+
+        return DB::transaction(function () use ($document, $signatory, $actor, $signedAt, $hash, $ipAddress, $revision) {
             $signature = DigitalSignature::create([
                 'document_id'       => $document->document_id,
+                'revision_id'       => $revision?->revision_id,
                 'signed_by_user_id' => $actor->id,
                 'signature_image'   => $actor->signature,
                 'signature_hash'    => $hash,
@@ -69,7 +73,8 @@ class SignatureService implements SignatureServiceInterface
                 document: $document,
                 action: 'Digital Signature Stamped',
                 description: "Registered signature of {$actor->name}" . ($role ? " ({$role})" : '')
-                    . " stamped on the document — signature {$signed} of {$total}. SHA-256 " . substr($hash, 0, 16) . '…',
+                    . ' stamped on the document' . ($revision && $revision->version_number > 1 ? " (Version {$revision->version_number})" : '')
+                    . " — signature {$signed} of {$total}. SHA-256 " . substr($hash, 0, 16) . '…',
                 actor: $actor,
                 ipAddress: $ipAddress
             );
@@ -88,15 +93,21 @@ class SignatureService implements SignatureServiceInterface
         });
     }
 
-    public function storeSignedCopy(int $documentId, UploadedFile $file, User $actor, ?string $ipAddress = null): Document
+    public function storeSignedCopy(int $documentId, UploadedFile $file, User $actor, ?string $ipAddress = null, ?int $signatureCount = null, ?int $version = null): Document
     {
         $document = Document::findOrFail($documentId);
 
         if (!$document->requires_signature) {
             throw ValidationException::withMessages(['file' => 'This document does not require signatures.']);
         }
-        if ($document->signatories()->whereNull('signed_at')->exists()) {
-            throw ValidationException::withMessages(['file' => 'The final signed copy can only be generated after every signatory has signed.']);
+        $total = $document->signatories()->count();
+        $signed = $document->signatories()->whereNotNull('signed_at')->count();
+        if ($signed === 0) {
+            throw ValidationException::withMessages(['file' => 'Nobody has signed this document yet.']);
+        }
+        $signatureCount ??= $signed;
+        if ($signatureCount < 1 || $signatureCount > $signed) {
+            throw ValidationException::withMessages(['file' => 'The signed copy does not match the signatures on record. Reload the page and try again.']);
         }
         if (!$document->contentsVisibleTo($actor)) {
             throw ValidationException::withMessages(['file' => 'Only people who can open this document can generate its signed copy.']);
@@ -104,35 +115,53 @@ class SignatureService implements SignatureServiceInterface
 
         $path = $file->store('documents/signed', 'public');
         $fileHash = hash_file('sha256', Storage::disk('public')->path($path));
+        $final = $signatureCount >= $total;
 
         try {
-            // Signatures cannot change once all are stamped, so the first copy attached is the final one;
-            // several open browsers may build it at the same moment and only one is kept
-            $attached = DB::transaction(function () use ($document, $path, $fileHash, $actor, $ipAddress) {
+            // The copy carrying the most signatures is kept: several open browsers may build the same copy at
+            // the same moment, and an older copy never replaces a newer one
+            $replaced = DB::transaction(function () use ($document, $path, $fileHash, $actor, $ipAddress, $signatureCount, $total, $final, $version) {
                 $locked = Document::whereKey($document->document_id)->lockForUpdate()->first();
-                if ($locked->signed_file_path && Storage::disk('public')->exists($locked->signed_file_path)) {
+                // Checked under the same lock a new version takes: the copy must be built from the current
+                // version and carry only signatures made on it (a new version clears them)
+                // (a page that does not say which version it stamped can only have had Version 1)
+                if (($version ?? 1) !== $locked->currentVersionNumber()) {
+                    throw ValidationException::withMessages(['file' => 'A newer version of this document was uploaded. Reload the page to stamp the signatures on it.']);
+                }
+                if ($signatureCount > $locked->signatories()->whereNotNull('signed_at')->count()) {
+                    throw ValidationException::withMessages(['file' => 'The signed copy does not match the signatures on record. Reload the page and try again.']);
+                }
+                if ($locked->signed_file_path && Storage::disk('public')->exists($locked->signed_file_path)
+                    && $locked->signed_copy_signatures >= $signatureCount) {
                     return false;
                 }
 
-                $locked->update(['signed_file_path' => $path]);
+                $previous = $locked->signed_file_path;
+                $locked->update(['signed_file_path' => $path, 'signed_copy_signatures' => $signatureCount]);
 
                 $this->auditTrailService->logDocumentAction(
                     document: $locked,
-                    action: 'Final Signed Copy Generated',
-                    description: 'Final copy with all signatures stamped was attached to the document. SHA-256 ' . substr($fileHash, 0, 16) . '…',
+                    action: $final ? 'Final Signed Copy Generated' : 'Signed Copy Updated',
+                    description: ($final
+                        ? "Final copy with all {$total} signatures stamped was attached to the document."
+                        : "Copy with {$signatureCount} of {$total} signatures stamped was attached to the document.")
+                        . ' SHA-256 ' . substr($fileHash, 0, 16) . '…',
                     actor: $actor,
                     ipAddress: $ipAddress
                 );
 
-                return true;
+                return ['previous' => $previous];
             });
         } catch (\Throwable $e) {
             Storage::disk('public')->delete($path);
             throw $e;
         }
 
-        if (!$attached) {
+        if ($replaced === false) {
             Storage::disk('public')->delete($path);
+        } elseif ($replaced['previous'] && $replaced['previous'] !== $path) {
+            // The newer copy carries every earlier signature too
+            Storage::disk('public')->delete($replaced['previous']);
         }
 
         return $document->refresh();
