@@ -152,7 +152,10 @@ class InternalRoutingAndSignatureTest extends TestCase
             ->where('dbDocuments.0.attachment_path', null));
 
         $this->getJson("/documents/{$id}/comments")->assertExactJson([]);
-        $this->postJson("/documents/{$id}/export", ['password' => 'password'])->assertForbidden();
+        // Even with a correct document PIN the clerk cannot download it
+        $this->clerk->forceFill(['document_pin' => \Illuminate\Support\Facades\Hash::make('135790')])->save();
+        $this->postJson("/documents/{$id}/export", ['pin' => '135790'])->assertForbidden()
+            ->assertJson(['message' => 'This document is confidential. Only its sender and recipients can download it.']);
         $this->post("/documents/{$id}/comments", ['comment' => 'peek'])->assertForbidden();
 
         // The clerk still registers it for the record

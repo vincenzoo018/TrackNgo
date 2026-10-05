@@ -8,15 +8,18 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\PhilippineMobileNumber;
+use App\Services\User\DocumentPinService;
 use App\Support\PhilippineMobile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class EmployeeController extends Controller
 {
     public function __construct(
-        protected AuditTrailServiceInterface $auditTrailService
+        protected AuditTrailServiceInterface $auditTrailService,
+        protected DocumentPinService $documentPins
     ) {}
 
     public function index()
@@ -59,8 +62,22 @@ class EmployeeController extends Controller
             'role_id' => 'required|exists:roles,role_id',
             'mobile_number' => PhilippineMobileNumber::forAccount($existingId),
             'signature' => 'required|string', // Base64 data URL
-        ], PhilippineMobileNumber::accountMessages());
+            // Accounts that handle documents get their document PIN (asked before downloads) when registered
+        ] + DocumentPinService::staffRules(DocumentPinService::roleIdRequiresPin($request->input('role_id'))),
+            PhilippineMobileNumber::accountMessages() + DocumentPinService::staffMessages());
 
+        $pin = $validated['document_pin'] ?? null;
+        unset($validated['document_pin']);
+
+        // The account and its PIN are saved together (nothing is saved if the PIN is refused)
+        DB::transaction(fn () => $this->saveEmployee($validated, $pin, $request));
+
+        return redirect()->route('hr.employees.index')->with('success', 'Employee saved successfully.');
+    }
+
+    /** Create the employee, or update the account already registered with that email */
+    private function saveEmployee(array $validated, ?string $pin, Request $request): void
+    {
         $user = User::where('email', $validated['email'])->first();
 
         if ($user) {
@@ -78,10 +95,12 @@ class EmployeeController extends Controller
         } else {
             $validated['password'] = Hash::make($validated['password']);
             $validated['is_active'] = 1;
-            User::create($validated);
+            $user = User::create($validated);
         }
 
-        return redirect()->route('hr.employees.index')->with('success', 'Employee saved successfully.');
+        if ($pin) {
+            $this->documentPins->setByStaff($user, $pin, $request->user(), $request->ip());
+        }
     }
 
     public function edit(User $employee)
@@ -115,9 +134,11 @@ class EmployeeController extends Controller
             'is_active' => 'required|boolean',
             // Optional: a newly drawn signature (base64 PNG data URL) replaces the registered one
             'signature' => ['nullable', 'string', 'max:2000000', 'regex:/^data:image\/(png|jpe?g);base64,[A-Za-z0-9+\/=]+$/'],
-        ], PhilippineMobileNumber::accountMessages());
+            // Optional: HR resets a forgotten document PIN (the owner changes it in Profile Settings)
+        ] + DocumentPinService::staffRules(false), PhilippineMobileNumber::accountMessages() + DocumentPinService::staffMessages());
 
         $data = $validated;
+        unset($data['document_pin']);
         if (!empty($validated['password'])) {
             $data['password'] = Hash::make($validated['password']);
         } else {
@@ -127,6 +148,9 @@ class EmployeeController extends Controller
             unset($data['signature']);
         }
 
+        if (!empty($validated['document_pin'])) {
+            $this->documentPins->setByStaff($employee, $validated['document_pin'], $request->user(), $request->ip());
+        }
         $employee->update($data);
 
         $this->auditTrailService->logUserAction(

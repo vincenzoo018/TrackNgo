@@ -86,6 +86,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
     Route::put('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [\App\Http\Controllers\ProfileController::class, 'updatePassword'])->name('profile.password');
+    // Document PIN asked before downloads / exports
+    Route::put('/profile/document-pin', [\App\Http\Controllers\ProfileController::class, 'updateDocumentPin'])->name('profile.documentPin');
 
     // Pages every processing role (Admin, Receiving, Department Head, Mayor, HR) has under its own prefix:
     // dashboard, its document list (DocumentListController::$listAction), archive, document page and modules

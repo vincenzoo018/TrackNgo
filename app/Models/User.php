@@ -35,7 +35,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property-read Collection<int, Team> $teams
  */
 #[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'current_team_id', 'avatar', 'role_id', 'department_id', 'mobile_number', 'is_active', 'signature'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'signature'])]
+#[Hidden(['password', 'document_pin', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'signature'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
@@ -49,6 +49,7 @@ class User extends Authenticatable implements PasskeyUser
     protected $appends = [
         'name',
         'has_signature',
+        'has_document_pin',
     ];
 
     /**
@@ -61,6 +62,7 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'document_pin_updated_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
@@ -78,6 +80,14 @@ class User extends Authenticatable implements PasskeyUser
     {
         return \Illuminate\Database\Eloquent\Casts\Attribute::make(
             get: fn (mixed $value, array $attributes) => !empty($attributes['signature']),
+        );
+    }
+
+    /** Whether the account has a document PIN (asked before downloads; the PIN itself stays hidden). */
+    protected function hasDocumentPin(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: fn (mixed $value, array $attributes) => !empty($attributes['document_pin']),
         );
     }
 

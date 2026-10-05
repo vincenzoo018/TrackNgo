@@ -7,12 +7,14 @@ use App\Contracts\UserServiceInterface;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserService implements UserServiceInterface
 {
     public function __construct(
-        protected AuditTrailServiceInterface $auditTrailService
+        protected AuditTrailServiceInterface $auditTrailService,
+        protected DocumentPinService $documentPins
     ) {}
 
     public function getUserIndexPayload(User $actor): array
@@ -45,10 +47,19 @@ class UserService implements UserServiceInterface
 
     public function createUser(array $data, User $actor, ?string $ipAddress = null): User
     {
+        $pin = $data['document_pin'] ?? null;
+        unset($data['document_pin']);
         $data['password'] = Hash::make($data['password']);
         $data['is_active'] = isset($data['is_active']) ? (bool) $data['is_active'] : true;
 
-        $user = User::create($data);
+        $user = DB::transaction(function () use ($data, $pin, $actor, $ipAddress) {
+            $user = User::create($data);
+            if ($pin) {
+                $this->documentPins->setByStaff($user, $pin, $actor, $ipAddress);
+            }
+
+            return $user;
+        });
         $role = Role::find($user->role_id);
         $actorRole = strtolower($actor->role->role_name ?? '') === 'hr' ? 'HR' : 'Admin';
 
@@ -87,6 +98,10 @@ class UserService implements UserServiceInterface
             $updateData['password'] = Hash::make($data['password']);
         }
 
+        // A forgotten document PIN is reset here (refused for the actor's own account: Profile Settings)
+        if (!empty($data['document_pin'])) {
+            $this->documentPins->setByStaff($user, $data['document_pin'], $actor, $ipAddress);
+        }
         $user->update($updateData);
 
         $this->auditTrailService->logUserAction(

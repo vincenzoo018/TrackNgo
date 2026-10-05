@@ -24,4 +24,7 @@ return [
 
     // Roles that may upload a new version only of a document returned to them (the client brought a corrected file)
     'revision_only_when_returned' => ['Receiving Clerk'],
+
+    // Every other role handles documents and must have a document PIN (asked before downloads and exports)
+    'pin_exempt_roles' => ['CART'],
 ];

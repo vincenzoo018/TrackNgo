@@ -185,8 +185,9 @@ class DocumentRevisionTest extends TestCase
         $this->assertEquals($before, $doc->only(['status', 'current_holder_id', 'current_step_index', 'tracking_number']));
         $this->assertSame(2, AuditTrail::where('document_id', $doc->document_id)->where('action', 'Revision Created')->count());
 
-        // Earlier versions stay downloadable (password-checked)
-        $this->actingAs($this->engineer)->post("/documents/{$doc->document_id}/export", ['password' => 'password', 'revision_id' => $versions[0]->revision_id])
+        // Earlier versions stay downloadable (document PIN checked)
+        $this->engineer->forceFill(['document_pin' => Hash::make('135790')])->save();
+        $this->actingAs($this->engineer)->post("/documents/{$doc->document_id}/export", ['pin' => '135790', 'revision_id' => $versions[0]->revision_id])
             ->assertOk()->assertDownload("Document_{$doc->reference_number}_v1.pdf");
         $page = $this->actingAs($this->engineer)->get("/department-head/documents/{$doc->document_id}/versions")->assertOk();
         $this->assertSame(3, $page->viewData('page')['props']['revisions']['current']);

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Rules\PhilippineMobileNumber;
+use App\Services\User\DocumentPinService;
 use App\Support\PhilippineMobile;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -33,11 +34,12 @@ class UpdateUserRequest extends FormRequest
             'role_id'       => 'required|exists:roles,role_id',
             'mobile_number' => PhilippineMobileNumber::forAccount($userId ? (int) $userId : null),
             'is_active'     => 'required|boolean',
-        ];
+            // Optional: resets a forgotten document PIN (the owner changes it in Profile Settings)
+        ] + DocumentPinService::staffRules(false);
     }
 
     public function messages(): array
     {
-        return PhilippineMobileNumber::accountMessages();
+        return PhilippineMobileNumber::accountMessages() + DocumentPinService::staffMessages();
     }
 }

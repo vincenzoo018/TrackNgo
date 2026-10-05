@@ -1,3 +1,5 @@
+import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
+
 export type EmployeeFieldValues = {
     first_name: string;
     middle_name: string;
@@ -7,6 +9,8 @@ export type EmployeeFieldValues = {
     role_id: string | number;
     mobile_number: string;
     password: string;
+    document_pin: string;
+    document_pin_confirmation: string;
 };
 
 type Props = {
@@ -16,10 +20,28 @@ type Props = {
     departments: any[];
     roles: any[];
     passwordPlaceholder: string;
+    /**
+     * Document PIN (asked before downloads): 'register' sets it with the new account (required for every role
+     * that handles documents), 'reset' replaces a forgotten one, 'hidden' when HR edits their own record
+     */
+    pinMode: 'register' | 'reset' | 'hidden';
+    /** 'reset' mode: whether the employee already has a PIN */
+    hasPin?: boolean;
 };
 
-/** Name, contact, department / role and password fields of the HR Add and Edit Employee pages. */
-export function EmployeeFormFields({ data, setData, errors, departments, roles, passwordPlaceholder }: Props) {
+/** Roles that only monitor documents (CART) need no document PIN; mirrors config/document_permissions.php */
+const PIN_EXEMPT_ROLES = ['CART'];
+
+export function roleNeedsPin(roles: any[], roleId: string | number): boolean {
+    const role = roles.find(r => String(r.role_id) === String(roleId));
+
+    return !role || !PIN_EXEMPT_ROLES.includes(role.role_name);
+}
+
+/** Name, contact, department / role, password and document PIN fields of the HR Add and Edit Employee pages. */
+export function EmployeeFormFields({ data, setData, errors, departments, roles, passwordPlaceholder, pinMode, hasPin = false }: Props) {
+    const pinRequired = pinMode === 'register' && roleNeedsPin(roles, data.role_id);
+
     return (
         <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -131,6 +153,33 @@ export function EmployeeFormFields({ data, setData, errors, departments, roles, 
                     {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
                 </div>
             </div>
+
+            {pinMode !== 'hidden' && (pinMode === 'reset' || roleNeedsPin(roles, data.role_id)) && (
+                <div className="space-y-3 rounded-xl border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] p-4">
+                    <div>
+                        <p className="text-sm font-medium text-[var(--tng-slate-800)]">
+                            {pinMode === 'register' ? 'Document PIN' : 'Reset Document PIN'}
+                        </p>
+                        <p className="text-xs text-[var(--tng-slate-500)]">
+                            {pinMode === 'register'
+                                ? 'Required for accounts that handle documents: it is asked before any document is downloaded or exported. Give it to the employee privately; they can change it in Profile Settings.'
+                                : `${hasPin ? 'This employee has a document PIN.' : 'This employee has no document PIN yet, so they cannot download documents.'} Leave blank to keep it; fill in to reset a forgotten PIN.`}
+                        </p>
+                    </div>
+                    <DocumentPinFields
+                        label={pinMode === 'register' ? 'Document PIN' : 'New Document PIN'}
+                        pin={data.document_pin}
+                        confirmation={data.document_pin_confirmation}
+                        onPinChange={v => setData('document_pin', v)}
+                        onConfirmationChange={v => setData('document_pin_confirmation', v)}
+                        required={pinRequired}
+                        hint={PIN_RULES_HINT}
+                        error={errors.document_pin}
+                        inputClassName={`w-full rounded-xl border bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.document_pin ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
+                        labelClassName="block text-sm font-medium text-[var(--tng-slate-700)]"
+                    />
+                </div>
+            )}
         </>
     );
 }

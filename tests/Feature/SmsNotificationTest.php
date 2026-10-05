@@ -536,6 +536,7 @@ class SmsNotificationTest extends TestCase
         $payload = [
             'first_name' => 'Pedro', 'last_name' => 'Cruz', 'email' => 'pedro@example.test', 'password' => 'password123',
             'department_id' => $this->office->department_id, 'role_id' => $role->role_id, 'signature' => 'data:image/png;base64,AAAA',
+            'document_pin' => '135790', 'document_pin_confirmation' => '135790',
         ];
 
         $this->actingAs($hr)->post('/hr/employees', $payload)->assertSessionHasErrors(['mobile_number' => 'The mobile number is required.']);

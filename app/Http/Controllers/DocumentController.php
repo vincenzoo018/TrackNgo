@@ -12,9 +12,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use App\Contracts\AuditTrailServiceInterface;
+use App\Services\User\DocumentPinService;
 use Inertia\Inertia;
 
 class DocumentController extends Controller
@@ -409,16 +409,20 @@ class DocumentController extends Controller
 
     public function export($id, Request $request)
     {
+        // Every download / export asks for the account's document PIN (not the login password)
         $request->validate([
-            'password' => 'required|string',
+            'pin' => 'required|string|max:12',
+        ], [
+            'pin.required' => 'Enter your 6-digit document PIN.',
         ]);
 
         $user = $request->user() ?: auth()->user();
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid password verification.'], 403);
+        $check = app(DocumentPinService::class)->check($user, $request->input('pin'));
+        if ($check['code'] !== DocumentPinService::OK) {
+            return response()->json(['message' => $check['message'], 'code' => $check['code']], $check['code'] === DocumentPinService::LOCKED ? 429 : 403);
         }
 
-        // List exports (id 0) only need the password check; the CSV itself is built in the browser
+        // List exports (id 0) only need the PIN check; the CSV itself is built in the browser
         if ((int) $id === 0) {
             return response()->json(['verified' => true]);
         }

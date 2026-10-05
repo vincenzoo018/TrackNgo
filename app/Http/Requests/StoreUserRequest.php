@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Rules\PhilippineMobileNumber;
+use App\Services\User\DocumentPinService;
 use App\Support\PhilippineMobile;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -32,11 +33,12 @@ class StoreUserRequest extends FormRequest
             'mobile_number' => PhilippineMobileNumber::forAccount(null),
             'signature'     => 'nullable|string',
             'is_active'     => 'nullable|boolean',
-        ];
+            // Accounts that handle documents get their document PIN (asked before downloads) when registered
+        ] + DocumentPinService::staffRules(DocumentPinService::roleIdRequiresPin($this->input('role_id')));
     }
 
     public function messages(): array
     {
-        return PhilippineMobileNumber::accountMessages();
+        return PhilippineMobileNumber::accountMessages() + DocumentPinService::staffMessages();
     }
 }

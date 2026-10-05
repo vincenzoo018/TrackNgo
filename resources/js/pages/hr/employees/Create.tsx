@@ -1,4 +1,4 @@
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { EmployeeFormFields } from '@/components/EmployeeFormFields';
 import { isSignaturePadEmpty, signaturePadDataUrl } from '@/lib/signature-pad';
@@ -16,7 +16,9 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
     const signatureRef = useRef<any>(null);
     const [signatureError, setSignatureError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
-    const { data, setData, errors } = useForm({
+    // The form posts with router.post, so the server's field errors arrive as page props
+    const pageErrors = (usePage<any>().props.errors || {}) as Record<string, string>;
+    const { data, setData, errors: formErrors } = useForm({
         first_name: '',
         middle_name: '',
         last_name: '',
@@ -25,8 +27,11 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
         role_id: '',
         mobile_number: '',
         password: '',
+        document_pin: '',
+        document_pin_confirmation: '',
         signature: '',
     });
+    const errors: Record<string, string | undefined> = { ...pageErrors, ...formErrors };
 
     const handleClearSignature = () => {
         signatureRef.current?.clear();
@@ -118,6 +123,7 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
                         departments={dbDepartments}
                         roles={dbRoles}
                         passwordPlaceholder="Set login password"
+                        pinMode="register"
                     />
 
                     <div className="space-y-3">

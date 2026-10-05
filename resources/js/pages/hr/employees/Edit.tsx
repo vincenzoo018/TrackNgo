@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { EmployeeFormFields } from '@/components/EmployeeFormFields';
@@ -37,8 +37,13 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignat
         role_id: dbEmployee.role_id || '',
         mobile_number: dbEmployee.mobile_number || '',
         password: '',
+        // Filled only to reset a forgotten document PIN
+        document_pin: '',
+        document_pin_confirmation: '',
         is_active: dbEmployee.is_active !== undefined ? dbEmployee.is_active : 1,
     });
+    // HR changes their own PIN in Profile Settings (with the current one), not here
+    const isOwnRecord = String(usePage<any>().props.auth?.user?.id) === String(dbEmployee.id);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,6 +109,8 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignat
                         departments={dbDepartments}
                         roles={dbRoles}
                         passwordPlaceholder="Leave blank to keep current password"
+                        pinMode={isOwnRecord ? 'hidden' : 'reset'}
+                        hasPin={Boolean(dbEmployee.has_document_pin)}
                     />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

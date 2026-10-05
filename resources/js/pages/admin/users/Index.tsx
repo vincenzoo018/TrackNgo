@@ -35,6 +35,8 @@ import {
     Archive,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { roleNeedsPin } from '@/components/EmployeeFormFields';
+import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { StatCard } from '@/components/trackngo/StatCard';
@@ -63,6 +65,8 @@ type UserItem = {
     department_id: number;
     role?: RoleItem;
     department?: DepartmentItem;
+    /** Whether the account has a document PIN (asked before downloads) */
+    has_document_pin?: boolean;
 };
 
 type Props = {
@@ -566,7 +570,15 @@ type UserFormData = {
     role_id: number | string;
     mobile_number: string;
     is_active: number;
+    document_pin: string;
+    document_pin_confirmation: string;
 };
+
+/**
+ * Document PIN section: 'register' sets it with a new account (required unless the role only monitors),
+ * 'reset' replaces a forgotten one, 'hidden' on the editor's own account (changed in Profile Settings)
+ */
+type PinMode = 'register' | 'reset' | 'hidden';
 
 /** Wording that differs between the Add and Edit forms. */
 type UserFormCopy = {
@@ -592,6 +604,8 @@ function UserAccountFields({
     lockedRoleName,
     showPassword,
     setShowPassword,
+    pinMode,
+    hasPin = false,
 }: {
     data: UserFormData;
     setData: (key: keyof UserFormData, value: string | number) => void;
@@ -603,6 +617,8 @@ function UserAccountFields({
     lockedRoleName?: string;
     showPassword: boolean;
     setShowPassword: (show: boolean) => void;
+    pinMode: PinMode;
+    hasPin?: boolean;
 }) {
     const placeholderClass = copy.examples ? ' placeholder:text-slate-400' : '';
     const inputClass = `w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-all${placeholderClass} focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15`;
@@ -683,6 +699,29 @@ function UserAccountFields({
                     </ModalField>
                 </div>
             </ModalSection>
+
+            {/* Document PIN: asked before any document is downloaded or exported */}
+            {pinMode !== 'hidden' && (pinMode === 'reset' || roleNeedsPin(roles, data.role_id)) && (
+                <ModalSection
+                    title={pinMode === 'register' ? 'Document PIN' : 'Reset Document PIN'}
+                    description={pinMode === 'register'
+                        ? 'Required for accounts that handle documents. Give it to the staff member privately; they can change it in Profile Settings.'
+                        : `${hasPin ? 'This account has a document PIN.' : 'No document PIN yet: this account cannot download documents.'} Leave blank to keep it; fill in to reset a forgotten PIN.`}
+                >
+                    <DocumentPinFields
+                        label={pinMode === 'register' ? 'Document PIN' : 'New Document PIN'}
+                        pin={data.document_pin}
+                        confirmation={data.document_pin_confirmation}
+                        onPinChange={(v) => setData('document_pin', v)}
+                        onConfirmationChange={(v) => setData('document_pin_confirmation', v)}
+                        required={pinMode === 'register'}
+                        hint={PIN_RULES_HINT}
+                        error={errors.document_pin}
+                        inputClassName={inputClass}
+                        labelClassName="block text-xs font-semibold text-slate-700"
+                    />
+                </ModalSection>
+            )}
 
             {/* Section 3: Role & Department Assignment */}
             <ModalSection title="Role & Department Assignment" description={copy.assignmentDescription}>
@@ -786,6 +825,8 @@ function CreateUserModal({
         role_id: roles[0]?.role_id || '',
         mobile_number: '',
         is_active: 1,
+        document_pin: '',
+        document_pin_confirmation: '',
     });
 
     const [showPassword, setShowPassword] = useState(false);
@@ -828,6 +869,7 @@ function CreateUserModal({
                 departments={departments}
                 showPassword={showPassword}
                 setShowPassword={setShowPassword}
+                pinMode="register"
                 copy={{
                     nameDescription: 'Enter the legal employee name for official records and audit trails.',
                     credentialsDescription: 'Authentication credentials used by the staff member to log in.',
@@ -870,9 +912,14 @@ function EditUserModal({
         role_id: user.role_id || roles[0]?.role_id || '',
         mobile_number: user.mobile_number || '',
         is_active: user.is_active ? 1 : 0,
+        // Filled only to reset a forgotten document PIN
+        document_pin: '',
+        document_pin_confirmation: '',
     });
 
     const [showPassword, setShowPassword] = useState(false);
+    // Their own PIN is changed in Profile Settings (with the current one), not here
+    const isOwnAccount = String(usePage<any>().props.auth?.user?.id) === String(user.id);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -913,6 +960,8 @@ function EditUserModal({
                 showPassword={showPassword}
                 setShowPassword={setShowPassword}
                 lockedRoleName={isHr ? (user.role?.role_name || 'Assigned Role') : undefined}
+                pinMode={isOwnAccount ? 'hidden' : 'reset'}
+                hasPin={Boolean(user.has_document_pin)}
                 copy={{
                     nameDescription: "Update the employee's official name.",
                     credentialsDescription: 'Official email and security credentials. Leave password blank to retain current.',
