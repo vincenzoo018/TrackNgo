@@ -1,4 +1,5 @@
 import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
+import { MOBILE_HINT, MOBILE_LENGTH, documentPinError, emailError, mobileDigits, mobileNumberError, nameError } from '@/lib/form-rules';
 
 export type EmployeeFieldValues = {
     first_name: string;
@@ -36,6 +37,41 @@ export function roleNeedsPin(roles: any[], roleId: string | number): boolean {
     const role = roles.find(r => String(r.role_id) === String(roleId));
 
     return !role || !PIN_EXEMPT_ROLES.includes(role.role_name);
+}
+
+type PinMode = Props['pinMode'];
+
+/** Whether the PIN fields are on screen (a PIN typed before switching to an exempt role must not be posted) */
+export function pinFieldsShown(pinMode: PinMode, roles: any[], roleId: string | number): boolean {
+    return pinMode === 'reset' || (pinMode === 'register' && roleNeedsPin(roles, roleId));
+}
+
+/**
+ * Client-side mirror of the HR account rules (EmployeeController), keyed like the server errors, so a single
+ * click either saves or marks exactly the fields to fix.
+ */
+export function validateEmployee(
+    data: EmployeeFieldValues,
+    { roles, pinMode, passwordRequired }: { roles: any[]; pinMode: PinMode; passwordRequired: boolean },
+): Record<string, string> {
+    const password = data.password;
+    const found: Record<string, string | null> = {
+        first_name: nameError(data.first_name, 'first name', true),
+        middle_name: nameError(data.middle_name, 'middle name', false),
+        last_name: nameError(data.last_name, 'last name', true),
+        email: emailError(data.email),
+        department_id: data.department_id ? null : 'Select the department.',
+        role_id: data.role_id ? null : 'Select the system role.',
+        mobile_number: mobileNumberError(data.mobile_number),
+        password: !password
+            ? (passwordRequired ? 'Set a login password (at least 8 characters).' : null)
+            : (password.length < 8 ? 'The password must be at least 8 characters.' : null),
+        document_pin: pinFieldsShown(pinMode, roles, data.role_id)
+            ? documentPinError(data.document_pin, data.document_pin_confirmation, pinMode === 'register')
+            : null,
+    };
+
+    return Object.fromEntries(Object.entries(found).filter(([, message]) => message)) as Record<string, string>;
 }
 
 /** Name, contact, department / role, password and document PIN fields of the HR Add and Edit Employee pages. */
@@ -133,13 +169,16 @@ export function EmployeeFormFields({ data, setData, errors, departments, roles, 
                     <label className="text-sm font-medium text-[var(--tng-slate-700)]">Mobile Number</label>
                     <input
                         type="text"
-                        maxLength={20}
+                        inputMode="numeric"
+                        maxLength={MOBILE_LENGTH}
                         value={data.mobile_number}
-                        onChange={e => setData('mobile_number', e.target.value)}
+                        onChange={e => setData('mobile_number', mobileDigits(e.target.value))}
                         className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.mobile_number ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
                         placeholder="09171234567"
                     />
-                    {errors.mobile_number && <p className="text-xs text-red-500">{errors.mobile_number}</p>}
+                    {errors.mobile_number
+                        ? <p className="text-xs text-red-500">{errors.mobile_number}</p>
+                        : <p className="text-xs text-[var(--tng-slate-400)]">{MOBILE_HINT}</p>}
                 </div>
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-[var(--tng-slate-700)]">Password</label>
@@ -154,7 +193,7 @@ export function EmployeeFormFields({ data, setData, errors, departments, roles, 
                 </div>
             </div>
 
-            {pinMode !== 'hidden' && (pinMode === 'reset' || roleNeedsPin(roles, data.role_id)) && (
+            {pinFieldsShown(pinMode, roles, data.role_id) && (
                 <div className="space-y-3 rounded-xl border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] p-4">
                     <div>
                         <p className="text-sm font-medium text-[var(--tng-slate-800)]">

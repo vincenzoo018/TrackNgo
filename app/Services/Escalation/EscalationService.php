@@ -6,6 +6,7 @@ use App\Contracts\AuditTrailServiceInterface;
 use App\Contracts\EscalationServiceInterface;
 use App\Models\Document;
 use App\Models\User;
+use App\Services\Calendar\WorkingDayCalendar;
 use Carbon\Carbon;
 
 class EscalationService implements EscalationServiceInterface
@@ -40,9 +41,8 @@ class EscalationService implements EscalationServiceInterface
             $startDate = $doc->date_filed ?? $doc->created_at;
             $startCarbon = $startDate ? Carbon::parse($startDate) : $now;
 
-            $dueDate = $doc->arta_due_date
-                ? Carbon::parse($doc->arta_due_date)
-                : (clone $startCarbon)->addDays($thresholdDays);
+            // Holiday-aware deadline; overdue only after the due day has ended (office time)
+            $dueDate = app(WorkingDayCalendar::class)->deadlineEndsAt($doc);
 
             $diffHours = $now->diffInHours($dueDate, false);
             $diffDays = $now->diffInDays($dueDate, false);

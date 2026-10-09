@@ -1,8 +1,9 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { AlertCircle, ArrowLeft, CheckCircle2, FilePlus2, Lock, PenLine, PencilLine } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, FilePlus2, Lock, PenLine, PencilLine, UserCheck } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 import DiscussionAuditTimeline from '@/components/trackngo/DiscussionAuditTimeline';
+import { ComplianceActions, DocumentCompliancePanel } from '@/components/trackngo/DocumentCompliancePanel';
 import { DocumentCorrectionModal, findReturner } from '@/components/trackngo/DocumentCorrectionModal';
 import { DocumentMetadataModal } from '@/components/trackngo/DocumentMetadataModal';
 import { DocumentRevisionModal } from '@/components/trackngo/DocumentRevisionModal';
@@ -21,6 +22,7 @@ import { describeHolder, isCurrentHolder } from '@/lib/document-holder';
 import { qrDataUrl, useTrackingLink } from '@/lib/qr';
 import { generateSignedCopy, signatureBlocks, stampableKind } from '@/lib/signed-pdf';
 import { getStandardizedStatus } from '@/lib/status-helper';
+import { documentFileUrl } from '@/lib/document-files';
 
 /** Uniform action button styles for the role action panels. */
 export const actionButton = {
@@ -164,24 +166,24 @@ export function DocumentDetailView({
             label: Number(doc.signed_copy_signatures || 0) >= signatures.total
                 ? 'Final Signed Copy'
                 : `Signed Copy (${doc.signed_copy_signatures} of ${signatures.total} signatures)`,
-            url: `/storage/${doc.signed_file_path}`,
+            url: documentFileUrl(doc.document_id, 'signed', doc.signed_file_path)!,
             attachmentId: null,
         }] : []),
         ...(doc.attachment_path ? [{
             key: 'main',
             label: currentVersion > 1 ? `Main Document (Version ${currentVersion})` : 'Main Document',
-            url: `/storage/${doc.attachment_path}`,
+            url: documentFileUrl(doc.document_id, 'main', doc.attachment_path)!,
             attachmentId: null,
         }] : []),
         ...attachments
             .filter((a: any) => a.file_path)
-            .map((a: any) => ({ key: `att-${a.attachment_id}`, label: a.file_name, url: `/storage/${a.file_path}`, attachmentId: a.attachment_id as number })),
+            .map((a: any) => ({ key: `att-${a.attachment_id}`, label: a.file_name, url: documentFileUrl(doc.document_id, 'attachment', a.file_path, a.attachment_id)!, attachmentId: a.attachment_id as number })),
         ...earlierVersions.flatMap(v => [
-            { key: `rev-${v.revision_id}`, label: `Version ${v.version_number} (earlier)`, url: `/storage/${v.file_path}`, attachmentId: null, revisionId: v.revision_id },
+            { key: `rev-${v.revision_id}`, label: `Version ${v.version_number} (earlier)`, url: documentFileUrl(doc.document_id, 'revision', v.file_path, v.revision_id)!, attachmentId: null, revisionId: v.revision_id },
             ...(v.signed_file_path ? [{
                 key: `revsigned-${v.revision_id}`,
                 label: `Version ${v.version_number} — Signed Copy`,
-                url: `/storage/${v.signed_file_path}`,
+                url: documentFileUrl(doc.document_id, 'revision-signed', v.signed_file_path, v.revision_id)!,
                 attachmentId: null,
                 revisionId: v.revision_id,
                 signedCopy: true,
@@ -561,6 +563,10 @@ export function DocumentDetailView({
                                     setSelectedOcrText(text);
                                     setAnchorOpen(true);
                                 }}
+                                // Only passages someone commented on are highlighted (on the main file and its signed copy)
+                                highlights={!activeFile || activeFile.key === 'main' || activeFile.key === 'signed'
+                                    ? comments.map((c: any) => c.quoted_text).filter((q: any): q is string => Boolean(q))
+                                    : []}
                             />
                         </div>
                     </Card>
@@ -621,7 +627,16 @@ export function DocumentDetailView({
                                         <span>{errors.signature}</span>
                                     </p>
                                 )}
+                                {doc.compliance?.viewer_acting_for && (
+                                    <p className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 p-3 text-[13px] text-violet-900">
+                                        <UserCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>
+                                            You hold this document as <span className="font-semibold">{doc.compliance.acting?.title}</span> for {doc.compliance.viewer_acting_for}. Your approval, signature or return records Designation Order No. {doc.compliance.acting?.order}.
+                                        </span>
+                                    </p>
+                                )}
                                 {actions}
+                                <ComplianceActions doc={doc} />
                                 <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-3">
                                     <button type="button" onClick={() => setSlipOpen(true)} className={actionButton.secondary}>
                                         Print QR
@@ -656,6 +671,8 @@ export function DocumentDetailView({
                                 </div>
                             </div>
                         </Card>
+
+                        <DocumentCompliancePanel doc={doc} role={role} />
 
                         <Card
                             title="Routing Slip"

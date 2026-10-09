@@ -55,13 +55,15 @@ class DocumentController extends Controller
             'submitter', 'department', 'type', 'currentHolderDepartment', 'currentHolder', 'client', 'linkedDocument',
             'destinationDepartment', 'destinationUser',
             'routingSlips.fromUser', 'routingSlips.toUser', 'routingSlips.fromDepartment', 'routingSlips.targetDepartment',
-            'signatories.user.role', 'signatories.user.department', 'signatories.signature',
+            'signatories.user.role', 'signatories.user.department', 'signatories.signature.signer',
         ])->findOrFail($id);
         $canView = $document->contentsVisibleTo($user);
         if ($document->route_based) {
             // Steps for the progress bar and where approving sends it next
             $document->setAttribute('route_info', app(\App\Services\Document\DocumentRoute::class)->present($document));
         }
+        // Deadline, extension, deemed approval, the Mayor's 10 days and the Officer-in-Charge (and what this viewer may do)
+        $document->setAttribute('compliance', app(\App\Services\Document\DocumentCompliancePresenter::class)->present($document, $user));
         // Versions of the main file (for those who may open it) and whether this viewer may edit the details or
         // upload a new version; the server checks again on every request
         $revisions = app(\App\Services\Document\DocumentRevisionService::class);
@@ -367,12 +369,12 @@ class DocumentController extends Controller
             ]);
         } else {
             $request->validate([
-                'files'   => 'required|array|min:1|max:5',
+                'files'   => 'required|array|min:1|max:' . StoreDocumentRequest::MAX_FILES,
                 'files.*' => 'file|mimes:' . implode(',', StoreDocumentRequest::VIEWABLE_TYPES) . '|max:' . StoreDocumentRequest::APP_MAX_UPLOAD_KB,
                 'note'    => 'nullable|string|max:500',
             ], [
                 'files.required'   => 'Attach at least one corrected or missing file.',
-                'files.max'        => 'Attach up to 5 files at a time.',
+                'files.max'        => 'Attach up to ' . StoreDocumentRequest::MAX_FILES . ' files at a time.',
                 'files.*.mimes'    => 'Files must be PDF, Word (.docx) or images (PNG/JPG).',
                 'files.*.max'      => 'Each file must not be larger than ' . (StoreDocumentRequest::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
                 'files.*.uploaded' => 'A file could not be uploaded. The server accepts files up to ' . StoreDocumentRequest::maxUploadLabel() . '.',
@@ -447,7 +449,7 @@ class DocumentController extends Controller
             default            => $attachment?->file_path ?? $document->attachment_path,
         };
 
-        if (!$storedPath || !Storage::disk('public')->exists($storedPath)) {
+        if (!$storedPath || !Storage::disk(Document::FILE_DISK)->exists($storedPath)) {
             return response()->json(['message' => 'Original document file is not found on disk.'], 404);
         }
 
@@ -477,7 +479,7 @@ class DocumentController extends Controller
             default              => "Document_{$reference}.{$extension}",
         };
 
-        return response()->download(Storage::disk('public')->path($storedPath), $downloadName);
+        return response()->download(Storage::disk(Document::FILE_DISK)->path($storedPath), $downloadName);
     }
 
     public function update(Request $request, $id): RedirectResponse
@@ -511,20 +513,32 @@ class DocumentController extends Controller
         return response()->json($this->commentsQuery($id)->get());
     }
 
+    /**
+     * Things done in the browser that the trail records (exporting the OCR text). Only these fixed entries can be
+     * written, worded by the server, so nobody can forge workflow history (e.g. a fake "Approve") from the browser.
+     */
+    private const BROWSER_LOGGED_ACTIONS = [
+        'ocr_txt'  => ['Exported', 'OCR text exported as a .txt file.'],
+        'ocr_json' => ['Exported', 'OCR text exported as a .json file.'],
+    ];
+
     public function logAction(Request $request, $id): JsonResponse
     {
         $request->validate([
-            'action'      => 'required|string',
-            'description' => 'required|string',
+            'event' => 'required|string|in:' . implode(',', array_keys(self::BROWSER_LOGGED_ACTIONS)),
         ]);
 
         $actor = $request->user() ?: auth()->user();
         $document = Document::findOrFail($id);
+        if (!$document->contentsVisibleTo($actor)) {
+            return response()->json(['message' => 'Only the people handling this document can export its text.'], 403);
+        }
+        [$action, $description] = self::BROWSER_LOGGED_ACTIONS[$request->input('event')];
 
         app(AuditTrailServiceInterface::class)->logDocumentAction(
             document: $document,
-            action: $request->action,
-            description: $request->description,
+            action: $action,
+            description: $description,
             actor: $actor,
             ipAddress: $request->ip()
         );
@@ -607,25 +621,32 @@ class DocumentController extends Controller
         'all signatures complete'   => 'All required signatures complete',
         'release'                   => 'Released to the applicant',
         'completed'                 => 'Completed',
+        'processing period extended' => 'Processing period extended once (written notice issued)',
+        'mayoral period started'    => 'Received by the Office of the Mayor',
+        'vetoed'                    => 'Vetoed by the City Mayor',
+        'deemed approved'           => 'Deemed approved by law (no action within the period)',
     ];
 
     /**
-     * Public tracking (QR code / tracking number, no login): status, progress and an office-level timeline only.
-     * No staff names, e-mails, phone numbers, IP addresses or remarks are exposed.
+     * Public tracking (QR code / tracking number, no login). The progress bar is exactly the one inside TrackNGo
+     * (same steps, office and person, same live status); the applicant appears by initials only, and no e-mails,
+     * phone numbers, IP addresses or remarks are exposed.
      */
     public function trackPublicDocument(Request $request, $trackingNumber): JsonResponse
     {
         $trackingNumber = strtoupper(trim($trackingNumber));
-        $document = Document::with(['department', 'currentHolderDepartment'])
+        // Routing slips printed before registration carry "PENDING-<reference number>"
+        $reference = preg_replace('/^PENDING-/', '', $trackingNumber);
+        $document = Document::with(['department', 'currentHolderDepartment', 'submitter.role', 'type', 'extension'])
             ->where('tracking_number', $trackingNumber)
-            ->orWhere('reference_number', $trackingNumber)
+            ->orWhere('reference_number', $reference)
             ->first();
 
         if (!$document) {
             return response()->json(['message' => 'Document not found'], 404);
         }
 
-        $timeline = \App\Models\AuditTrail::where('document_id', $document->document_id)
+        $timeline = \App\Models\AuditTrail::with('user')->where('document_id', $document->document_id)
             ->orderBy('timestamp', 'desc')
             // Several steps can happen within the same second
             ->orderBy('audit_id', 'desc')
@@ -634,8 +655,8 @@ class DocumentController extends Controller
             ->map(fn ($entry) => [
                 'action'      => $entry->action,
                 'description' => self::PUBLIC_TIMELINE[strtolower((string) $entry->action)],
-                // Offices, not people, are shown publicly
-                'user_name'   => $entry->department ?: ($entry->user_role ?: 'LGU Office'),
+                // The official who acted and their office, as on the progress bar
+                'user_name'   => $entry->user?->name ?? ($entry->department ?: 'LGU Office'),
                 'user_role'   => $entry->user_role,
                 'department'  => $entry->department,
                 'timestamp'   => $entry->timestamp?->toIso8601String(),
@@ -643,35 +664,74 @@ class DocumentController extends Controller
             ->values();
 
         $status = strtolower((string) $document->status);
+        $closed = $document->isClosed();
+        $calendar = app(\App\Services\Calendar\WorkingDayCalendar::class);
 
         return response()->json([
             'document' => [
                 'reference_number'          => $document->reference_number,
                 'tracking_number'           => $document->tracking_number,
-                'title'                     => $document->visibleTitle(),
+                // The applicant follows their own document: its title shows unless it is confidential
+                'title'                     => \App\Services\Document\DocumentConfidentiality::isConfidential($document)
+                    ? \App\Services\Document\DocumentConfidentiality::HIDDEN_TITLE
+                    : $document->title,
                 'status'                    => $document->status,
-                'status_label'              => match ($status) {
-                    'completed', 'released' => 'Completed',
-                    'approved'              => 'Approved — for release',
-                    'returned'              => 'Returned for corrections',
-                    'archived'              => 'Archived',
+                'status_label'              => match (true) {
+                    $document->isDeemedApproved() && !$closed => 'Deemed approved — for release',
+                    in_array($status, ['completed', 'released'], true) => 'Completed',
+                    $status === 'approved'  => 'Approved — for release',
+                    $status === 'returned'  => 'Returned for corrections',
+                    $status === 'archived'  => 'Archived',
+                    $status === Document::STATUS_VETOED => 'Vetoed',
                     default                 => 'In process',
                 },
                 'current_step_index'        => $document->current_step_index,
                 'total_steps'               => $document->total_steps,
                 'is_internal'               => (bool) $document->is_internal,
+                'route_based'               => (bool) $document->route_based,
+                // The same steps the progress bar shows inside TrackNGo (route-based documents)
+                'route_info'                => $document->route_based
+                    ? ['steps' => app(\App\Services\Document\DocumentRoute::class)->steps($document)]
+                    : null,
+                // Documents still on the earlier fixed flow: the same flow the app picks for them
+                'process_type'              => $this->legacyProcessType($document),
                 // ISO timestamps: the page shows them in the viewer's own time zone
                 'date_filed'                => $document->date_filed?->toIso8601String(),
                 'created_at'                => $document->created_at?->toIso8601String(),
                 'completed_at'              => $document->completed_at?->toIso8601String(),
-                // External documents are filed for a client; internal ones are shown by office
-                'submitter_name'            => $document->is_internal ? $document->department?->department_name : ($document->sender ?: 'Applicant'),
+                'due_date'                  => $closed ? null : $calendar->deadlineFor($document)->toDateString(),
+                'extended'                  => $document->extension !== null,
+                // External documents are filed for a client (initials only); internal ones are shown by office
+                'submitter_name'            => $document->is_internal ? $document->department?->department_name : self::initials($document->sender),
                 'department_name'           => $document->department?->department_name,
-                'current_holder_department' => in_array($status, ['completed', 'released', 'archived'], true)
+                'current_holder_department' => $closed
                     ? null
                     : ($document->currentHolderDepartment?->department_name ?? 'Receiving Office'),
             ],
             'auditTrail' => $timeline,
         ]);
+    }
+
+    /** "Ana M. Reyes" → "A. M. R." (the applicant is never named on the public page) */
+    public static function initials(?string $name): string
+    {
+        $parts = preg_split('/\s+/u', trim((string) $name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $letters = array_map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)) . '.', $parts);
+
+        return $letters ? implode(' ', $letters) : 'Applicant';
+    }
+
+    /** The fixed flow StepProgress uses for a document filed before routes existed (mirrors its own rule) */
+    private function legacyProcessType(Document $document): string
+    {
+        if (!$document->is_internal) {
+            return 'external';
+        }
+        $fromMayor = str_contains(strtolower((string) $document->submitter?->role?->role_name), 'mayor')
+            || str_contains(strtolower((string) $document->department?->department_name), 'mayor')
+            || strtolower((string) $document->department?->code) === 'myr'
+            || str_contains(strtolower((string) $document->sender), 'mayor');
+
+        return $fromMayor ? 'internal_mayor' : 'internal_dept';
     }
 }

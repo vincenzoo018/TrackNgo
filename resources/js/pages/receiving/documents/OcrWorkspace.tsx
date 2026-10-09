@@ -4,6 +4,7 @@ import { useState } from 'react';
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { csrfHeaders } from '@/lib/csrf';
+import { documentFileUrl } from '@/lib/document-files';
 
 interface OcrWorkspaceProps {
     dbDocument?: any;
@@ -16,7 +17,7 @@ export default function OcrWorkspace({ dbDocument, documentId }: OcrWorkspacePro
     const id = dbDocument?.document_id ?? documentId;
     const docTitle = dbDocument?.title || 'Document';
     const docRef = dbDocument?.reference_number || dbDocument?.tracking_number || `#${id}`;
-    const filePath = dbDocument?.attachment_path ? `/storage/${dbDocument.attachment_path}` : null;
+    const filePath = documentFileUrl(id, 'main', dbDocument?.attachment_path);
     const isHidden = Boolean(dbDocument?.is_confidential_hidden);
     // The universal /documents/{id} route opens the document page of the viewer's own role
     const documentUrl = `/documents/${id}`;

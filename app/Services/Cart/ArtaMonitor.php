@@ -51,7 +51,7 @@ class ArtaMonitor
         $stats['closed'] = $this->closeFinished($now);
 
         $documents = Document::with(['type', 'department', 'currentHolder', 'currentHolderDepartment'])
-            ->whereRaw('LOWER(status) NOT IN (?, ?, ?)', ArtaClock::CLOSED_STATUSES)
+            ->whereRaw('LOWER(status) NOT IN (' . ArtaClock::placeholders() . ')', ArtaClock::CLOSED_STATUSES)
             ->get();
         if ($documents->isEmpty()) {
             return $stats;
@@ -151,7 +151,7 @@ class ArtaMonitor
         // The event is recorded as of the day the level was reached (OD = the level's first overdue day),
         // so a document first seen late gets the same record as one the monitor caught on time
         $overdue = min($timing['overdue_days'], ArtaClock::firstOverdueDay($level));
-        $escalatedAt = Carbon::instance($this->clock->levelReachedOn($timing['assigned_at'], $allowed, $level)->min($now))
+        $escalatedAt = Carbon::instance($this->clock->levelReachedOn($document, $timing['assigned_at'], $allowed, $level)->min($now))
             ->setTimezone(config('app.timezone'));
         $reason = sprintf(
             'Exceeded the %d-day processing period by %d day%s (WD %d > L %d).',
@@ -240,20 +240,25 @@ class ArtaMonitor
     private function closeFinished(Carbon $now): int
     {
         $open = ArtaEscalation::active()
-            ->whereHas('document', fn ($q) => $q->whereRaw('LOWER(status) IN (?, ?, ?)', ArtaClock::CLOSED_STATUSES))
+            ->whereHas('document', fn ($q) => $q->whereRaw('LOWER(status) IN (' . ArtaClock::placeholders() . ')', ArtaClock::CLOSED_STATUSES))
             ->with('document')
             ->get()
             ->groupBy('document_id');
 
         foreach ($open as $escalations) {
             $document = $escalations->first()->document;
+            $outcome = match (strtolower((string) $document->status)) {
+                Document::STATUS_DEEMED_APPROVED => 'deemed approved',
+                Document::STATUS_VETOED          => 'vetoed',
+                default                          => 'completed',
+            };
             ArtaEscalation::whereIn('escalation_id', $escalations->pluck('escalation_id'))->update([
                 'resolved'         => true,
-                'resolved_at'      => $document->completed_at ?? $now,
-                'resolution_notes' => 'Closed automatically: the document was completed.',
+                'resolved_at'      => $document->deemed_approved_at ?? $document->completed_at ?? $now,
+                'resolution_notes' => "Closed automatically: the document was {$outcome}.",
             ]);
             $this->flagEscalated($document, false);
-            $this->log($document, 'Escalation Closed', 'Open escalation closed automatically because the document was completed.');
+            $this->log($document, 'Escalation Closed', "Open escalation closed automatically because the document was {$outcome}.");
         }
 
         return $open->count();

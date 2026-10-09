@@ -1,7 +1,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { EmployeeFormFields } from '@/components/EmployeeFormFields';
+import { EmployeeFormFields, EmployeeFieldValues, pinFieldsShown, validateEmployee } from '@/components/EmployeeFormFields';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { Save, ChevronRight, Home, Eraser, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,7 +28,7 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignat
         }
     }, [replacingSignature]);
 
-    const { data, setData, put, processing, errors, transform } = useForm({
+    const { data, setData, put, processing, errors, transform, clearErrors, setError } = useForm({
         first_name: dbEmployee.first_name || '',
         middle_name: dbEmployee.middle_name || '',
         last_name: dbEmployee.last_name || '',
@@ -44,10 +44,24 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignat
     });
     // HR changes their own PIN in Profile Settings (with the current one), not here
     const isOwnRecord = String(usePage<any>().props.auth?.user?.id) === String(dbEmployee.id);
+    const pinMode = isOwnRecord ? 'hidden' : 'reset';
+    // Editing a field clears its message (the PIN and its confirmation share one)
+    const updateField = (field: keyof EmployeeFieldValues, value: string) => {
+        setData(field, value);
+        clearErrors(field === 'document_pin_confirmation' ? 'document_pin' : field);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
+        clearErrors();
+        const found = validateEmployee(data, { roles: dbRoles, pinMode, passwordRequired: false });
+        if (Object.keys(found).length > 0) {
+            setError(found as any);
+            toast.error('Please fix the highlighted fields.');
+            return;
+        }
+
         if (!window.confirm('Are you sure you want to save these changes?')) {
             return;
         }
@@ -62,14 +76,21 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignat
                 signature = pad.getCanvas?.()?.toDataURL('image/png') ?? '';
             }
         }
-        transform(form => (signature ? { ...form, signature } : form));
+        const showPin = pinFieldsShown(pinMode, dbRoles, data.role_id);
+        transform(({ document_pin, document_pin_confirmation, ...form }) => ({
+            ...form,
+            ...(showPin ? { document_pin, document_pin_confirmation } : {}),
+            ...(signature ? { signature } : {}),
+        }));
 
         put(`/hr/employees/${dbEmployee.id}`, {
             onSuccess: () => {
                 toast.success('Employee changes saved successfully!');
             },
-            onError: () => {
-                toast.error('Failed to save. Please fix the errors highlighted below.');
+            onError: (serverErrors) => {
+                // Errors without a field on this page (e.g. a general refusal) are shown in the toast itself
+                const general = Object.entries(serverErrors).filter(([key]) => !(key in data) && key !== 'signature').map(([, message]) => message);
+                toast.error(general.length ? general.join(' ') : 'Failed to save. Please fix the errors highlighted below.');
             }
         });
     };
@@ -101,15 +122,15 @@ export default function Edit({ dbEmployee, dbDepartments, dbRoles, currentSignat
             </div>
 
             <div className="bg-white rounded-2xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
-                <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
+                <form onSubmit={handleSubmit} noValidate className="p-6 md:p-8 space-y-6">
                     <EmployeeFormFields
                         data={data}
-                        setData={setData}
+                        setData={updateField}
                         errors={errors}
                         departments={dbDepartments}
                         roles={dbRoles}
                         passwordPlaceholder="Leave blank to keep current password"
-                        pinMode={isOwnRecord ? 'hidden' : 'reset'}
+                        pinMode={pinMode}
                         hasPin={Boolean(dbEmployee.has_document_pin)}
                     />
 

@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { mockDocuments, mockAuditTrail } from '@/lib/mock-data';
+import { useLiveUpdates } from '@/hooks/use-live-updates';
 
 /** Props every role's document page receives from DocumentController@page. */
 export type DocumentPageProps = {
@@ -53,13 +54,10 @@ export function useDocumentPage({ dbDocument, dbAuditTrail, dbComments, dbDepart
     const [successState, setSuccessState] = useState({ isOpen: false, title: '', message: '' });
     const [isActionLoading, setIsActionLoading] = useState(false);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments', 'dbAttachments'] });
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, []);
+    // Someone else acted on a document, commented or attached a file: reload this page's data
+    useLiveUpdates(['documents', 'trail', 'comments', 'attachments'], () => {
+        router.reload({ only: ['dbDocument', 'dbAuditTrail', 'dbComments', 'dbAttachments'] });
+    });
 
     const requestAction = (action: string, title: string, message: string, btnText: string) => {
         setConfirmState({ isOpen: true, action, title, message, btnText });

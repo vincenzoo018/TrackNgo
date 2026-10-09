@@ -1,19 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
-import { Plus, ScanLine, Loader2, FileText, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, X, Inbox } from 'lucide-react';
+import { Plus, ScanLine, Loader2, FileText, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, X, Inbox, Paperclip } from 'lucide-react';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 import { ClientInfoSection, ClientInfo, EMPTY_CLIENT, validateClient } from '@/components/trackngo/ClientInfoSection';
 import { extractDocumentText, withTimeout } from '@/lib/ocr';
 import { qrDataUrl, useTrackingLink } from '@/lib/qr';
+import { ACCEPTED_FILE_TYPES, acceptFiles, megabytes, useUploadLimits } from '@/lib/upload-files';
 
 // OCR must never block submission: scanned pages and photos take a few seconds each, so cap the wait
 const OCR_TIMEOUT_MS = 120000;
-// Formats the system can display (old .doc files cannot be previewed in the browser)
-const ACCEPTED_FILES = '.pdf,.docx,.png,.jpg,.jpeg';
 
 // Human-readable labels for server validation errors that have no inline slot in the form
 const FIELD_LABELS: Record<string, string> = {
     file: 'Document file',
+    attachments: 'Supporting files',
     title: 'Title',
     type_id: 'Document type',
     department_id: 'Originating department',
@@ -80,9 +80,8 @@ export default function CreateDocumentModal({
     const trackingLinkFor = useTrackingLink();
     const authUser = (props.auth as any)?.user;
     // Effective server upload ceiling (PHP upload_max_filesize / post_max_size / app rule), shared by HandleInertiaRequests
-    const uploadLimit = (props as any).upload as { max_bytes?: number; max_label?: string } | undefined;
-    const maxUploadBytes = uploadLimit?.max_bytes || 10 * 1024 * 1024;
-    const maxUploadLabel = uploadLimit?.max_label || '10 MB';
+    const uploadLimits = useUploadLimits();
+    const { maxBytes: maxUploadBytes, maxLabel: maxUploadLabel, maxFiles } = uploadLimits;
     // Shared auth role key is 'receiving' (see HandleInertiaRequests); clerks only file external documents
     const isReceivingClerk = authUser?.role === 'receiving' || authUser?.role === 'receiving_clerk';
 
@@ -93,7 +92,10 @@ export default function CreateDocumentModal({
         title: '',
         type_id: '',
         department_id: defaultOriginDept,
+        // The main document: its text is read (OCR) and it is the file that gets signed
         file: null as File | null,
+        // Supporting files uploaded with it, kept as attachments of the same document
+        attachments: [] as File[],
         classification: 'normal',
         urgency_justification: '',
         instruction: '',
@@ -102,6 +104,9 @@ export default function CreateDocumentModal({
         // Who receives it, in order; the server derives the first recipient and the signatories from it
         route: [] as RouteStop[],
     });
+    // The chosen type: its blank-form templates (Admin → Document Templates) and whether the Mayor must act on it
+    const selectedType = documentTypes.find((t: any) => String(t.type_id) === String(data.type_id));
+    const typeTemplates = ((props as any).dbTemplates ?? []).filter((t: any) => data.type_id && String(t.type_id) === String(data.type_id));
     // Client details only apply to the clerk's external intake
     transform(({ client, ...rest }) => ({
         ...rest,
@@ -201,9 +206,27 @@ export default function CreateDocumentModal({
     };
 
     const handleFileUploadClick = () => {
-        if (ocrComplete || isScanning) return;
+        if (isScanning) return;
         fileInputRef.current?.click();
     };
+    const [dragActive, setDragActive] = useState(false);
+    const dropHandlers = {
+        onDragOver: (e: React.DragEvent) => {
+            e.preventDefault();
+            if (!isScanning) setDragActive(true);
+        },
+        onDragLeave: () => setDragActive(false),
+        onDrop: (e: React.DragEvent) => {
+            e.preventDefault();
+            setDragActive(false);
+            addFiles(e.dataTransfer.files);
+        },
+    };
+    const fileCount = (data.file ? 1 : 0) + data.attachments.length;
+    // Server errors for supporting files arrive as attachments or attachments.N
+    const attachmentsError = fieldErrors.attachments
+        || Object.entries(fieldErrors).find(([key]) => key.startsWith('attachments.'))?.[1];
+    const clearAttachmentErrors = () => clearErrors(...(Object.keys(fieldErrors).filter(key => key.startsWith('attachments')) as any[]));
 
     // Real text of the file (PDF text layer, OCR for scans / photos, Word paragraphs); '' if nothing readable
     const readDocumentText = async (file: File) => {
@@ -221,20 +244,43 @@ export default function CreateDocumentModal({
         return name.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // The first file chosen is the main document; the others (and any added later) are supporting files
+    const addFiles = (list: FileList | null) => {
+        const picked = Array.from(list ?? []);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (!picked.length || isScanning) return;
 
-        if (file.size > maxUploadBytes) {
-            // PHP would silently drop an oversized file, so reject it here with the real limit
-            setError('file', `This file is ${(file.size / (1024 * 1024)).toFixed(2)} MB. The server accepts files up to ${maxUploadLabel}.`);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-            return;
-        }
-
-        clearErrors('file');
+        // Wrong types, oversized files and files past the limit are refused here with the reason (PHP would drop them silently)
+        const { accepted, problems } = acceptFiles([...(data.file ? [data.file] : []), ...data.attachments], picked, uploadLimits);
         setSubmitError(null);
+        clearAttachmentErrors();
+        if (problems.length) setError('file', problems.join(' '));
+        else clearErrors('file');
+        if (!accepted.length) return;
+
+        const main = data.file ? null : accepted[0];
+        const supporting = data.file ? accepted : accepted.slice(1);
+        if (supporting.length) setData(prev => ({ ...prev, attachments: [...prev.attachments, ...supporting] }));
+        if (main) void scanMainFile(main);
+    };
+
+    // A supporting file becomes the main document; the current main file takes its place in the list
+    const makeMain = (index: number) => {
+        if (isScanning || !data.file) return;
+        const next = data.attachments[index];
+        const previous = data.file;
+        setData(prev => ({ ...prev, attachments: prev.attachments.map((file, i) => (i === index ? previous : file)) }));
+        void scanMainFile(next);
+    };
+
+    const removeAttachment = (index: number) => {
+        setData(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
+        clearAttachmentErrors();
+    };
+
+    const scanMainFile = async (file: File) => {
         setScanMessage('Reading document...');
+        setOcrComplete(false);
         setIsScanning(true);
         setData('file', file);
 
@@ -274,6 +320,7 @@ export default function CreateDocumentModal({
         const found: Record<string, string> = {};
         if (!data.file) found.file = 'Upload the document first.';
         if (data.file && data.file.size > maxUploadBytes) found.file = `The file exceeds the ${maxUploadLabel} upload limit.`;
+        if (fileCount > maxFiles) found.attachments = `Upload up to ${maxFiles} files per document.`;
         if (data.file && !ocrComplete) found.file = 'Please wait for the scan to finish.';
         if (data.file && !String(data.title).trim()) found.title = 'Title is required.';
         if (data.file && !data.type_id) found.type_id = 'Select a document type.';
@@ -319,7 +366,7 @@ export default function CreateDocumentModal({
             onError: (serverErrors) => {
                 // Client field messages already name the field ("The first name field is required.")
                 const summary = Object.entries(serverErrors)
-                    .map(([field, message]) => field.startsWith('client.') ? message : `${FIELD_LABELS[field] ?? field}: ${message}`)
+                    .map(([field, message]) => field.startsWith('client.') ? message : `${FIELD_LABELS[field.split('.')[0]] ?? field}: ${message}`)
                     .join(' ');
                 setSubmitError(summary || 'The document could not be submitted. Please review the form.');
             },
@@ -353,23 +400,29 @@ export default function CreateDocumentModal({
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
-                accept={ACCEPTED_FILES}
-                onChange={handleFileChange}
+                accept={ACCEPTED_FILE_TYPES}
+                multiple
+                onChange={e => addFiles(e.target.files)}
             />
 
             {!ocrComplete && !isScanning && (
                 <div
+                    role="button"
+                    tabIndex={0}
                     onClick={handleFileUploadClick}
-                    className={`group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed ${errors.file ? 'border-red-400 bg-red-50' : 'border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] hover:border-[var(--tng-blue-400)] hover:bg-[var(--tng-blue-50)]'} py-8 transition-colors`}
+                    onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleFileUploadClick()}
+                    {...dropHandlers}
+                    className={`group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed ${dragActive ? 'border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)]' : errors.file ? 'border-red-400 bg-red-50' : 'border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] hover:border-[var(--tng-blue-400)] hover:bg-[var(--tng-blue-50)]'} px-4 py-8 transition-colors`}
                 >
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm group-hover:bg-[var(--tng-blue-100)] group-hover:text-[var(--tng-blue-600)] transition-colors">
                         <ScanLine className="h-5 w-5 text-[var(--tng-slate-400)] group-hover:text-[var(--tng-blue-600)]" />
                     </div>
                     <div className="text-center">
                         <p className="text-sm font-medium text-[var(--tng-slate-700)]">Click to upload or drag and drop</p>
-                        <p className="text-xs text-[var(--tng-slate-500)] mt-1">PDF, Word (.docx), PNG, JPG (max. {maxUploadLabel})</p>
+                        <p className="text-xs text-[var(--tng-slate-500)] mt-1">PDF, Word (.docx), PNG, JPG · up to {maxFiles} files, max. {maxUploadLabel} each</p>
+                        <p className="text-[11px] text-[var(--tng-slate-400)] mt-0.5">The first file is the main document; the others are attached as supporting files.</p>
                     </div>
-                    {errors.file && <p className="text-xs text-red-600 mt-2">{errors.file}</p>}
+                    {errors.file && <p className="text-xs text-red-600 mt-2 text-center">{errors.file}</p>}
                 </div>
             )}
 
@@ -397,7 +450,7 @@ export default function CreateDocumentModal({
                         </div>
                         <div className="min-w-0">
                             <p className="text-sm font-medium text-emerald-900 truncate">{data.file.name}</p>
-                            <p className="text-[11px] text-emerald-700 mt-0.5">{(data.file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                            <p className="text-[11px] text-emerald-700 mt-0.5">Main document · {megabytes(data.file.size)}</p>
                         </div>
                     </div>
                     <button
@@ -407,10 +460,62 @@ export default function CreateDocumentModal({
                             setData('file', null);
                             if (fileInputRef.current) fileInputRef.current.value = '';
                         }}
-                        className="text-[13px] font-medium text-emerald-700 hover:text-emerald-800"
+                        className="shrink-0 text-[13px] font-medium text-emerald-700 hover:text-emerald-800"
                     >
                         Replace
                     </button>
+                </div>
+            )}
+
+            {/* Supporting files: kept with the same document, opened from the file list in the viewer */}
+            {(data.attachments.length > 0 || (ocrComplete && data.file)) && (
+                <div className="space-y-2">
+                    {data.attachments.length > 0 && (
+                        <ul className="space-y-1.5">
+                            {data.attachments.map((file, index) => (
+                                <li key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-3 rounded-lg border border-[var(--tng-slate-200)] bg-white px-3 py-2">
+                                    <Paperclip className="h-4 w-4 shrink-0 text-[var(--tng-slate-400)]" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[13px] font-medium text-[var(--tng-slate-800)]">{file.name}</p>
+                                        <p className="text-[11px] text-[var(--tng-slate-500)]">Supporting file · {megabytes(file.size)}</p>
+                                    </div>
+                                    {data.file && (
+                                        <button
+                                            type="button"
+                                            onClick={() => makeMain(index)}
+                                            disabled={isScanning}
+                                            className="shrink-0 text-[12px] font-medium text-[var(--tng-blue-600)] hover:underline disabled:opacity-40"
+                                            title="Use this file as the main document (the one that is read and signed)"
+                                        >
+                                            Make main
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeAttachment(index)}
+                                        className="shrink-0 rounded p-1 text-[var(--tng-slate-400)] hover:bg-[var(--tng-slate-100)] hover:text-red-600"
+                                        aria-label={`Remove ${file.name}`}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {data.file && fileCount < maxFiles && (
+                        <button
+                            type="button"
+                            onClick={handleFileUploadClick}
+                            disabled={isScanning}
+                            {...dropHandlers}
+                            className={`flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-[13px] font-medium transition-colors disabled:opacity-50 ${dragActive ? 'border-[var(--tng-blue-400)] bg-[var(--tng-blue-50)] text-[var(--tng-blue-700)]' : 'border-[var(--tng-slate-300)] text-[var(--tng-slate-600)] hover:border-[var(--tng-blue-400)] hover:bg-[var(--tng-blue-50)] hover:text-[var(--tng-blue-700)]'}`}
+                        >
+                            <Paperclip className="h-4 w-4" />
+                            {data.attachments.length ? 'Add more supporting files' : 'Attach supporting files (optional)'}
+                            <span className="font-normal text-[var(--tng-slate-400)]">· {maxFiles - fileCount} more allowed</span>
+                        </button>
+                    )}
+                    {attachmentsError && <p className={errorClass}>{attachmentsError}</p>}
                 </div>
             )}
 
@@ -452,6 +557,23 @@ export default function CreateDocumentModal({
                         {errors.type_id && <p className={errorClass}>{errors.type_id}</p>}
                     </div>
                     <p className="sm:col-span-2 -mt-2 text-[11px] text-[var(--tng-slate-500)]">Detected from the file. Please check before submitting.</p>
+                    {(selectedType?.requires_mayoral_action || typeTemplates.length > 0) && (
+                        <div className="sm:col-span-2 -mt-1 space-y-1 text-[12px] text-[var(--tng-slate-600)]">
+                            {selectedType?.requires_mayoral_action && (
+                                <p>An ordinance / resolution goes to the City Mayor, who has 10 calendar days to sign or veto it (LGC Sec. 54). Include the Mayor on the route.</p>
+                            )}
+                            {typeTemplates.length > 0 && (
+                                <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <span>Template:</span>
+                                    {typeTemplates.map((t: any) => (
+                                        <a key={t.id} href={`/templates/${t.id}/download`} className="inline-flex items-center gap-1 font-medium text-[#0066cc] hover:underline">
+                                            <FileText className="h-3.5 w-3.5" /> {t.name}
+                                        </a>
+                                    ))}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </>

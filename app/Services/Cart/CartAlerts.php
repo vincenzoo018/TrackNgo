@@ -22,6 +22,8 @@ class CartAlerts
     public const INACTIVE = 'arta_inactive';
     public const RESOLVED = 'arta_resolved';
     public const DEADLINE_CHANGED = 'arta_deadline_changed';
+    // The period lapsed: deemed approved under RA 11032 Sec. 10 or LGC Sec. 54
+    public const DEEMED_APPROVED = 'arta_deemed_approved';
 
     /** Sent by CART to the document's current handler (shows in the handler's bell, not CART's) */
     public const FOLLOW_UP = 'arta_follow_up';
@@ -33,6 +35,7 @@ class CartAlerts
         self::INACTIVE         => 'Inactive too long',
         self::RESOLVED         => 'Escalation resolved',
         self::DEADLINE_CHANGED => 'Deadline changed',
+        self::DEEMED_APPROVED  => 'Deemed approved',
     ];
 
     private const SEVERITY = [
@@ -42,6 +45,7 @@ class CartAlerts
         self::INACTIVE         => 'warning',
         self::RESOLVED         => 'normal',
         self::DEADLINE_CHANGED => 'normal',
+        self::DEEMED_APPROVED  => 'escalated',
     ];
 
     private const ICONS = [
@@ -51,6 +55,7 @@ class CartAlerts
         self::INACTIVE         => '💤',
         self::RESOLVED         => '✔',
         self::DEADLINE_CHANGED => '📅',
+        self::DEEMED_APPROVED  => '⚖',
     ];
 
     public static function raise(?Document $document, string $type, string $title, ?string $actionUrl = null, bool $read = false): SystemNotification

@@ -2,59 +2,51 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Enums\TeamRole;
-use App\Models\Team;
-use App\Models\TeamInvitation;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
+/**
+ * TrackNGo has no public sign-up: HR (Employees) and the Admin (User Accounts) create every account, and an account
+ * that is deactivated (or has no role) cannot use the system.
+ */
 class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registration_screen_can_be_rendered()
+    public function test_public_registration_is_disabled()
     {
-        $response = $this->get(route('register'));
-
-        $response->assertOk();
-    }
-
-    public function test_registration_screen_includes_team_invitation_context()
-    {
-        $owner = User::factory()->create();
-        $team = Team::factory()->create(['name' => 'Laravel Team']);
-        $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
-
-        $invitation = TeamInvitation::factory()->create([
-            'team_id' => $team->id,
-            'email' => 'invited@example.com',
-            'invited_by' => $owner->id,
+        $this->get('/register')->assertNotFound();
+        $this->post('/register', [
+            'first_name' => 'Test', 'last_name' => 'User', 'email' => 'test@example.com',
+            'password' => 'password', 'password_confirmation' => 'password',
         ]);
 
-        $response = $this->get(route('register', ['invitation' => $invitation->code]));
-
-        $response->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page
-            ->component('auth/register')
-            ->where('teamInvitation.code', $invitation->code)
-            ->where('teamInvitation.teamName', 'Laravel Team'),
-        );
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
     }
 
-    public function test_new_users_can_register()
+    public function test_a_deactivated_account_cannot_sign_in_and_is_signed_out()
     {
-        // TrackNGo stores names in parts (first / last)
-        $this->post(route('register.store'), [
-            'first_name' => 'Test',
-            'last_name' => 'User',
-            'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
-        ]);
+        $role = Role::firstOrCreate(['role_name' => 'Receiving Clerk'], ['position' => 'Receiving Clerk']);
+        $user = User::factory()->create(['role_id' => $role->role_id]);
+        $user->forceFill(['is_active' => false])->save();
 
-        $this->assertAuthenticated();
-        $this->assertDatabaseHas('users', ['email' => 'test@example.com', 'first_name' => 'Test', 'last_name' => 'User']);
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])
+            ->assertSessionHasErrors('email');
+        $this->assertGuest();
+
+        // Deactivated while signed in: the next request signs them out
+        $this->actingAs($user)->get('/receiving')->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
+    public function test_an_account_without_a_role_is_signed_out()
+    {
+        $user = User::factory()->create(['role_id' => null]);
+
+        $this->actingAs($user)->get('/receiving/documents')->assertRedirect(route('login'));
+        $this->assertGuest();
     }
 }

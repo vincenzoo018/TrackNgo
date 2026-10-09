@@ -41,12 +41,12 @@ class DocumentRevisionService
     public function create(Document $document, UploadedFile $file, string $reason, User $actor, ?string $ipAddress = null, ?string $ocrText = null): DocumentRevision
     {
         // Laravel names the stored file itself (random name, extension from its contents), never after the upload
-        $path = $file->store('documents', 'public');
+        $path = $file->store('documents', Document::FILE_DISK);
 
         try {
             $revision = DB::transaction(fn () => $this->record($document, $file, $path, trim($reason), $actor, $ipAddress, $ocrText));
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete($path);
+            Storage::disk(Document::FILE_DISK)->delete($path);
             throw $e;
         }
 
@@ -118,7 +118,7 @@ class DocumentRevisionService
             return $current;
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(Document::FILE_DISK);
         $path = (string) $document->attachment_path;
         $exists = $path !== '' && $disk->exists($path);
         $submitter = $document->submitter;
@@ -197,7 +197,7 @@ class DocumentRevisionService
             'file_name' => mb_substr($name !== '' ? $name : basename($path), 0, 200),
             'file_size' => $file->getSize() ?: null,
             'mime_type' => mb_substr((string) $file->getMimeType(), 0, 100) ?: null,
-            'file_hash' => hash_file('sha256', Storage::disk('public')->path($path)) ?: null,
+            'file_hash' => hash_file('sha256', Storage::disk(Document::FILE_DISK)->path($path)) ?: null,
         ];
     }
 

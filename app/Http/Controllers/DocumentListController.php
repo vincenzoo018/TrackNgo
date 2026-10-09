@@ -34,11 +34,13 @@ class DocumentListController extends Controller
     public function receiving(Request $request): Response
     {
         $documents = $this->whereInvolved(
-            Document::with(self::LIST_RELATIONS)->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'archived']),
+            Document::with(self::LIST_RELATIONS)->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'archived', Document::STATUS_VETOED]),
             $request->user(),
             ownDepartment: false,
             alsoVisible: fn (Builder $query) => $query->orWhere('status', 'pending_registration')
-                ->orWhere('status', 'approved'),
+                ->orWhere('status', 'approved')
+                // Deemed approved by law: waiting at the counter for release
+                ->orWhere('status', Document::STATUS_DEEMED_APPROVED),
         )->get();
 
         return $this->renderList('receiving/documents/Documents', $documents);
@@ -71,7 +73,7 @@ class DocumentListController extends Controller
             // (route-based documents reach the Mayor only when the Mayor is on their route)
             alsoVisible: fn (Builder $query) => $query->orWhere(fn ($stage) => $stage->whereIn('current_step_index', [4, 5, 6])
                 ->where('route_based', false)
-                ->whereRaw("LOWER(status) NOT IN ('completed', 'approved')")),
+                ->whereRaw("LOWER(status) NOT IN ('completed', 'approved', 'deemed_approved', 'vetoed')")),
         )->get();
 
         return $this->renderList('mayor/documents/FinalApproval', $documents);
@@ -92,7 +94,7 @@ class DocumentListController extends Controller
     /** Finished documents; $role is the archived page's role key (admin, receiving, department_head, mayor, hr). */
     public function archived(string $role): Response
     {
-        $statuses = $role === 'department_head' ? ['completed', 'archived'] : ['approved', 'completed', 'archived'];
+        $statuses = $role === 'department_head' ? ['completed', 'archived', Document::STATUS_VETOED] : ['approved', 'completed', 'archived', Document::STATUS_VETOED];
 
         $documents = Document::with(self::LIST_RELATIONS)
             ->whereIn(DB::raw('LOWER(status)'), $statuses)
@@ -152,6 +154,8 @@ class DocumentListController extends Controller
                 ->select('users.*', 'roles.role_name', 'departments.department_name')
                 ->where('users.is_active', true)
                 ->get(),
+            // Blank forms offered in the filing form for the chosen document type
+            'dbTemplates'     => \App\Models\DocumentTemplate::where('is_active', true)->orderBy('name')->get(['id', 'name', 'type_id', 'file_name']),
         ]);
     }
 

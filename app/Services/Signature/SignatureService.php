@@ -7,6 +7,7 @@ use App\Contracts\SignatureServiceInterface;
 use App\Models\DigitalSignature;
 use App\Models\Document;
 use App\Models\User;
+use App\Services\Oic\OicService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +30,14 @@ class SignatureService implements SignatureServiceInterface
         }
 
         $signatory = $document->signatories()->where('user_id', $actor->id)->whereNull('signed_at')->first();
+        // An Officer-in-Charge signs in the absent official's place with their own registered signature (LGC Sec. 46)
+        $capacity = null;
+        $signingFor = null;
+        if (!$signatory && ($designation = app(OicService::class)->designationFor($document, $actor))) {
+            $signatory = $document->signatories()->where('user_id', $designation->designating_user_id)->whereNull('signed_at')->first();
+            $capacity = $designation->reference();
+            $signingFor = $designation->official;
+        }
         if (!$signatory) {
             return null;
         }
@@ -40,8 +49,8 @@ class SignatureService implements SignatureServiceInterface
         }
 
         $signedAt = now();
-        $fileHash = $document->attachment_path && Storage::disk('public')->exists($document->attachment_path)
-            ? hash_file('sha256', Storage::disk('public')->path($document->attachment_path))
+        $fileHash = $document->attachment_path && Storage::disk(Document::FILE_DISK)->exists($document->attachment_path)
+            ? hash_file('sha256', Storage::disk(Document::FILE_DISK)->path($document->attachment_path))
             : '';
         // Binds who signed, which file, when and with which image; any later change breaks the hash
         $hash = hash('sha256', implode('|', [
@@ -51,7 +60,7 @@ class SignatureService implements SignatureServiceInterface
         // The signature belongs to the version of the file that is current now (a later version is signed again)
         $revision = $document->currentRevision()->first();
 
-        return DB::transaction(function () use ($document, $signatory, $actor, $signedAt, $hash, $ipAddress, $revision) {
+        return DB::transaction(function () use ($document, $signatory, $actor, $signedAt, $hash, $ipAddress, $revision, $capacity, $signingFor) {
             $signature = DigitalSignature::create([
                 'document_id'       => $document->document_id,
                 'revision_id'       => $revision?->revision_id,
@@ -59,6 +68,7 @@ class SignatureService implements SignatureServiceInterface
                 'signature_image'   => $actor->signature,
                 'signature_hash'    => $hash,
                 'action_type'       => 'approved',
+                'capacity'          => $capacity,
                 'ip_address'        => $ipAddress ?: (request()->ip() ?: '127.0.0.1'),
                 'signed_at'         => $signedAt,
             ]);
@@ -73,6 +83,7 @@ class SignatureService implements SignatureServiceInterface
                 document: $document,
                 action: 'Digital Signature Stamped',
                 description: "Registered signature of {$actor->name}" . ($role ? " ({$role})" : '')
+                    . ($signingFor ? " signing for {$signingFor->name}" : '')
                     . ' stamped on the document' . ($revision && $revision->version_number > 1 ? " (Version {$revision->version_number})" : '')
                     . " — signature {$signed} of {$total}. SHA-256 " . substr($hash, 0, 16) . '…',
                 actor: $actor,
@@ -113,8 +124,8 @@ class SignatureService implements SignatureServiceInterface
             throw ValidationException::withMessages(['file' => 'Only people who can open this document can generate its signed copy.']);
         }
 
-        $path = $file->store('documents/signed', 'public');
-        $fileHash = hash_file('sha256', Storage::disk('public')->path($path));
+        $path = $file->store('documents/signed', Document::FILE_DISK);
+        $fileHash = hash_file('sha256', Storage::disk(Document::FILE_DISK)->path($path));
         $final = $signatureCount >= $total;
 
         try {
@@ -131,7 +142,7 @@ class SignatureService implements SignatureServiceInterface
                 if ($signatureCount > $locked->signatories()->whereNotNull('signed_at')->count()) {
                     throw ValidationException::withMessages(['file' => 'The signed copy does not match the signatures on record. Reload the page and try again.']);
                 }
-                if ($locked->signed_file_path && Storage::disk('public')->exists($locked->signed_file_path)
+                if ($locked->signed_file_path && Storage::disk(Document::FILE_DISK)->exists($locked->signed_file_path)
                     && $locked->signed_copy_signatures >= $signatureCount) {
                     return false;
                 }
@@ -153,15 +164,15 @@ class SignatureService implements SignatureServiceInterface
                 return ['previous' => $previous];
             });
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete($path);
+            Storage::disk(Document::FILE_DISK)->delete($path);
             throw $e;
         }
 
         if ($replaced === false) {
-            Storage::disk('public')->delete($path);
+            Storage::disk(Document::FILE_DISK)->delete($path);
         } elseif ($replaced['previous'] && $replaced['previous'] !== $path) {
             // The newer copy carries every earlier signature too
-            Storage::disk('public')->delete($replaced['previous']);
+            Storage::disk(Document::FILE_DISK)->delete($replaced['previous']);
         }
 
         return $document->refresh();

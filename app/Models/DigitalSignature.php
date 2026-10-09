@@ -21,6 +21,8 @@ class DigitalSignature extends Model
         'signature_image',
         'signature_hash',
         'action_type',
+        // "Acting Mayor per Designation Order No. 12, s. 2026" when an Officer-in-Charge signed for the official
+        'capacity',
         'page',
         'pos_x',
         'pos_y',

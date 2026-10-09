@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\DateOnly;
 use App\Services\Document\DocumentConfidentiality;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,6 +15,18 @@ class Document extends Model
     protected $table = 'documents';
 
     protected $primaryKey = 'document_id';
+
+    /** Document files are private: served only through DocumentFileController after an access check */
+    public const FILE_DISK = 'local';
+
+    /** No action within the ARTA period (RA 11032 Sec. 10) or the Mayor's 10 days (LGC Sec. 54): for release */
+    public const STATUS_DEEMED_APPROVED = 'deemed_approved';
+
+    /** An ordinance / resolution vetoed by the Mayor: closed and returned to whoever filed it */
+    public const STATUS_VETOED = 'vetoed';
+
+    /** Statuses after which nothing more happens to the document */
+    public const CLOSED_STATUSES = ['completed', 'released', 'archived', self::STATUS_VETOED];
 
     protected $fillable = [
         'reference_number',
@@ -49,18 +62,26 @@ class Document extends Model
         'route_based',
         'signed_file_path',
         'signed_copy_signatures',
+        'deemed_approved_at',
+        'deemed_approval_basis',
+        'mayor_received_at',
+        'mayor_action_due_date',
+        'held_for_user_id',
     ];
 
     protected $casts = [
         'date_filed' => 'datetime',
         'submitted_at' => 'datetime',
         'completed_at' => 'datetime',
-        'arta_due_date' => 'date',
+        'arta_due_date' => DateOnly::class,
         'is_escalated' => 'boolean',
         'is_internal' => 'boolean',
         'requires_signature' => 'boolean',
         'route_based' => 'boolean',
         'signed_copy_signatures' => 'integer',
+        'deemed_approved_at' => 'datetime',
+        'mayor_received_at' => 'datetime',
+        'mayor_action_due_date' => DateOnly::class,
     ];
 
     /** The stored signed copy carries every required signature (release / completion may rely on it). */
@@ -92,7 +113,7 @@ class Document extends Model
     /** Title as the viewer may see it (hidden for confidential documents they cannot open). */
     public function visibleTitle(?User $user = null): string
     {
-        return $this->contentsVisibleTo($user) ? (string) $this->title : DocumentConfidentiality::HIDDEN_TITLE;
+        return $this->contentsVisibleTo($user) ? (string) $this->title : DocumentConfidentiality::hiddenTitle($this);
     }
 
     /**
@@ -206,6 +227,30 @@ class Document extends Model
         return $this->hasMany(DocumentAttachment::class, 'document_id', 'document_id');
     }
 
+    /** The one extension of the processing period (RA 11032) */
+    public function extension()
+    {
+        return $this->hasOne(DocumentExtension::class, 'document_id', 'document_id');
+    }
+
+    /** Signed / vetoed / deemed approved by the Mayor (ordinances and resolutions), oldest first */
+    public function mayoralActions()
+    {
+        return $this->hasMany(MayoralAction::class, 'document_id', 'document_id')->orderBy('id');
+    }
+
+    /** The absent official an Officer-in-Charge holds the document for (LGC Sec. 46) */
+    public function heldFor()
+    {
+        return $this->belongsTo(User::class, 'held_for_user_id', 'id');
+    }
+
+    /** Where the paper original is kept, newest first */
+    public function physicalLocations()
+    {
+        return $this->hasMany(DocumentPhysicalLocation::class, 'document_id', 'document_id')->orderByDesc('id');
+    }
+
     /** External client registered by the Receiving Clerk (null for internal / staff-filed documents). */
     public function client()
     {
@@ -242,7 +287,18 @@ class Document extends Model
 
     public function isClosed(): bool
     {
-        return in_array(strtolower((string) $this->status), ['completed', 'released', 'archived'], true);
+        return in_array(strtolower((string) $this->status), self::CLOSED_STATUSES, true);
+    }
+
+    public function isDeemedApproved(): bool
+    {
+        return $this->deemed_approved_at !== null;
+    }
+
+    /** Ordinances and resolutions: the Mayor must sign or veto within 10 calendar days of receipt (LGC Sec. 54) */
+    public function requiresMayoralAction(): bool
+    {
+        return (bool) $this->type?->requiresMayoralAction();
     }
 
     /** Filed, but nobody has received or registered it yet (its filer may still fix what they entered). */

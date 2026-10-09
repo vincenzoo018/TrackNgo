@@ -27,6 +27,8 @@ class RoutingSlip extends Model
         'target_department_id',
         'noted_by',
         'status',
+        // The absent official an Officer-in-Charge sent this slip for (LGC Sec. 46)
+        'acting_for_user_id',
     ];
 
     protected $casts = [
@@ -66,5 +68,11 @@ class RoutingSlip extends Model
     public function noter()
     {
         return $this->belongsTo(User::class, 'noted_by', 'id');
+    }
+
+    /** The absent official an Officer-in-Charge sent this slip for */
+    public function actingFor()
+    {
+        return $this->belongsTo(User::class, 'acting_for_user_id', 'id');
     }
 }

@@ -36,7 +36,7 @@ class InternalRoutingAndSignatureTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('public');
+        Storage::fake('local'); // document files are private
         $this->withoutVite();
 
         $records = Department::create(['department_name' => 'Records Office', 'code' => 'REC', 'is_active' => true]);
@@ -219,7 +219,7 @@ class InternalRoutingAndSignatureTest extends TestCase
         // The first signed copy attached is kept (other open browsers building it too are ignored)
         $this->postJson("/documents/{$id}/signed-copy", ['file' => UploadedFile::fake()->create('signed.pdf', 30, 'application/pdf')])->assertOk();
         $signedPath = $doc->refresh()->signed_file_path;
-        Storage::disk('public')->assertExists($signedPath);
+        Storage::disk('local')->assertExists($signedPath);
         $this->actingAs($this->sender)->postJson("/documents/{$id}/signed-copy", ['file' => UploadedFile::fake()->create('again.pdf', 30, 'application/pdf')])->assertOk();
         $this->assertSame($signedPath, $doc->refresh()->signed_file_path);
         $this->assertSame(1, \App\Models\AuditTrail::where('document_id', $id)->where('action', 'Final Signed Copy Generated')->count());

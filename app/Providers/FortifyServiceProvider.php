@@ -55,6 +55,21 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+
+        // A deactivated account cannot sign in, and is told why (the password is checked first)
+        Fortify::authenticateUsing(function (Request $request) {
+            $user = \App\Models\User::where('email', $request->input(Fortify::username()))->first();
+            if (!$user || !\Illuminate\Support\Facades\Hash::check((string) $request->input('password'), $user->password)) {
+                return null;
+            }
+            if (!$user->is_active) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    Fortify::username() => 'This account has been deactivated. Please contact HR or the System Administrator.',
+                ]);
+            }
+
+            return $user;
+        });
     }
 
     /**
@@ -81,9 +96,7 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::registerView(fn (Request $request) => Inertia::render('auth/register', [
-            'teamInvitation' => $this->teamInvitation($request),
-        ]));
+        // No registration view: there is no public sign-up (config/fortify.php)
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/two-factor-challenge'));
 

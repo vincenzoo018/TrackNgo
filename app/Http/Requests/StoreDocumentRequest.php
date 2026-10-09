@@ -33,6 +33,12 @@ class StoreDocumentRequest extends FormRequest
         return rtrim(rtrim(number_format(self::maxUploadBytes() / 1048576, 1), '0'), '.') . ' MB';
     }
 
+    /** Largest whole request PHP accepts (post_max_size, 0 = no limit): several files posted together must fit in it */
+    public static function maxPostBytes(): int
+    {
+        return self::iniBytes(ini_get('post_max_size'));
+    }
+
     private static function iniBytes(string|false $value): int
     {
         $value = trim((string) $value);
@@ -55,6 +61,9 @@ class StoreDocumentRequest extends FormRequest
     }
 
     public const MAX_SIGNATORIES = 10;
+
+    /** Files in one upload: at filing, the main document plus up to 4 supporting files */
+    public const MAX_FILES = 5;
 
     public const VIEWABLE_TYPES = ['pdf', 'docx', 'png', 'jpg', 'jpeg'];
 
@@ -119,6 +128,9 @@ class StoreDocumentRequest extends FormRequest
             'department_id'         => 'required|exists:departments,department_id',
             // Only formats the system can display (old .doc files cannot be previewed in the browser)
             'file'                  => 'required|file|mimes:' . implode(',', self::VIEWABLE_TYPES) . '|max:' . self::APP_MAX_UPLOAD_KB,
+            // Supporting files uploaded with it, kept as attachments of the same document
+            'attachments'           => 'nullable|array|max:' . (self::MAX_FILES - 1),
+            'attachments.*'         => 'file|mimes:' . implode(',', self::VIEWABLE_TYPES) . '|max:' . self::APP_MAX_UPLOAD_KB,
             'classification'        => 'required|string|max:50',
             'forward_to'            => 'required|exists:departments,department_id',
             'forward_to_user'       => 'nullable|exists:users,id',
@@ -196,6 +208,10 @@ class StoreDocumentRequest extends FormRequest
             'file.required' => 'Please upload the document file.',
             'file.max'      => 'The file must not be larger than ' . (self::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
             'file.mimes'    => 'Upload a PDF, Word (.docx) or image (PNG/JPG) file. Old .doc files cannot be viewed in the system; save them as .docx or PDF first.',
+            'attachments.max'        => 'Upload up to ' . self::MAX_FILES . ' files per document (the main document and ' . (self::MAX_FILES - 1) . ' supporting files).',
+            'attachments.*.uploaded' => 'A supporting file could not be uploaded. The server accepts files up to ' . self::maxUploadLabel() . '.',
+            'attachments.*.max'      => 'Each supporting file must not be larger than ' . (self::APP_MAX_UPLOAD_KB / 1024) . ' MB.',
+            'attachments.*.mimes'    => 'Supporting files must be PDF, Word (.docx) or images (PNG/JPG).',
             'signatories.max'        => 'Choose up to ' . self::MAX_SIGNATORIES . ' signatories.',
             'signatories.*.distinct' => 'Each signatory can only be listed once.',
             'route.max'              => 'A route can have up to ' . self::MAX_ROUTE_STOPS . ' people.',
@@ -241,6 +257,7 @@ class StoreDocumentRequest extends FormRequest
 
             if ($this->filled('route')) {
                 $this->validateRoute($validator, $actor);
+                $this->validateLegislativeRoute($validator);
                 if ($validator->errors()->isNotEmpty()) {
                     return;
                 }
@@ -311,6 +328,21 @@ class StoreDocumentRequest extends FormRequest
             } elseif (!$user->department_id) {
                 $validator->errors()->add('route', "{$user->name} has no office assigned. Ask HR to assign one first.");
             }
+        }
+    }
+
+    /** Ordinances and resolutions must reach the City Mayor, who signs or vetoes them (LGC Sec. 54) */
+    private function validateLegislativeRoute($validator): void
+    {
+        $type = \App\Models\DocumentType::find($this->input('type_id'));
+        if (!$type?->requiresMayoralAction()) {
+            return;
+        }
+        $hasMayor = User::whereIn('id', collect($this->input('route'))->pluck('user_id'))
+            ->whereHas('role', fn ($q) => $q->where('role_name', 'Mayor'))
+            ->exists();
+        if (!$hasMayor) {
+            $validator->errors()->add('route', "A {$type->type_name} must go to the City Mayor for signature or veto (LGC Sec. 54). Add the Mayor to the route.");
         }
     }
 

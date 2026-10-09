@@ -1,11 +1,11 @@
-export type StandardizedStatus = 'Received' | 'Ongoing' | 'Sent' | 'Returned' | 'Approved' | 'Completed' | 'Archived';
+export type StandardizedStatus = 'Received' | 'Ongoing' | 'Sent' | 'Returned' | 'Approved' | 'Deemed Approved' | 'Vetoed' | 'Completed' | 'Archived';
 
-export const STANDARDIZED_STATUSES: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned', 'Approved', 'Completed', 'Archived'];
+export const STANDARDIZED_STATUSES: StandardizedStatus[] = ['Received', 'Ongoing', 'Sent', 'Returned', 'Approved', 'Deemed Approved', 'Vetoed', 'Completed', 'Archived'];
 
 export function isFinalizedOrArchived(rawStatus?: string): boolean {
     if (!rawStatus) return false;
     const s = String(rawStatus).toLowerCase().trim().replace(/[-_]/g, ' ');
-    return s === 'approved' || s === 'completed' || s === 'archived' || s === 'complete' || s === 'archive';
+    return s === 'approved' || s === 'deemed approved' || s === 'vetoed' || s === 'completed' || s === 'archived' || s === 'complete' || s === 'archive';
 }
 
 export function getStandardizedStatus(rawStatus?: string): StandardizedStatus {
@@ -15,6 +15,14 @@ export function getStandardizedStatus(rawStatus?: string): StandardizedStatus {
     // Finalized & Archived mappings
     if (s === 'approved') {
         return 'Approved';
+    }
+    // No action within the period: approved by law (RA 11032 Sec. 10 / LGC Sec. 54), waiting for release
+    if (s === 'deemed approved') {
+        return 'Deemed Approved';
+    }
+    // An ordinance / resolution vetoed by the Mayor (LGC Sec. 54)
+    if (s === 'vetoed') {
+        return 'Vetoed';
     }
     if (s === 'completed' || s === 'complete') {
         return 'Completed';
@@ -105,6 +113,22 @@ export const STATUS_STYLE_CONFIG: Record<
         border: 'border-emerald-200',
         dot: 'bg-emerald-500',
         lightBg: 'bg-emerald-50/50',
+    },
+    'Deemed Approved': {
+        label: 'Deemed Approved',
+        bg: 'bg-violet-50',
+        text: 'text-violet-700',
+        border: 'border-violet-200',
+        dot: 'bg-violet-500',
+        lightBg: 'bg-violet-50/50',
+    },
+    Vetoed: {
+        label: 'Vetoed',
+        bg: 'bg-red-50',
+        text: 'text-red-700',
+        border: 'border-red-200',
+        dot: 'bg-red-500',
+        lightBg: 'bg-red-50/50',
     },
     Completed: {
         label: 'Completed',

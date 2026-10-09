@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Private files (document files, templates) are served only by their controllers, after an access check
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

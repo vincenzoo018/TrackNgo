@@ -12,8 +12,11 @@ use App\Models\DocumentClient;
 use App\Models\DocumentComment;
 use App\Models\DocumentRouteStop;
 use App\Models\DocumentSignatory;
+use App\Models\DocumentType;
 use App\Models\RoutingSlip;
 use App\Models\User;
+use App\Services\Calendar\WorkingDayCalendar;
+use App\Services\Oic\OicService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -30,7 +33,7 @@ class DocumentService implements DocumentServiceInterface
      */
     private const HOLDER_ONLY_ACTIONS = [
         'register', 'receive', 'accept', 'review', 'endorse', 'forward', 'approveRoute',
-        'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit', 'link',
+        'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit', 'link', 'veto',
     ];
 
     /** Passing the document on is the holder's approval: a signatory's registered signature is stamped then */
@@ -49,7 +52,10 @@ class DocumentService implements DocumentServiceInterface
         protected AuditTrailServiceInterface $auditTrailService,
         protected SignatureServiceInterface $signatureService,
         protected DocumentRoute $route,
-        protected DocumentRevisionService $revisionService
+        protected DocumentRevisionService $revisionService,
+        protected WorkingDayCalendar $calendar,
+        protected OicService $oic,
+        protected MayoralActionService $mayoral
     ) {}
 
     public function getDocumentsForUser(User $user): Collection
@@ -63,25 +69,41 @@ class DocumentService implements DocumentServiceInterface
         return $this->repository->findWithRelations($id);
     }
 
+    /** $data['attachments']: supporting files uploaded with the main document, kept as its attachments */
     public function createDocument(array $data, ?UploadedFile $file, User $actor, ?string $ipAddress = null): Document
     {
-        $path = $file ? $file->store('documents', 'public') : null;
+        $path = $file ? $file->store('documents', Document::FILE_DISK) : null;
+        $storedPaths = array_filter([$path]);
 
         // Document, routing slip, audit entry and notification are saved atomically;
-        // on any failure nothing is half-written and the uploaded file is removed.
+        // on any failure nothing is half-written and the uploaded files are removed.
         try {
-            return DB::transaction(function () use ($data, $file, $path, $actor, $ipAddress) {
+            return DB::transaction(function () use ($data, $file, $path, $actor, $ipAddress, &$storedPaths) {
                 $document = $this->persistDocument($data, $path, $actor, $ipAddress);
                 if ($file && $path) {
                     // The submitted file is Version 1; corrections become later versions and never overwrite it
                     $this->revisionService->recordOriginal($document, $file, $path, $actor);
                 }
 
+                foreach ($data['attachments'] ?? [] as $attachment) {
+                    $attachmentPath = $attachment->store('attachments', Document::FILE_DISK);
+                    $storedPaths[] = $attachmentPath;
+                    DocumentAttachment::create([
+                        'document_id' => $document->document_id,
+                        'user_id'     => $actor->id,
+                        'file_name'   => $attachment->getClientOriginalName(),
+                        'file_path'   => $attachmentPath,
+                        'file_size'   => $attachment->getSize(),
+                        'file_type'   => $attachment->getClientMimeType(),
+                        'reason'      => 'Supporting file submitted with the document',
+                    ]);
+                }
+
                 return $document;
             });
         } catch (\Throwable $e) {
-            if ($path) {
-                Storage::disk('public')->delete($path);
+            foreach ($storedPaths as $storedPath) {
+                Storage::disk(Document::FILE_DISK)->delete($storedPath);
             }
             throw $e;
         }
@@ -117,6 +139,10 @@ class DocumentService implements DocumentServiceInterface
         $referenceNumber = $this->numberGenerator->generateReferenceNumber($data['department_id'] ?? null);
         $clientName = $client ? (new DocumentClient($client))->full_name : null;
         $destinationUserId = null;
+        // External documents go straight to their first recipient: the official, or their OIC while they are away
+        $firstOfficial = null;
+        $heldFor = null;
+        $deliveryNote = '';
 
         if ($isInternal) {
             $trackingNumber = null;
@@ -160,9 +186,24 @@ class DocumentService implements DocumentServiceInterface
                 $currentHolderId = $targetUser?->id;
             }
             $destinationDeptId = null;
+
+            // LGC Sec. 46: the Officer-in-Charge receives it while the first recipient is away
+            $firstOfficial = $targetUser ?? ($currentHolderId ? User::find($currentHolderId) : null);
+            $delivery = $this->workflowService->deliveryTo($firstOfficial, $currentHolderDeptId ? (int) $currentHolderDeptId : null);
+            if ($delivery['columns']['held_for_user_id']) {
+                $targetUser = $delivery['holder'];
+                $currentHolderId = $targetUser->id;
+                $currentHolderDeptId = $delivery['columns']['current_holder_department_id'];
+                $heldFor = $firstOfficial->id;
+                $deliveryNote = $delivery['note'];
+            }
         }
 
+        $type = DocumentType::find($data['type_id']);
+
         $document = Document::create([
+            // Holiday-aware ARTA deadline (working days; calendar days for ordinances / resolutions)
+            'arta_due_date'                => $this->calendar->dueDate(now(), $type)->toDateString(),
             'reference_number'             => $referenceNumber,
             'tracking_number'              => $trackingNumber,
             'title'                        => $data['title'],
@@ -181,6 +222,7 @@ class DocumentService implements DocumentServiceInterface
             'contact_number'               => $client['contact_number'] ?? null,
             'current_holder_department_id' => $currentHolderDeptId,
             'current_holder_id'            => $currentHolderId,
+            'held_for_user_id'             => $heldFor,
             'is_internal'                  => $isInternal,
             'destination_department_id'    => $destinationDeptId,
             'destination_user_id'          => $destinationUserId,
@@ -244,7 +286,7 @@ class DocumentService implements DocumentServiceInterface
                 'target_department_id' => $data['forward_to'],
                 'sender_name'          => $actor->name,
                 'action'               => 'forward',
-                'instruction'          => $data['instruction'] ?? null,
+                'instruction'          => trim(($data['instruction'] ?? '') . $deliveryNote) ?: null,
                 'status'               => 'pending',
                 'date_received'        => now(),
             ]);
@@ -252,16 +294,22 @@ class DocumentService implements DocumentServiceInterface
 
         $destDept = Department::find($data['forward_to']);
         $addressee = $destinationUserId ? User::find($destinationUserId)?->name : null;
+        $supporting = count($data['attachments'] ?? []);
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Submit',
-            description: $isInternal
+            description: ($isInternal
                 ? 'Document submitted to the Receiving Clerk for registration, addressed to '
                     . ($addressee ? "{$addressee} (" . ($destDept?->department_name ?? 'destination') . ')' : ($destDept?->department_name ?? 'destination'))
-                : 'Document submitted and routed to ' . ($destDept?->department_name ?? 'destination'),
+                : 'Document submitted and routed to ' . ($destDept?->department_name ?? 'destination'))
+                . ($supporting ? " with {$supporting} supporting file" . ($supporting === 1 ? '' : 's') : ''),
             actor: $actor,
             ipAddress: $ipAddress
         );
+        // An ordinance / resolution filed straight to the Mayor: the 10 days start now (LGC Sec. 54)
+        if (!$isInternal) {
+            $this->mayoral->markReceived($document, $firstOfficial, $actor);
+        }
 
         \App\Services\NotificationService::triggerDocumentReceiptNotification(
             document: $document,
@@ -300,14 +348,15 @@ class DocumentService implements DocumentServiceInterface
         }
         $this->ensureSignaturesAllow($document, $action, $actor);
 
-        $result = in_array($action, self::APPROVING_ACTIONS, true)
+        // An Officer-in-Charge acts with the designation as reference in every entry the action writes
+        $result = $this->oic->withActingContext($document, $actor, fn () => in_array($action, self::APPROVING_ACTIONS, true)
             // The signature and the move succeed or fail together
             ? DB::transaction(function () use ($document, $action, $params, $actor, $ipAddress) {
                 $this->signatureService->stampIfDue($document, $actor, $ipAddress);
 
                 return $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
             })
-            : $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress);
+            : $this->performWorkflowAction($document, $action, $params, $actor, $ipAddress));
 
         // The progress bar of a routed document is rebuilt from its route and history after every action
         if ($result->route_based) {
@@ -333,6 +382,7 @@ class DocumentService implements DocumentServiceInterface
             'archive'                   => $this->workflowService->archive($document, $actor, $ipAddress),
             'return'                    => $this->workflowService->returnDocument($document, $params['reason'] ?? '', $actor, $ipAddress),
             'forward'                   => $this->workflowService->forward($document, $params, $actor, $ipAddress),
+            'veto'                      => $this->workflowService->veto($document, $params['reasons'] ?? '', $actor, $ipAddress),
             'resubmit'                  => $this->workflowService->resubmit(
                 $document, $params['files'] ?? [], $params['note'] ?? null, $actor, $ipAddress, $params['main_file'] ?? null, $params['ocr_text'] ?? null
             ),
@@ -366,15 +416,21 @@ class DocumentService implements DocumentServiceInterface
      */
     protected function ensureSignaturesAllow(Document $document, string $action, User $actor): void
     {
+        // Deemed approved by law: it is released as it is, without the signatures still missing (RA 11032 Sec. 10)
+        if ($document->isDeemedApproved()) {
+            return;
+        }
+        // An Officer-in-Charge approves (and signs) in the absent official's place
+        $actingAs = $this->workflowService->actingAs($document, $actor);
         // On a route only the last approval sends it out, and the route order has already collected the signatures
         $finalApproval = $action === 'approveAndRouteToReceiving'
-            || ($action === 'approveRoute' && !$this->route->nextAfter($document, $actor));
+            || ($action === 'approveRoute' && !$this->route->nextAfter($document, $actingAs));
         if (!$document->requires_signature || (!$finalApproval && $action !== 'releaseToApplicant')) {
             return;
         }
 
         $pending = $document->signatories()->whereNull('signed_at')->with('user')->get()
-            ->reject(fn ($s) => $finalApproval && (int) $s->user_id === (int) $actor->id);
+            ->reject(fn ($s) => $finalApproval && in_array((int) $s->user_id, [(int) $actor->id, (int) $actingAs->id], true));
 
         if ($pending->isNotEmpty()) {
             throw ValidationException::withMessages([
@@ -431,7 +487,7 @@ class DocumentService implements DocumentServiceInterface
     {
         $document = Document::findOrFail($documentId);
         $this->ensureCanViewContents($document, $actor);
-        $path = $file->store('attachments', 'public');
+        $path = $file->store('attachments', Document::FILE_DISK);
 
         $attachment = DocumentAttachment::create([
             'document_id'   => $document->document_id,

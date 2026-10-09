@@ -13,7 +13,7 @@ class DepartmentHeadNotificationStrategy implements NotificationStrategyInterfac
     public function getActiveDocuments(User $user): Collection
     {
         $query = Document::with(['type', 'department', 'currentHolderDepartment', 'submitter'])
-            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'archived'])
+            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'archived', 'deemed_approved', 'vetoed'])
             ->where(function ($q) use ($user) {
                 $q->where('current_holder_id', $user->id)
                   ->orWhere('submitted_by', $user->id);

@@ -13,7 +13,7 @@ class AdminNotificationStrategy implements NotificationStrategyInterface
     public function getActiveDocuments(User $user): Collection
     {
         return Document::with(['type', 'department', 'currentHolderDepartment', 'submitter'])
-            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived'])
+            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived', 'deemed_approved', 'vetoed'])
             ->get();
     }
 }

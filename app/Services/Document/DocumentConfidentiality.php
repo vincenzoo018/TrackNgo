@@ -6,16 +6,25 @@ use App\Models\Document;
 use App\Models\User;
 
 /**
- * Confidential documents may only be opened by the sender, the people the document is routed to and its
- * signatories. Everyone else — the Receiving Clerk in particular, who registers the document and monitors
- * its route — sees metadata only: reference / tracking number, sender, recipient, dates and status.
+ * Who may open a document (its file, text, applicant, remarks):
+ *  - every document: the people involved in it — its filer, the holder (and the holding office while unassigned),
+ *    the owning office, the people / offices on its routing slips and route, its signatories, the official an OIC
+ *    holds it for;
+ *  - normal documents also: the Receiving Clerk (registers and monitors them), the Admin and CART (monitoring);
+ *  - confidential documents: the involved people only — never the Receiving Clerk.
+ * Everyone else sees a summary only: reference / tracking number, office, dates and status, titled
+ * "Restricted Document" (or "Confidential Document").
  *
  * Bound per request (see DomainServiceProvider) so the access cache never outlives the request.
  */
 class DocumentConfidentiality
 {
     public const HIDDEN_TITLE = 'Confidential Document';
+    public const RESTRICTED_TITLE = 'Restricted Document';
     public const HIDDEN_REMARKS = 'Confidential — remarks are visible to the sender and recipients only.';
+
+    /** Roles that monitor every normal document */
+    private const MONITORING_ROLES = ['Receiving Clerk', 'Admin', 'CART'];
 
     /** Audit actions whose description can quote the document's contents */
     private const CONTENT_ACTIONS = [
@@ -35,14 +44,17 @@ class DocumentConfidentiality
 
     public function canViewContents(Document $document, ?User $user): bool
     {
-        if (!self::isConfidential($document)) {
-            return true;
-        }
         if (!$user) {
             return false;
         }
 
         return $this->access[$document->document_id . ':' . $user->id] ??= $this->resolveAccess($document, $user);
+    }
+
+    /** Title shown to people who cannot open the document */
+    public static function hiddenTitle(Document $document): string
+    {
+        return self::isConfidential($document) ? self::HIDDEN_TITLE : self::RESTRICTED_TITLE;
     }
 
     /** Same check for records that only carry a document id (audit trail rows). */
@@ -52,8 +64,7 @@ class DocumentConfidentiality
             return true;
         }
         if (!array_key_exists($documentId, $this->documents)) {
-            $document = Document::find($documentId);
-            $this->documents[$documentId] = $document && self::isConfidential($document) ? $document : null;
+            $this->documents[$documentId] = Document::find($documentId);
         }
 
         return $this->documents[$documentId] === null || $this->canViewContents($this->documents[$documentId], $user);
@@ -62,43 +73,65 @@ class DocumentConfidentiality
     private function resolveAccess(Document $document, User $user): bool
     {
         $userId = (int) $user->id;
+        $confidential = self::isConfidential($document);
 
         if ((int) $document->submitted_by === $userId) {
             return true;
         }
-        // The clerk registers and monitors the route but never opens a confidential document
-        if ($user->hasRole('Receiving Clerk')) {
-            return false;
+        if (in_array($user->role?->role_name, self::MONITORING_ROLES, true)) {
+            // The clerk registers and monitors the route but never opens a confidential document
+            return !$confidential || (!$user->hasRole('Receiving Clerk') && $this->isInvolved($document, $user, false));
         }
-        if ((int) $document->current_holder_id === $userId || (int) $document->destination_user_id === $userId) {
+
+        return $this->isInvolved($document, $user, !$confidential);
+    }
+
+    /**
+     * The person is part of the document's processing. Offices count too for normal documents (the owning office and
+     * offices on the slips); a confidential document is opened only by the people themselves and an office holding it
+     * without a named person.
+     */
+    private function isInvolved(Document $document, User $user, bool $officesCount): bool
+    {
+        $userId = (int) $user->id;
+        $deptId = (int) $user->department_id;
+
+        if (in_array($userId, [(int) $document->current_holder_id, (int) $document->destination_user_id, (int) $document->held_for_user_id], true)) {
             return true;
         }
         // An office holding the document without a named person may open what it has to act on
-        if (!$document->current_holder_id && $document->current_holder_department_id
-            && (int) $document->current_holder_department_id === (int) $user->department_id) {
+        if ($deptId && !$document->current_holder_id && (int) $document->current_holder_department_id === $deptId) {
+            return true;
+        }
+        if ($officesCount && $deptId && in_array($deptId, [(int) $document->department_id, (int) $document->current_holder_department_id, (int) $document->destination_department_id], true)) {
             return true;
         }
 
-        $onRoute = $document->relationLoaded('routingSlips')
-            ? $document->routingSlips->contains(fn ($slip) => (int) $slip->to_user_id === $userId || (int) $slip->from_user_id === $userId)
-            : $document->routingSlips()->where(fn ($q) => $q->where('to_user_id', $userId)->orWhere('from_user_id', $userId))->exists();
+        $slips = $document->relationLoaded('routingSlips') ? $document->routingSlips : $document->routingSlips()->get(['to_user_id', 'from_user_id', 'acting_for_user_id', 'target_department_id', 'from_department_id']);
+        $onSlips = $slips->contains(fn ($slip) => in_array($userId, [(int) $slip->to_user_id, (int) $slip->from_user_id, (int) $slip->acting_for_user_id], true)
+            || ($officesCount && $deptId && in_array($deptId, [(int) $slip->target_department_id, (int) $slip->from_department_id], true)));
 
-        return $onRoute
+        return $onSlips
             || $document->signatories()->where('user_id', $userId)->exists()
             // Everyone on a route chosen at filing (reviewers as well as signers)
             || $document->routeStops()->where('user_id', $userId)->exists();
     }
 
     /**
-     * Strip the contents from a serialized document, keeping the metadata the clerk needs for the record.
+     * Strip the contents from a serialized document, keeping the metadata needed for the record: reference /
+     * tracking number, office, dates, status and who holds it.
      */
     public function redact(array $data): array
     {
-        $data['title'] = self::HIDDEN_TITLE;
-        foreach (['ocr_text', 'attachment_path', 'signed_file_path', 'urgency_justification', 'return_reason', 'revision_info'] as $field) {
+        $data['title'] = strtolower((string) ($data['classification'] ?? '')) === 'confidential' ? self::HIDDEN_TITLE : self::RESTRICTED_TITLE;
+        foreach (['ocr_text', 'attachment_path', 'signed_file_path', 'urgency_justification', 'return_reason', 'revision_info', 'contact_number', 'client'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = null;
             }
+        }
+        // External documents are "from" the applicant: their name is not shown either
+        if (empty($data['is_internal']) && array_key_exists('sender', $data)) {
+            $data['sender'] = 'Applicant';
         }
         foreach (['attachments', 'comments', 'audit_trails', 'revisions'] as $relation) {
             if (array_key_exists($relation, $data)) {

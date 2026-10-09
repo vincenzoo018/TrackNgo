@@ -1,8 +1,8 @@
-import { Head, Link, useForm, router, usePage } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
-import { EmployeeFormFields } from '@/components/EmployeeFormFields';
+import { EmployeeFormFields, EmployeeFieldValues, pinFieldsShown, validateEmployee } from '@/components/EmployeeFormFields';
 import { isSignaturePadEmpty, signaturePadDataUrl } from '@/lib/signature-pad';
-import { UserPlus, Save, Eraser, ChevronRight, Home, Users } from 'lucide-react';
+import { Save, Eraser, ChevronRight, Home } from 'lucide-react';
 import { useState, useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
@@ -15,10 +15,7 @@ type Props = {
 export default function Create({ dbDepartments, dbRoles }: Props) {
     const signatureRef = useRef<any>(null);
     const [signatureError, setSignatureError] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    // The form posts with router.post, so the server's field errors arrive as page props
-    const pageErrors = (usePage<any>().props.errors || {}) as Record<string, string>;
-    const { data, setData, errors: formErrors } = useForm({
+    const { data, setData, post, processing: isProcessing, errors: formErrors, clearErrors, setError, transform } = useForm({
         first_name: '',
         middle_name: '',
         last_name: '',
@@ -31,7 +28,12 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
         document_pin_confirmation: '',
         signature: '',
     });
-    const errors: Record<string, string | undefined> = { ...pageErrors, ...formErrors };
+    const errors = formErrors as Record<string, string | undefined>;
+    // Editing a field clears its message (the PIN and its confirmation share one)
+    const updateField = (field: keyof EmployeeFieldValues, value: string) => {
+        setData(field, value);
+        clearErrors(field === 'document_pin_confirmation' ? 'document_pin' : field);
+    };
 
     const handleClearSignature = () => {
         signatureRef.current?.clear();
@@ -40,52 +42,35 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
 
     const handleSubmit = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        
-        try {
-            if (isSignaturePadEmpty(signatureRef.current)) {
-                setSignatureError('Signature is required for new employees.');
-                return;
-            }
+        if (isProcessing) return;
 
-            const signatureDataUrl = signaturePadDataUrl(signatureRef.current);
-
-            // Use Sonner toast for non-blocking confirmation
-            toast('Are you sure you want to save this new employee?', {
-                action: {
-                    label: 'Yes, Save Employee',
-                    onClick: () => {
-                        setIsProcessing(true);
-                        router.post('/hr/employees', {
-                            ...data,
-                            signature: signatureDataUrl,
-                        }, {
-                            onSuccess: () => {
-                                setIsProcessing(false);
-                                toast.success('Employee successfully created!');
-                            },
-                            onError: (errs) => {
-                                console.error('Validation errors received from backend:', errs);
-                                setIsProcessing(false);
-                                toast.error('Failed to save. Please fix the errors highlighted below.');
-                            },
-                            onFinish: () => {
-                                setIsProcessing(false);
-                            }
-                        });
-                    }
-                },
-                cancel: {
-                    label: 'Cancel',
-                    onClick: () => console.log('Save cancelled')
-                },
-                duration: 5000,
-            });
-
-        } catch (error) {
-            console.error('Submission error:', error);
-            setIsProcessing(false);
-            toast.error('An unexpected error occurred while preparing the form.');
+        // Every field is checked before anything is sent, so the messages below say exactly what to fix
+        clearErrors();
+        const found = validateEmployee(data, { roles: dbRoles, pinMode: 'register', passwordRequired: true });
+        const noSignature = isSignaturePadEmpty(signatureRef.current);
+        setSignatureError(noSignature ? 'Signature is required for new employees.' : '');
+        if (Object.keys(found).length > 0 || noSignature) {
+            setError(found as any);
+            toast.error('Please fix the highlighted fields.');
+            return;
         }
+
+        const signatureDataUrl = signaturePadDataUrl(signatureRef.current);
+        const showPin = pinFieldsShown('register', dbRoles, data.role_id);
+        transform(({ document_pin, document_pin_confirmation, ...rest }) => ({
+            ...rest,
+            ...(showPin ? { document_pin, document_pin_confirmation } : {}),
+            signature: signatureDataUrl,
+        }));
+
+        post('/hr/employees', {
+            onSuccess: () => toast.success('Employee successfully created!'),
+            onError: (serverErrors) => {
+                // Errors without a field on this page (e.g. a general refusal) are shown in the toast itself
+                const general = Object.entries(serverErrors).filter(([key]) => !(key in data)).map(([, message]) => message);
+                toast.error(general.length ? general.join(' ') : 'Failed to save. Please fix the errors highlighted below.');
+            },
+        });
     };
 
     return (
@@ -115,10 +100,10 @@ export default function Create({ dbDepartments, dbRoles }: Props) {
             </div>
 
             <div className="bg-white rounded-2xl border border-[var(--tng-slate-200)] shadow-sm overflow-hidden">
-                <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
+                <form onSubmit={handleSubmit} noValidate className="p-6 md:p-8 space-y-6">
                     <EmployeeFormFields
                         data={data}
-                        setData={setData}
+                        setData={updateField}
                         errors={errors}
                         departments={dbDepartments}
                         roles={dbRoles}

@@ -51,6 +51,9 @@ class HandleInertiaRequests extends Middleware
         if ($user) {
             $user->load(['role', 'department']);
             $roleName = strtolower($user->role->role_name ?? '');
+            $oic = app(\App\Services\Oic\OicService::class);
+            // Designations that started / ended today move the waiting documents (throttled; the scheduler also runs it)
+            $oic->syncIfDue();
             $userData = [
                 'id'    => $user->id,
                 'name'  => $user->name,
@@ -60,6 +63,13 @@ class HandleInertiaRequests extends Middleware
                 'department_name' => $user->department->department_name ?? null,
                 // Signatures are registered by HR; the image itself is never shared
                 'has_signature' => (bool) $user->has_signature,
+                // Officer-in-Charge designations this user is serving today (LGC Sec. 46)
+                'acting_as' => $oic->coveredBy($user)->map(fn (\App\Models\OicDesignation $d) => [
+                    'title'    => $d->title(),
+                    'official' => $d->official?->name,
+                    'order'    => $d->designation_order_number,
+                    'until'    => $d->end_date->toDateString(),
+                ])->values(),
             ];
         }
 
@@ -81,6 +91,9 @@ class HandleInertiaRequests extends Middleware
             'upload' => [
                 'max_bytes' => \App\Http\Requests\StoreDocumentRequest::maxUploadBytes(),
                 'max_label' => \App\Http\Requests\StoreDocumentRequest::maxUploadLabel(),
+                // Several files posted together must fit in one request (post_max_size)
+                'max_post_bytes' => \App\Http\Requests\StoreDocumentRequest::maxPostBytes(),
+                'max_files' => \App\Http\Requests\StoreDocumentRequest::MAX_FILES,
             ],
             'flash' => [
                 'success'          => fn () => $request->session()->get('success'),

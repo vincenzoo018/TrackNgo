@@ -74,8 +74,9 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
     }, [filteredEmployees, currentPage, pageSize]);
 
     const handleDelete = (id: number) => {
-        if (confirm('Are you sure you want to delete this employee?')) {
-            router.delete(`/hr/employees/${id}`);
+        // Deactivated, never deleted: the employee's documents and history are kept
+        if (confirm('Deactivate this employee\'s account? They can no longer sign in; their documents and history are kept.')) {
+            router.delete(`/hr/employees/${id}`, { preserveScroll: true });
         }
     };
 
@@ -247,7 +248,7 @@ export default function EmployeeIndex({ dbEmployees, dbDepartments = [], dbRoles
                                                 editHref={`/hr/employees/${emp.id}/edit`}
                                                 editTitle="Edit Record"
                                                 onDelete={() => handleDelete(emp.id)}
-                                                deleteTitle="Delete Record"
+                                                deleteTitle="Deactivate account"
                                             />
                                         </td>
                                     </tr>

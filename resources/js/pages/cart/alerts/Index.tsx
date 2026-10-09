@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
-import { AlarmClock, BellOff, CalendarClock, CheckCheck, Clock, Hourglass, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { AlarmClock, BellOff, CalendarClock, CheckCheck, Clock, Hourglass, Scale, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyState, FilterBar, PageHeader, Panel, SearchInput, SelectFilter, StatusBadge, buttonStyles } from '@/components/trackngo/cart/CartUi';
@@ -44,6 +44,7 @@ const TYPE_STYLE: Record<string, { icon: LucideIcon; chip: string }> = {
     arta_inactive: { icon: Hourglass, chip: 'bg-slate-100 text-slate-600' },
     arta_resolved: { icon: ShieldCheck, chip: 'bg-emerald-50 text-emerald-600' },
     arta_deadline_changed: { icon: CalendarClock, chip: 'bg-blue-50 text-[#0066cc]' },
+    arta_deemed_approved: { icon: Scale, chip: 'bg-violet-50 text-violet-700' },
 };
 
 export default function CartAlertsIndex({ alerts, pagination, filters, types, unreadTotal }: Props) {

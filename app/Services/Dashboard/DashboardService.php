@@ -7,6 +7,8 @@ use App\Models\Department;
 use App\Models\Document;
 use App\Models\User;
 use App\Services\Document\DocumentMetrics;
+use App\Services\Document\MayoralActionService;
+use App\Services\Oic\OicService;
 use Carbon\Carbon;
 
 class DashboardService implements DashboardServiceInterface
@@ -154,6 +156,37 @@ class DashboardService implements DashboardServiceInterface
             // C. Weekly Volume Trends (Days of Week)
             'volumeTrends'       => $this->metrics->weeklyVolume($allScopedDocs),
             ...$this->metrics->viewerContext($user, $range, $departmentFilter, $allDepartments),
+            ...$this->compliancePanels($user),
         ];
+    }
+
+    /**
+     * Mayor (and an Acting Mayor): ordinances / resolutions waiting for a signature or veto, with the days left
+     * (LGC Sec. 54). Admin: documents deemed approved by law (RA 11032 Sec. 10 / LGC Sec. 54).
+     */
+    private function compliancePanels(User $user): array
+    {
+        $panels = [];
+        $actingMayor = app(OicService::class)->coveredBy($user)->contains(fn ($d) => $d->role_covered === \App\Models\OicDesignation::ROLE_MAYOR);
+        if ($user->hasRole('Mayor') || $actingMayor) {
+            $panels['pendingOrdinances'] = app(MayoralActionService::class)->pendingFor($user);
+        }
+        if ($user->hasRole('Admin')) {
+            $panels['deemedApproved'] = Document::with('type')->whereNotNull('deemed_approved_at')
+                ->orderByDesc('deemed_approved_at')->limit(10)->get()
+                ->map(fn (Document $d) => [
+                    'document_id'      => $d->document_id,
+                    'reference_number' => $d->reference_number,
+                    'tracking_number'  => $d->tracking_number,
+                    'title'            => $d->visibleTitle($user),
+                    'type'             => $d->type?->type_name,
+                    'basis'            => $d->deemed_approval_basis,
+                    'at'               => $d->deemed_approved_at?->toIso8601String(),
+                    'released'         => $d->isClosed(),
+                ])->values();
+            $panels['deemedApprovedTotal'] = Document::whereNotNull('deemed_approved_at')->count();
+        }
+
+        return $panels;
     }
 }

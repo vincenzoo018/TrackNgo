@@ -4,6 +4,8 @@ namespace App\Services\Sms;
 
 use App\Models\ArtaEscalation;
 use App\Models\Document;
+use App\Models\DocumentExtension;
+use App\Models\SmsNotification;
 use App\Models\User;
 use App\Services\Document\DocumentWorkflowService;
 use App\Services\SmsService;
@@ -27,6 +29,8 @@ class DocumentSmsNotifier
     public const READY_FOR_PICKUP = 'ready_for_pickup';
     public const RELEASED = 'document_released';
     public const ESCALATED = 'arta_escalation';
+    public const EXTENDED = 'processing_extended';
+    public const DEEMED_APPROVED = 'deemed_approved';
     public const TEST = 'test';
 
     /** Automatic ARTA levels; a handler's own "Escalate to CART" (Manual) is not texted back to them */
@@ -73,6 +77,31 @@ class DocumentSmsNotifier
         });
     }
 
+    /**
+     * The processing period was extended once (RA 11032 Sec. 9(b)): the applicant, with the new release date.
+     * The extension is marked "client notified" once the SMS is sent (or simulated).
+     */
+    public function extensionGranted(Document $document, DocumentExtension $extension): void
+    {
+        $this->afterCommit(function () use ($document, $extension) {
+            $sms = $this->notifyApplicant($document, self::EXTENDED, 'extended',
+                "TrackNGo: Processing of your document {$this->applicantRef($document)} was extended to "
+                . $extension->new_due_date->format('M j, Y') . ' (RA 11032). Get the written notice at the Receiving Section.');
+            if ($sms && in_array($sms->status, SmsNotification::COUNTED_STATUSES, true)) {
+                $extension->forceFill(['notified_client' => true])->save();
+            }
+        });
+    }
+
+    /** No action within the processing period (RA 11032 Sec. 10): the applicant, as for a normal approval. */
+    public function deemedApproved(Document $document): void
+    {
+        $this->afterCommit(function () use ($document) {
+            $this->notifyApplicant($document, self::DEEMED_APPROVED, 'deemed-approved',
+                "TrackNGo: Your document {$this->applicantRef($document)} is deemed approved under RA 11032 and is ready for release at the Receiving Section, City Hall of Mati.");
+        });
+    }
+
     /** ARTA escalation level reached: the current handler (or the office head when an office holds it). */
     public function escalated(Document $document, ArtaEscalation $escalation): void
     {
@@ -100,14 +129,15 @@ class DocumentSmsNotifier
         });
     }
 
-    private function notifyApplicant(Document $document, string $type, string $event, string $message): void
+    private function notifyApplicant(Document $document, string $type, string $event, string $message): ?SmsNotification
     {
         // Only external documents have an applicant (the client the Receiving Clerk registered)
         $client = $document->client()->first();
         if (!$client) {
-            return;
+            return null;
         }
-        $this->sms->notify(
+
+        return $this->sms->notify(
             $type,
             "document:{$document->document_id}:{$event}:client",
             $client->contact_number ?: $document->contact_number,

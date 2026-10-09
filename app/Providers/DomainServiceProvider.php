@@ -48,6 +48,12 @@ class DomainServiceProvider extends ServiceProvider
 
         // Per-request access cache for confidential documents
         $this->app->scoped(\App\Services\Document\DocumentConfidentiality::class);
+
+        // Per-request holiday cache for every deadline computation
+        $this->app->scoped(\App\Services\Calendar\WorkingDayCalendar::class);
+
+        // Per-request cache of the OIC designations in effect and of the action an OIC is running
+        $this->app->scoped(\App\Services\Oic\OicService::class);
     }
 
     /**

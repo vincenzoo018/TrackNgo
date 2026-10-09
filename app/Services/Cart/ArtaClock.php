@@ -4,6 +4,7 @@ namespace App\Services\Cart;
 
 use App\Models\ArtaEscalation;
 use App\Models\Document;
+use App\Services\Calendar\WorkingDayCalendar;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -11,6 +12,9 @@ use Carbon\CarbonInterface;
  * ARTA processing time of one document — the Smart Escalation Algorithm (see config/arta.php):
  * WD = days elapsed since the document was assigned for processing, L = allowable processing period,
  * escalated when WD > L, OD = WD − L decides the severity (Warning / Critical / Overdue).
+ *
+ * Days are working days (weekends and the Holiday Calendar skipped, RA 11032) except for legislative types,
+ * which count calendar days (LGC Sec. 54); see WorkingDayCalendar. L includes the one extension, if granted.
  */
 class ArtaClock
 {
@@ -20,31 +24,51 @@ class ArtaClock
     public const OVERDUE = 'overdue';
     public const COMPLETED = 'completed';
 
-    /** The clock stops once a document reaches one of these */
-    public const CLOSED_STATUSES = ['completed', 'released', 'archived'];
+    /**
+     * The clock stops once a document reaches one of these: finished, vetoed, or deemed approved (the office's
+     * time ran out; only the release is left)
+     */
+    public const CLOSED_STATUSES = ['completed', 'released', 'archived', Document::STATUS_VETOED, Document::STATUS_DEEMED_APPROVED];
+
+    public function __construct(
+        protected WorkingDayCalendar $calendar
+    ) {}
 
     public static function isClosed(Document $document): bool
     {
         return in_array(strtolower((string) $document->status), self::CLOSED_STATUSES, true);
     }
 
+    /** "?, ?, ?" for a whereRaw over CLOSED_STATUSES */
+    public static function placeholders(): string
+    {
+        return implode(', ', array_fill(0, count(self::CLOSED_STATUSES), '?'));
+    }
+
     /**
      * @return array{assigned_at: Carbon, allowed_days: int, elapsed_days: int, remaining_days: int,
-     *               overdue_days: int, deadline: Carbon, status: string, severity: ?string, completed_late: bool}
+     *               overdue_days: int, deadline: Carbon, status: string, severity: ?string, completed_late: bool,
+     *               working_days: bool, deemed_approved: bool}
      */
     public function evaluate(Document $document, ?CarbonInterface $now = null): array
     {
+        $type = $document->type;
         $now = $this->local($now ?? now());
         $assigned = $this->local($document->date_filed ?? $document->created_at ?? $now);
         $closed = self::isClosed($document);
-        $end = $closed ? $this->local($document->completed_at ?? $document->updated_at ?? $now) : $now;
+        $end = match (true) {
+            !$closed                       => $now,
+            $document->deemed_approved_at !== null => $this->local($document->deemed_approved_at),
+            default                        => $this->local($document->completed_at ?? $document->updated_at ?? $now),
+        };
 
-        // A deadline set on the document itself overrides the document type's processing period
+        // The deadline stored on the document (computed at filing, moved by an extension) is the source of truth;
+        // documents without one use the document type's processing period
         $allowed = $document->arta_due_date
-            ? max(0, $this->daysBetween($assigned, $this->local($document->arta_due_date)))
-            : (int) ($document->type?->arta_processing_days ?: config('arta.default_processing_days', 3));
+            ? max(0, $this->calendar->daysBetween($assigned, $document->arta_due_date, $type))
+            : $this->calendar->processingDays($type);
 
-        $elapsed = max(0, $this->daysBetween($assigned, $end));
+        $elapsed = max(0, $this->calendar->daysBetween($assigned, $end, $type));
         $remaining = $allowed - $elapsed;
         $overdue = max(0, $elapsed - $allowed);
 
@@ -57,15 +81,17 @@ class ArtaClock
         };
 
         return [
-            'assigned_at'    => $assigned,
-            'allowed_days'   => $allowed,
-            'elapsed_days'   => $elapsed,
-            'remaining_days' => $remaining,
-            'overdue_days'   => $overdue,
-            'deadline'       => $this->addDays($assigned, $allowed),
-            'status'         => $status,
-            'severity'       => $closed ? null : self::severityFor($overdue),
-            'completed_late' => $closed && $overdue > 0,
+            'assigned_at'     => $assigned,
+            'allowed_days'    => $allowed,
+            'elapsed_days'    => $elapsed,
+            'remaining_days'  => $remaining,
+            'overdue_days'    => $overdue,
+            'deadline'        => $document->arta_due_date ? $this->calendar->day($document->arta_due_date) : $this->calendar->addDays($assigned, $allowed, $type),
+            'status'          => $status,
+            'severity'        => $closed ? null : self::severityFor($overdue),
+            'completed_late'  => $closed && $overdue > 0,
+            'working_days'    => $this->calendar->countsWorkingDays($type),
+            'deemed_approved' => $document->deemed_approved_at !== null,
         ];
     }
 
@@ -90,39 +116,10 @@ class ArtaClock
         };
     }
 
-    /** The first day a document assigned on $assigned with period $allowed reached $level */
-    public function levelReachedOn(Carbon $assigned, int $allowed, string $level): Carbon
+    /** The first day a document reached $level (counted the way its type counts days) */
+    public function levelReachedOn(Document $document, Carbon $assigned, int $allowed, string $level): Carbon
     {
-        return $this->addDays($assigned, $allowed + self::firstOverdueDay($level));
-    }
-
-    /** Whole days from one date to another (weekdays only when configured); negative when $to is earlier */
-    public function daysBetween(CarbonInterface $from, CarbonInterface $to): int
-    {
-        $a = $this->local($from)->startOfDay();
-        $b = $this->local($to)->startOfDay();
-
-        if (!config('arta.count_working_days')) {
-            return (int) round($a->diffInDays($b, false));
-        }
-
-        $sign = $b->lt($a) ? -1 : 1;
-        [$start, $end] = $sign < 0 ? [$b, $a] : [$a, $b];
-        $days = 0;
-        for ($day = $start->copy()->addDay(); $day->lte($end); $day->addDay()) {
-            if (!$day->isWeekend()) {
-                $days++;
-            }
-        }
-
-        return $sign * $days;
-    }
-
-    public function addDays(CarbonInterface $from, int $days): Carbon
-    {
-        $start = $this->local($from)->startOfDay();
-
-        return config('arta.count_working_days') ? $start->addWeekdays($days) : $start->addDays($days);
+        return $this->calendar->addDays($assigned, $allowed + self::firstOverdueDay($level), $document->type);
     }
 
     private function approachingWindow(int $allowed): int
@@ -135,6 +132,6 @@ class ArtaClock
     {
         $date = $value instanceof \DateTimeInterface ? Carbon::instance($value) : Carbon::parse($value);
 
-        return $date->setTimezone(config('arta.timezone', 'Asia/Manila'));
+        return $date->copy()->setTimezone($this->calendar->timezone());
     }
 }

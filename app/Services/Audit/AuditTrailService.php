@@ -35,6 +35,12 @@ class AuditTrailService implements AuditTrailServiceInterface
             $docRef = $document->reference_number;
         }
 
+        // An Officer-in-Charge acts with the designation as reference (LGC Sec. 46)
+        $designation = app(\App\Services\Oic\OicService::class)->actingDesignation($docId);
+        if ($designation && $actor && (int) $designation->designated_user_id === (int) $actor->id) {
+            $description = rtrim($description) . ' [' . $designation->reference() . ', for ' . ($designation->official?->name ?? 'the absent official') . ']';
+        }
+
         return AuditTrail::create([
             'category'     => 'action',
             'document_id'  => $docId,

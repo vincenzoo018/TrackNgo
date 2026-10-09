@@ -37,6 +37,7 @@ import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import { StatCard } from '@/components/trackngo/StatCard';
 import { DateRangeSelect, FilterSelect, FilterToolbar } from '@/components/trackngo/ListFilters';
 import { downloadCsv } from '@/lib/csv';
+import { useLiveUpdates } from '@/hooks/use-live-updates';
 
 type Props = {
     systemLogs?: AuditTrailEntry[];
@@ -74,22 +75,16 @@ export default function AuditTrailIndex({
         setCurrentPage(1);
     };
 
-    // Live background polling every 4 seconds for real-time audit updates
-    useEffect(() => {
+    // New trail entries anywhere in the system reload the logs (shared 15 s live-update check)
+    useLiveUpdates(['trail'], () => {
         if (!liveSyncEnabled) return;
-
-        const interval = setInterval(() => {
-            router.reload({
-                only: ['systemLogs', 'actionLogs'],
-                preserveScroll: true,
-                onSuccess: () => {
-                    setLastSyncTime(new Date());
-                },
-            });
-        }, 4000);
-
-        return () => clearInterval(interval);
-    }, [liveSyncEnabled]);
+        router.reload({
+            only: ['systemLogs', 'actionLogs'],
+            onSuccess: () => {
+                setLastSyncTime(new Date());
+            },
+        });
+    });
 
     // Active dataset based on selected tab
     const currentDataset = useMemo(() => {

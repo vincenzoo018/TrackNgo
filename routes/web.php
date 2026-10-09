@@ -12,10 +12,13 @@ Route::get('/track', function () {
     return Inertia::render('client/TrackDocument');
 })->name('track');
 
-Route::get('/api/track/{trackingNumber}', [\App\Http\Controllers\DocumentController::class, 'trackPublicDocument'])->name('track.public');
+// Public lookups are limited so the tracking numbers cannot be enumerated
+Route::get('/api/track/{trackingNumber}', [\App\Http\Controllers\DocumentController::class, 'trackPublicDocument'])
+    ->middleware('throttle:30,1')
+    ->name('track.public');
 
 // Authenticated Role Routes
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
 
     // Filing and processing documents: CART only monitors, so it is kept out of every write below
     Route::middleware('not-role:CART')->group(function () {
@@ -53,7 +56,23 @@ Route::middleware(['auth'])->group(function () {
         // (config/document_permissions.php) on every request
         Route::put('/documents/{id}/metadata', [\App\Http\Controllers\DocumentMetadataController::class, 'update'])->name('documents.metadata');
         Route::post('/documents/{id}/revisions', [\App\Http\Controllers\DocumentRevisionController::class, 'store'])->name('documents.revisions.store');
+
+        // RA 11032 Sec. 9(b): the one extension of the processing period, by the office processing it
+        Route::post('/documents/{id}/extend', [\App\Http\Controllers\DocumentComplianceController::class, 'extend'])->whereNumber('id')->name('documents.extend');
+        // LGC Sec. 54: the Mayor (or the Acting Mayor) vetoes an ordinance / resolution, stating the reasons
+        Route::post('/documents/{id}/veto', [\App\Http\Controllers\DocumentComplianceController::class, 'veto'])->whereNumber('id')->name('documents.veto');
     });
+
+    // Document files are private: shown only to the people who may open the document
+    Route::get('/documents/{id}/files/{kind}/{name}', [\App\Http\Controllers\DocumentFileController::class, 'show'])
+        ->whereNumber('id')->whereIn('kind', ['main', 'signed'])->name('documents.files');
+    Route::get('/documents/{id}/files/{kind}/{fileId}/{name}', [\App\Http\Controllers\DocumentFileController::class, 'item'])
+        ->whereNumber('id')->whereNumber('fileId')->whereIn('kind', ['attachment', 'revision', 'revision-signed'])->name('documents.files.item');
+
+    // Written notice of the extension (printable / PDF), for the people handling the document
+    Route::get('/documents/{id}/extension-notice', [\App\Http\Controllers\DocumentComplianceController::class, 'notice'])->whereNumber('id')->name('documents.extensionNotice');
+    // Blank forms / templates offered when filing a document of their type
+    Route::get('/templates/{id}/download', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'download'])->whereNumber('id')->name('templates.download');
 
     // Philippine address lookup (PSA PSGC) for the client address dropdowns
     Route::get('/locations/provinces', [\App\Http\Controllers\LocationController::class, 'provinces'])->name('locations.provinces');
@@ -75,6 +94,9 @@ Route::middleware(['auth'])->group(function () {
         };
         return redirect("/{$prefix}/documents/{$id}");
     })->name('documents.show');
+
+    // Live updates: one light "what changed?" check every 15 s from open pages (no per-page polling)
+    Route::get('/api/changes', [\App\Http\Controllers\LiveUpdateController::class, 'changes'])->name('api.changes');
 
     // Real-Time Notification API Routes
     Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications');
@@ -163,10 +185,30 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->back()->with('success', "Document {$doc->reference_number} overridden successfully.");
         });
 
-        Route::get('/system', fn() => Inertia::render('admin/system/SystemConfiguration'));
+        // System Configuration: document types (Citizen's Charter category / days) and the Holiday Calendar
+        Route::get('/system', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'index']);
+        Route::post('/system/types', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'storeType']);
+        Route::put('/system/types/{id}', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'updateType'])->whereNumber('id');
+        Route::post('/system/holidays', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'storeHoliday']);
+        Route::post('/system/holidays/national', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'loadNationalHolidays']);
+        Route::put('/system/holidays/{id}', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'updateHoliday'])->whereNumber('id');
+        Route::delete('/system/holidays/{id}', [\App\Http\Controllers\Admin\SystemConfigurationController::class, 'destroyHoliday'])->whereNumber('id');
+
+        // User Accounts → OIC Designations (LGC Sec. 46)
+        Route::get('/oic', [\App\Http\Controllers\Admin\OicDesignationController::class, 'index']);
+        Route::post('/oic', [\App\Http\Controllers\Admin\OicDesignationController::class, 'store']);
+        Route::post('/oic/{id}/end', [\App\Http\Controllers\Admin\OicDesignationController::class, 'end'])->whereNumber('id');
+
+        // Deemed-approval check on demand (it also runs every five minutes from the scheduler)
+        Route::post('/deemed-approvals/run', [\App\Http\Controllers\DocumentComplianceController::class, 'runDeemedApprovals']);
+
         Route::get('/compliance-reports', [\App\Http\Controllers\ReportController::class, 'index']);
         Route::get('/notifications/sms', [\App\Http\Controllers\Admin\SmsDashboardController::class, 'index']);
-        Route::get('/templates', fn() => Inertia::render('admin/templates/Index'));
+        Route::get('/templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'index']);
+        Route::post('/templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'store']);
+        // POST (not PUT) so a replacement file can be uploaded
+        Route::post('/templates/{id}', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'update'])->whereNumber('id');
+        Route::delete('/templates/{id}', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'destroy'])->whereNumber('id');
         Route::get('/escalations', [\App\Http\Controllers\CartEscalationController::class, 'index']);
         Route::post('/escalations/{id}/resolve', [\App\Http\Controllers\CartEscalationController::class, 'resolve']);
     });
@@ -176,9 +218,13 @@ Route::middleware(['auth'])->group(function () {
         $rolePages('receiving', 'receiving', 'receiving/documents/Show');
         // GET /documents/create removed - handled via modal in Index.tsx
         Route::post('/documents', [\App\Http\Controllers\DocumentController::class, 'store']);
-        Route::get('/documents/{id}/arta-timeline', fn() => Inertia::render('receiving/documents/ArtaTimeline'));
+        // ARTA Timeline and Location Map of any document: from its page, or found by tracking / reference number
+        Route::get('/arta-timeline', [\App\Http\Controllers\Receiving\DocumentLookupController::class, 'search'])->defaults('page', 'arta-timeline');
+        Route::get('/location-map', [\App\Http\Controllers\Receiving\DocumentLookupController::class, 'search'])->defaults('page', 'location-map');
+        Route::get('/documents/{id}/arta-timeline', [\App\Http\Controllers\Receiving\DocumentLookupController::class, 'artaTimeline'])->whereNumber('id');
         Route::get('/documents/{id}/ocr-workspace', [\App\Http\Controllers\DocumentController::class, 'ocrWorkspace']);
-        Route::get('/documents/{id}/location-map', fn() => Inertia::render('receiving/documents/LocationMap'));
+        Route::get('/documents/{id}/location-map', [\App\Http\Controllers\Receiving\DocumentLookupController::class, 'locationMap'])->whereNumber('id');
+        Route::post('/documents/{id}/physical-location', [\App\Http\Controllers\Receiving\DocumentLookupController::class, 'storePhysicalLocation'])->whereNumber('id');
 
         // Document Actions
         $documentActions([
@@ -274,7 +320,12 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/departments/{department}', [\App\Http\Controllers\HR\DepartmentController::class, 'update'])->name('hr.departments.update');
         Route::delete('/departments/{department}', [\App\Http\Controllers\HR\DepartmentController::class, 'destroy'])->name('hr.departments.destroy');
 
-        Route::get('/leave', fn() => Inertia::render('hr/leave/Index'));
+        // Leave Management (approving a head's leave can designate the Officer-in-Charge)
+        Route::get('/leave', [\App\Http\Controllers\HR\LeaveController::class, 'index']);
+        Route::post('/leave', [\App\Http\Controllers\HR\LeaveController::class, 'store']);
+        Route::post('/leave/{id}/approve', [\App\Http\Controllers\HR\LeaveController::class, 'approve'])->whereNumber('id');
+        Route::post('/leave/{id}/reject', [\App\Http\Controllers\HR\LeaveController::class, 'reject'])->whereNumber('id');
+        Route::post('/leave/{id}/cancel', [\App\Http\Controllers\HR\LeaveController::class, 'cancel'])->whereNumber('id');
 
         // Document Actions
         $documentActions([

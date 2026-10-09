@@ -23,12 +23,12 @@ export default function MayorFinalApproval() {
     // "For Approval" = active documents actually endorsed to the Mayor (Mayor is the current holder).
     // Anything still with a Department Head is "Waiting to be routed" and has no Mayor actions yet.
     const isForMayorApproval = (doc: any) =>
-        isCurrentHolder(doc, authUser) && !['approved', 'completed', 'archived', 'returned'].includes(statusOf(doc));
+        isCurrentHolder(doc, authUser) && !['approved', 'deemed_approved', 'vetoed', 'completed', 'archived', 'returned'].includes(statusOf(doc));
     // A routed document is waiting when the Mayor is on its route but it has not reached the Mayor yet
     const isWaitingToBeRouted = (doc: any) =>
         !isCurrentHolder(doc, authUser) && (doc.route_based || (doc.current_step_index || 1) < 4) &&
         String(doc.submitted_by) !== String(authUser?.id) &&
-        !['approved', 'completed', 'archived', 'returned'].includes(statusOf(doc));
+        !['approved', 'deemed_approved', 'vetoed', 'completed', 'archived', 'returned'].includes(statusOf(doc));
 
     const showToast = (message: string) => {
         setToastMessage(message);
@@ -76,7 +76,7 @@ export default function MayorFinalApproval() {
                 needsActionLabel="For Approval"
                 allFilter={(doc) => statusOf(doc) !== 'archived'}
                 tabs={[
-                    { id: 'approved', label: 'Approved', match: (d) => ['approved', 'completed'].includes(statusOf(d)) },
+                    { id: 'approved', label: 'Approved', match: (d) => ['approved', 'deemed_approved', 'completed'].includes(statusOf(d)) },
                 ]}
                 rowNote={(doc) => isWaitingToBeRouted(doc) && (
                     <span className="mt-1 block text-[11px] font-medium text-amber-700">Waiting to be routed</span>

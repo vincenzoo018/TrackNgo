@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { EMAIL_PATTERN, MOBILE_HINT, MOBILE_LENGTH, NAME_PATTERN, mobileDigits, mobileNumberError } from '@/lib/form-rules';
 import { cn } from '@/lib/utils';
 
 /**
@@ -86,12 +87,6 @@ const COMMON_PURPOSES = [
     'Complaint / Grievance',
 ];
 
-// Must match StoreDocumentRequest (NAME_PATTERN) and App\Support\PhilippineMobile: 09XXXXXXXXX, 639XXXXXXXXX
-// or +639XXXXXXXXX (the server stores every form as 09XXXXXXXXX)
-const NAME_PATTERN = /^[\p{L}\s.'-]+$/u;
-const CONTACT_PATTERN = /^(09|\+?639)\d{9}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /** Client-side mirror of the client rules in StoreDocumentRequest, keyed like the server errors. */
 export function validateClient(client: ClientInfo): Record<string, string> {
     const found: Record<string, string> = {};
@@ -116,8 +111,9 @@ export function validateClient(client: ClientInfo): Record<string, string> {
             found[`client.${key}`] = 'Use letters only (spaces, periods, apostrophes and hyphens are allowed).';
         }
     });
-    if (client.contact_number && !CONTACT_PATTERN.test(client.contact_number)) {
-        found['client.contact_number'] = 'Please enter a valid Philippine mobile number.';
+    const contactError = client.contact_number ? mobileNumberError(client.contact_number, 'contact number') : null;
+    if (contactError) {
+        found['client.contact_number'] = contactError;
     }
     if (client.email.trim() && !EMAIL_PATTERN.test(client.email.trim())) {
         found['client.email'] = 'Enter a valid email address, e.g. name@example.com.';
@@ -332,13 +328,13 @@ export function ClientInfoSection({ client, errors, onChange }: ClientInfoSectio
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Contact Number" required error={err('contact_number')} hint="Mobile, e.g. 09171234567 or +639171234567">
+                <Field label="Contact Number" required error={err('contact_number')} hint={`Mobile: ${MOBILE_HINT}`}>
                     {text('contact_number', {
-                        inputMode: 'tel',
-                        maxLength: 13,
+                        inputMode: 'numeric',
+                        maxLength: MOBILE_LENGTH,
                         placeholder: '09XXXXXXXXX',
-                        // Digits plus a leading "+" (spaces / dashes are dropped as they are typed)
-                        onChange: e => onChange('contact_number', e.target.value.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '').slice(0, 13)),
+                        // Digits only, at most 11 (spaces / dashes are dropped as they are typed)
+                        onChange: e => onChange('contact_number', mobileDigits(e.target.value)),
                     })}
                 </Field>
                 <Field label="Email Address" error={err('email')}>

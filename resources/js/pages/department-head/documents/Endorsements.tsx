@@ -15,7 +15,7 @@ export default function DepartmentHeadEndorsements() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const statusOf = (doc: any) => (doc.status || '').toLowerCase();
-    const isFinished = (doc: any) => ['completed', 'approved', 'archived'].includes(statusOf(doc));
+    const isFinished = (doc: any) => ['completed', 'approved', 'deemed_approved', 'vetoed', 'archived'].includes(statusOf(doc));
     // Received: waiting with / accepted by this Dept Head (they are the current holder)
     const isReceivedByMe = (doc: any) => isCurrentHolder(doc, authUser) &&
         ['received', 'accepted', 'sent', 'endorsed', 'pending', 'registered'].includes(statusOf(doc));

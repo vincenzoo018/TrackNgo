@@ -37,7 +37,7 @@ class DocumentRouteTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('public');
+        Storage::fake('local'); // document files are private
         $this->withoutVite();
         $this->withoutDefer();
 
@@ -175,16 +175,28 @@ class DocumentRouteTest extends TestCase
         $this->assertSame('completed', $doc->refresh()->status);
     }
 
-    public function test_a_return_adds_two_steps_and_the_route_continues(): void
+    /** Live status of the waiting step: "label:detail:returns" */
+    private function current(Document $doc): string
+    {
+        $step = collect(app(DocumentRoute::class)->steps($doc->refresh()))->firstWhere('status', DocumentRoute::CURRENT);
+
+        return "{$step['label']}:{$step['actor']}:{$step['detail']}:{$step['returns']}";
+    }
+
+    public function test_a_return_keeps_the_steps_and_shows_what_is_happening_on_the_waiting_step(): void
     {
         $this->fileExternal([$this->stop($this->mayor, true), $this->stop($this->engineer, true), $this->stop($this->budget, false)]);
         $doc = $this->latest();
+        $this->assertSame('Signature:Michelle Tester:Forwarded · awaiting receipt:0', $this->current($doc));
         $this->approve($this->mayor, $doc);
+        $this->actingAs($this->engineer)->post("/documents/{$doc->document_id}/accept")->assertSessionHasNoErrors();
+        $this->assertSame('Signature:Ricardo Tester:Under review:0', $this->current($doc));
 
         $this->actingAs($this->engineer)->post("/documents/{$doc->document_id}/return", ['reason' => 'Missing site plan'])->assertSessionHasNoErrors();
         $doc->refresh();
         $this->assertSame($this->mayor->id, $doc->current_holder_id); // one stop back
-        $this->assertSame([7, 4], [$doc->total_steps, $doc->current_step_index]);
+        $this->assertSame([5, 3], [$doc->total_steps, $doc->current_step_index]); // no extra steps
+        $this->assertSame('Signature:Ricardo Tester:Returned to Michelle Tester for correction:1', $this->current($doc));
 
         // The returned holder corrects it; it comes straight back to whoever returned it
         $this->actingAs($this->mayor)->post("/documents/{$doc->document_id}/resubmit", [
@@ -192,7 +204,8 @@ class DocumentRouteTest extends TestCase
         ])->assertSessionHasNoErrors();
         $doc->refresh();
         $this->assertSame($this->engineer->id, $doc->current_holder_id);
-        $this->assertSame([7, 5], [$doc->total_steps, $doc->current_step_index]);
+        $this->assertSame([5, 3], [$doc->total_steps, $doc->current_step_index]);
+        $this->assertSame('Signature:Ricardo Tester:Corrected · back for review:1', $this->current($doc));
 
         $this->approve($this->engineer, $doc);
         $this->approve($this->budget, $doc);
@@ -200,12 +213,12 @@ class DocumentRouteTest extends TestCase
         $this->assertSame([
             'Submitted:Juan Tester:done',
             'Signed:Michelle Tester:done',
-            'Returned:Ricardo Tester:done',
-            'Corrected:Michelle Tester:done',
             'Signed:Ricardo Tester:done',
             'Approved:Bea Tester:done',
-            'Release:Receiving Clerk:current',
+            'Release:Juan Tester:current',
         ], $this->labels($doc));
+        // The return stays visible on the step of whoever returned it
+        $this->assertSame([0, 0, 1, 0, 0], array_column(app(DocumentRoute::class)->steps($doc), 'returns'));
     }
 
     public function test_internal_route_is_registered_then_follows_the_route_and_completes_back_to_the_sender(): void
@@ -296,7 +309,7 @@ class DocumentRouteTest extends TestCase
 
         $copy($this->engineer, 2)->assertOk()->assertJson(['signed_copy_signatures' => 2, 'message' => 'Final signed copy attached to the document.']);
         $doc->refresh();
-        Storage::disk('public')->assertMissing($first); // the newer copy replaces the older one
+        Storage::disk('local')->assertMissing($first); // the newer copy replaces the older one
         $this->assertTrue($doc->hasFinalSignedCopy());
 
         // A late copy built from fewer signatures never replaces the final one

@@ -10,6 +10,7 @@ use App\Models\Document;
 use App\Models\DocumentAttachment;
 use App\Models\RoutingSlip;
 use App\Models\User;
+use App\Services\Oic\OicService;
 use App\Services\Sms\DocumentSmsNotifier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -22,8 +23,43 @@ class DocumentWorkflowService
         protected AuditTrailServiceInterface $auditTrailService,
         protected DocumentSmsNotifier $smsNotifier,
         protected DocumentRevisionService $revisionService,
-        protected SignatureServiceInterface $signatureService
+        protected SignatureServiceInterface $signatureService,
+        protected OicService $oic,
+        protected MayoralActionService $mayoral
     ) {}
+
+    /**
+     * Sending the document to $official: while an Officer-in-Charge acts for them (LGC Sec. 46) it goes to the OIC,
+     * held for the official. Returns who actually receives it, the holder columns to save, and the note the
+     * routing slip carries ("Acting Mayor: X per Designation Order No. Y").
+     *
+     * @return array{holder: ?User, official: ?User, columns: array<string, int|null>, note: string}
+     */
+    public function deliveryTo(?User $official, ?int $fallbackDepartmentId = null): array
+    {
+        $recipient = $this->oic->recipientFor($official);
+        $holder = $recipient['holder'];
+        $designation = $recipient['designation'];
+
+        return [
+            'holder'   => $holder,
+            'official' => $official,
+            'columns'  => [
+                'current_holder_id'            => $holder?->id,
+                'current_holder_department_id' => $holder?->department_id ?? $fallbackDepartmentId,
+                'held_for_user_id'             => $recipient['held_for']?->id,
+            ],
+            'note'     => $designation
+                ? " {$designation->title()}: {$holder->name} per Designation Order No. {$designation->designation_order_number} (for {$official->name})."
+                : '',
+        ];
+    }
+
+    /** The person whose place $actor takes on this document: the absent official when acting as OIC, else themselves */
+    public function actingAs(Document $document, User $actor): User
+    {
+        return $this->oic->actingFor($document, $actor) ?? $actor;
+    }
 
     /**
      * Resolve target user, department, and role name based on destination type and id.
@@ -117,6 +153,10 @@ class DocumentWorkflowService
         if ($targetUser?->department_id) {
             $targetDeptId = $targetUser->department_id;
         }
+        // The Acting Mayor / OIC receives it while the addressee is away
+        $delivery = $this->deliveryTo($targetUser, $targetDeptId ? (int) $targetDeptId : null);
+        $targetUserId = $delivery['holder']?->id ?? $targetUserId;
+        $targetDeptId = $delivery['columns']['current_holder_department_id'] ?? $targetDeptId;
 
         $stepIndex = 2;
         $newStatus = 'registered';
@@ -136,7 +176,7 @@ class DocumentWorkflowService
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'register',
-            'instruction'          => $params['instruction'] ?? $senderInstruction ?? 'Document officially registered and routed for processing.',
+            'instruction'          => ($params['instruction'] ?? $senderInstruction ?? 'Document officially registered and routed for processing.') . $delivery['note'],
             'status'               => 'pending',
             'date_received'        => now(),
         ]);
@@ -146,13 +186,17 @@ class DocumentWorkflowService
             'status'                       => $newStatus,
             'current_holder_department_id' => $targetDeptId,
             'current_holder_id'            => $targetUserId,
+            'held_for_user_id'             => $delivery['columns']['held_for_user_id'],
             'current_step_index'           => $stepIndex,
         ]);
+        $this->mayoral->markReceived($document, $targetUser, $actor);
 
+        $holder = $delivery['holder'] ?? $targetUser;
         $destName = $targetDeptId ? Department::find($targetDeptId)?->department_name : 'Destination Department';
-        if ($targetUser) {
-            $destName = "{$targetUser->name} ({$destName})";
+        if ($holder) {
+            $destName = "{$holder->name} ({$destName})" . ($delivery['columns']['held_for_user_id'] ? " for {$targetUser->name}" : '');
         }
+        $targetUser = $holder;
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
@@ -275,6 +319,14 @@ class DocumentWorkflowService
         $targetDeptId = $recipient['department_id'];
         $targetRole = $recipient['role_name'];
         $destName = $recipient['display_name'];
+        $actingFor = $this->oic->actingFor($document, $actor);
+        // The Acting Mayor / OIC receives it while the addressee is away
+        $official = $targetUserId ? User::find($targetUserId) : null;
+        $delivery = $this->deliveryTo($official, $targetDeptId ? (int) $targetDeptId : null);
+        if ($delivery['columns']['held_for_user_id']) {
+            $targetUserId = $delivery['holder']->id;
+            $targetDeptId = $delivery['columns']['current_holder_department_id'];
+        }
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
@@ -285,9 +337,10 @@ class DocumentWorkflowService
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'endorse',
-            'instruction'          => $remarks,
+            'instruction'          => trim(($remarks ?? '') . $delivery['note']) ?: null,
             'status'               => 'pending',
             'date_received'        => now(),
+            'acting_for_user_id'   => $actingFor?->id,
         ]);
 
         // Forwarding moves the doc to step 4; a later re-endorsement never rewinds the FSM
@@ -297,8 +350,10 @@ class DocumentWorkflowService
             'status'                       => 'Sent',
             'current_holder_department_id' => $targetDeptId,
             'current_holder_id'            => $targetUserId,
+            'held_for_user_id'             => $delivery['columns']['held_for_user_id'],
             'current_step_index'           => $stepIndex,
         ]);
+        $this->mayoral->markReceived($document, $official, $actor);
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
@@ -367,12 +422,16 @@ class DocumentWorkflowService
         if (strtolower((string) $document->status) === 'returned') {
             throw ValidationException::withMessages(['route' => 'This document was returned. Upload the correction (or return it further back) instead.']);
         }
-        if (!$route->isOnRoute($document, $actor) && !$actor->hasRole('Admin')) {
+        // An Officer-in-Charge approves the absent official's stop (LGC Sec. 46)
+        $actingFor = $this->oic->actingFor($document, $actor);
+        $actingAs = $actingFor ?? $actor;
+        if (!$route->isOnRoute($document, $actingAs) && !$actor->hasRole('Admin')) {
             throw ValidationException::withMessages(['route' => 'Only the people on this document\'s route can approve it.']);
         }
 
         // Someone who already approved may hold it again after a correction; their stop stays approved
-        $route->pendingStopFor($document, $actor)?->update(['approved_at' => now()]);
+        $route->pendingStopFor($document, $actingAs)?->update(['approved_at' => now()]);
+        $this->mayoral->recordSigned($document, $actor, $actingAs, $this->oic->designationFor($document, $actor));
 
         $next = $route->nextStop($document);
         if (!$next) {
@@ -380,7 +439,9 @@ class DocumentWorkflowService
         }
 
         $nextUser = $next->user;
-        $nextDeptId = $nextUser?->department_id ?? $document->current_holder_department_id;
+        $delivery = $this->deliveryTo($nextUser, $document->current_holder_department_id);
+        $holder = $delivery['holder'];
+        $nextDeptId = $delivery['columns']['current_holder_department_id'];
         $task = $next->signs ? 'signature' : 'approval';
 
         RoutingSlip::create([
@@ -388,34 +449,34 @@ class DocumentWorkflowService
             'tracking_number'      => $document->tracking_number ?: ('PENDING-' . $document->reference_number),
             'from_user_id'         => $actor->id,
             'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
-            'to_user_id'           => $nextUser?->id,
+            'to_user_id'           => $holder?->id,
             'target_department_id' => $nextDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'route',
-            'instruction'          => "Approved by {$actor->name}. For your {$task}.",
+            'instruction'          => "Approved by {$actor->name}. For your {$task}." . $delivery['note'],
             'status'               => 'pending',
             'date_received'        => now(),
+            'acting_for_user_id'   => $actingFor?->id,
         ]);
 
-        $document->update([
-            'status'                       => 'Sent',
-            'current_holder_id'            => $nextUser?->id,
-            'current_holder_department_id' => $nextDeptId,
-        ]);
+        $document->update(['status' => 'Sent'] + $delivery['columns']);
+        $this->mayoral->markReceived($document, $nextUser, $actor);
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Approve',
-            description: "Approved by {$actor->name} and sent to " . ($nextUser?->name ?? 'the next office') . " for {$task} (stop {$next->position} of the route).",
+            description: "Approved by {$actor->name} and sent to " . ($holder?->name ?? 'the next office')
+                . ($delivery['columns']['held_for_user_id'] ? " (Officer-in-Charge for {$nextUser->name})" : '')
+                . " for {$task} (stop {$next->position} of the route).",
             actor: $actor,
             ipAddress: $ip
         );
 
         \App\Services\NotificationService::triggerDocumentReceiptNotification(
             document: $document,
-            targetUserId: $nextUser?->id,
+            targetUserId: $holder?->id,
             targetDeptId: $nextDeptId,
-            targetRole: $nextUser?->role?->role_name,
+            targetRole: $holder?->role?->role_name,
             sender: $actor
         );
 
@@ -429,9 +490,11 @@ class DocumentWorkflowService
             return $this->completeInternal($document, $actor, $ip);
         }
 
-        $clerkUser = User::whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))->first();
+        $clerkUser = User::where('is_active', true)->whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))->first();
         $destDeptId = $clerkUser?->department_id ?? 2;
         $destUserId = $clerkUser?->id ?? 5;
+        $actingFor = $this->oic->actingFor($document, $actor);
+        $this->mayoral->recordSigned($document, $actor, $actingFor ?? $actor, $this->oic->designationFor($document, $actor));
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
@@ -442,9 +505,10 @@ class DocumentWorkflowService
             'target_department_id' => $destDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'forward',
-            'instruction'          => 'Approved by Mayor. For final release to applicant.',
+            'instruction'          => "Approved by {$actor->name}. For final release to applicant.",
             'status'               => 'pending',
             'date_received'        => now(),
+            'acting_for_user_id'   => $actingFor?->id,
         ]);
 
         // External: step 7 "Forwarded to Receiving Clerk", completed when the clerk releases it to the applicant
@@ -452,6 +516,7 @@ class DocumentWorkflowService
             'status'                       => 'approved',
             'current_holder_department_id' => $destDeptId,
             'current_holder_id'            => $destUserId,
+            'held_for_user_id'             => null,
             'current_step_index'           => 7,
         ]);
 
@@ -484,6 +549,8 @@ class DocumentWorkflowService
     protected function completeInternal(Document $document, User $actor, ?string $ip = null): Document
     {
         $sender = $document->submitted_by ? User::find($document->submitted_by) : null;
+        $actingFor = $this->oic->actingFor($document, $actor);
+        $this->mayoral->recordSigned($document, $actor, $actingFor ?? $actor, $this->oic->designationFor($document, $actor));
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
@@ -497,6 +564,7 @@ class DocumentWorkflowService
             'instruction'          => "Approved by {$actor->name}. The completed document is returned to the sender.",
             'status'               => 'completed',
             'date_received'        => now(),
+            'acting_for_user_id'   => $actingFor?->id,
         ]);
 
         $document->update([
@@ -504,6 +572,7 @@ class DocumentWorkflowService
             'completed_at'                 => now(),
             'current_holder_id'            => null,
             'current_holder_department_id' => null,
+            'held_for_user_id'             => null,
             'current_step_index'           => $document->total_steps ?: 6,
         ]);
 
@@ -546,13 +615,16 @@ class DocumentWorkflowService
             'completed_at'                 => now(),
             'current_holder_id'            => null,
             'current_holder_department_id' => null,
+            'held_for_user_id'             => null,
             'current_step_index'           => $stepIndex,
         ]);
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Release',
-            description: 'Document officially released to applicant and marked as completed.',
+            description: $document->isDeemedApproved()
+                ? "Deemed-approved document ({$document->deemed_approval_basis}) released to the applicant and marked as completed."
+                : 'Document officially released to applicant and marked as completed.',
             actor: $actor,
             ipAddress: $ip
         );
@@ -584,36 +656,50 @@ class DocumentWorkflowService
      * One step back: whoever passed the document to the actor (forward / endorse / correction). A clerk's
      * registration is skipped — the clerk only records internal documents — so those go back to the sender.
      */
+    /** Slips that move a document without anyone passing it on (OIC hand-over, deemed approval) */
+    public const SYSTEM_SLIP_ACTIONS = ['oic', 'deemed_approved'];
+
     public function previousHolderId(Document $document, User $actor): ?int
     {
+        // An Officer-in-Charge returns it to whoever passed it to the official they act for
+        $recipients = array_filter([$actor->id, $this->oic->actingFor($document, $actor)?->id]);
         $inbound = RoutingSlip::where('document_id', $document->document_id)
-            ->where('to_user_id', $actor->id)
-            ->where('action', '!=', 'return')
+            ->whereIn('to_user_id', $recipients)
+            ->whereNotIn('action', ['return', 'veto', ...self::SYSTEM_SLIP_ACTIONS])
             ->orderByDesc('slip_id')
             ->first();
 
-        $previous = $inbound && $inbound->action !== 'register' ? $inbound->from_user_id : $document->submitted_by;
+        // A slip sent by an OIC came from the official's place on the route
+        $previous = $inbound && $inbound->action !== 'register'
+            ? ($inbound->acting_for_user_id ?? $inbound->from_user_id)
+            : $document->submitted_by;
 
         return $previous ? (int) $previous : null;
     }
 
     public function returnDocument(Document $document, string $reason, User $actor, ?string $ip = null): Document
     {
+        if ($document->isDeemedApproved()) {
+            throw ValidationException::withMessages(['reason' => 'This document is deemed approved by law and can no longer be returned. Release it to the applicant.']);
+        }
+        $actingFor = $this->oic->actingFor($document, $actor);
         $targetHolderId = $this->previousHolderId($document, $actor) ?? $document->current_holder_id;
-        if ((int) $targetHolderId === (int) $actor->id) {
+        if ((int) $targetHolderId === (int) $actor->id || ($actingFor && (int) $targetHolderId === (int) $actingFor->id)) {
             throw ValidationException::withMessages(['reason' => 'This document started with you, so there is no one to return it to.']);
         }
-        $targetHolder = $targetHolderId ? User::find($targetHolderId) : null;
-        $targetDeptId = $targetHolder?->department_id ?? $document->department_id;
+        $official = $targetHolderId ? User::find($targetHolderId) : null;
         // The returning office, captured before the holder changes (used to route the correction back)
         $fromDeptId = $document->current_holder_department_id ?? $actor->department_id;
+        // Returned to someone who is away: their Officer-in-Charge receives it
+        $delivery = $this->deliveryTo($official, $official?->department_id ?? $document->department_id);
+        $targetHolder = $delivery['holder'];
+        $targetHolderId = $targetHolder?->id ?? $targetHolderId;
+        $targetDeptId = $delivery['columns']['current_holder_department_id'];
 
         $document->update([
-            'status'                       => 'Returned',
-            'return_reason'                => $reason,
-            'current_holder_id'            => $targetHolderId,
-            'current_holder_department_id' => $targetDeptId,
-        ]);
+            'status'        => 'Returned',
+            'return_reason' => $reason,
+        ] + $delivery['columns']);
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
@@ -624,15 +710,17 @@ class DocumentWorkflowService
             'target_department_id' => $targetDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'return',
-            'instruction'          => "Returned: {$reason}",
+            'instruction'          => "Returned: {$reason}" . $delivery['note'],
             'status'               => 'returned',
             'date_received'        => now(),
+            'acting_for_user_id'   => $actingFor?->id,
         ]);
 
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Return',
-            description: 'Document returned for revision' . ($targetHolder ? " to {$targetHolder->name}" : '') . ". Reason: {$reason}",
+            description: 'Document returned for revision' . ($targetHolder ? " to {$targetHolder->name}" : '')
+                . ($delivery['columns']['held_for_user_id'] ? " (Officer-in-Charge for {$official->name})" : '') . ". Reason: {$reason}",
             actor: $actor,
             ipAddress: $ip
         );
@@ -665,19 +753,27 @@ class DocumentWorkflowService
             throw ValidationException::withMessages(['files' => 'Attach the corrected file or at least one supporting file.']);
         }
 
-        $returnerId = RoutingSlip::where('document_id', $document->document_id)
+        // Back to whoever returned it; an Officer-in-Charge returned it from the official's place, so it goes back to
+        // that place (the OIC again while the designation lasts, otherwise the official)
+        $returnSlip = RoutingSlip::where('document_id', $document->document_id)
             ->where('action', 'return')
             ->orderByDesc('slip_id')
-            ->value('from_user_id')
-            ?? AuditTrail::where('document_id', $document->document_id)
+            ->first();
+        $returnerId = $returnSlip
+            ? ($returnSlip->acting_for_user_id ?? $returnSlip->from_user_id)
+            : AuditTrail::where('document_id', $document->document_id)
                 ->where('action', 'Return')
                 ->orderByDesc('audit_id')
                 ->value('user_id');
-        $returner = $returnerId ? User::with('role')->find($returnerId) : null;
+        $official = $returnerId ? User::with('role')->find($returnerId) : null;
 
-        if (!$returner) {
+        if (!$official) {
             throw ValidationException::withMessages(['files' => 'The office that returned this document could not be determined.']);
         }
+        $delivery = $this->deliveryTo($official, $official->department_id);
+        $returner = $delivery['holder'];
+        $actingFor = $this->oic->actingFor($document, $actor);
+        $actingAs = $actingFor ?? $actor;
 
         $note = $note !== null && trim($note) !== '' ? trim($note) : null;
         $returnedAt = (int) $document->current_step_index;
@@ -690,11 +786,11 @@ class DocumentWorkflowService
         $storedPaths = [];
 
         try {
-            DB::transaction(function () use ($document, $files, $note, $actor, $ip, $returner, $stepIndex, $version, $mainFile, $ocrText, &$storedPaths) {
+            DB::transaction(function () use ($document, $files, $note, $actor, $ip, $returner, $stepIndex, $version, $mainFile, $ocrText, $delivery, $actingFor, $actingAs, &$storedPaths) {
                 $fileNames = [];
                 $revision = null;
                 if ($mainFile) {
-                    $signedEarlierVersion = $document->signatories()->where('user_id', $actor->id)->whereNotNull('signed_at')->exists();
+                    $signedEarlierVersion = $document->signatories()->where('user_id', $actingAs->id)->whereNotNull('signed_at')->exists();
                     $revision = $this->revisionService->create(
                         $document, $mainFile, $note ?? 'Correction for: ' . ($document->return_reason ?: 'returned document'), $actor, $ip, $ocrText
                     );
@@ -705,12 +801,12 @@ class DocumentWorkflowService
                     // Sending the corrected file on is their approval of it: they sign the new version now
                     if ($signedEarlierVersion) {
                         $this->signatureService->stampIfDue($document, $actor, $ip);
-                        app(DocumentRoute::class)->pendingStopFor($document, $actor)?->update(['approved_at' => now()]);
+                        app(DocumentRoute::class)->pendingStopFor($document, $actingAs)?->update(['approved_at' => now()]);
                     }
                 }
 
                 foreach ($files as $file) {
-                    $path = $file->store('attachments', 'public');
+                    $path = $file->store('attachments', Document::FILE_DISK);
                     $storedPaths[] = $path;
                     $fileNames[] = $file->getClientOriginalName();
 
@@ -731,22 +827,21 @@ class DocumentWorkflowService
                     'from_user_id'         => $actor->id,
                     'from_department_id'   => $actor->department_id ?? $document->current_holder_department_id,
                     'to_user_id'           => $returner->id,
-                    'target_department_id' => $returner->department_id,
+                    'target_department_id' => $delivery['columns']['current_holder_department_id'],
                     'sender_name'          => $actor->name,
                     'action'               => 'resubmit',
-                    'instruction'          => 'Corrected and resubmitted' . ($revision ? " as Version {$revision->version_number}" : '') . ($note ? ": {$note}" : '.'),
+                    'instruction'          => 'Corrected and resubmitted' . ($revision ? " as Version {$revision->version_number}" : '') . ($note ? ": {$note}" : '.') . $delivery['note'],
                     'status'               => 'pending',
                     'date_received'        => now(),
+                    'acting_for_user_id'   => $actingFor?->id,
                 ]);
 
                 $document->update([
-                    'status'                       => 'Sent',
-                    'return_reason'                => null,
-                    'current_holder_id'            => $returner->id,
-                    'current_holder_department_id' => $returner->department_id,
-                    'current_step_index'           => $stepIndex,
-                    'version'                      => $version,
-                ]);
+                    'status'             => 'Sent',
+                    'return_reason'      => null,
+                    'current_step_index' => $stepIndex,
+                    'version'            => $version,
+                ] + $delivery['columns']);
 
                 $this->auditTrailService->logDocumentAction(
                     document: $document,
@@ -758,7 +853,7 @@ class DocumentWorkflowService
             });
         } catch (\Throwable $e) {
             foreach ($storedPaths as $path) {
-                Storage::disk('public')->delete($path);
+                Storage::disk(Document::FILE_DISK)->delete($path);
             }
             throw $e;
         }
@@ -774,6 +869,82 @@ class DocumentWorkflowService
         return $document;
     }
 
+    /**
+     * LGC Sec. 54: the Mayor (or the Acting Mayor) vetoes an ordinance / resolution, stating the reasons. It is
+     * closed as "Vetoed" and goes back to whoever filed it with the veto message.
+     */
+    public function veto(Document $document, string $reasons, User $actor, ?string $ip = null): Document
+    {
+        $document->loadMissing(['type', 'submitter']);
+        $actingFor = $this->oic->actingFor($document, $actor);
+        $designation = $this->oic->designationFor($document, $actor);
+
+        if (!$document->requiresMayoralAction()) {
+            throw ValidationException::withMessages(['reasons' => 'Only ordinances and resolutions can be vetoed.']);
+        }
+        if (!MayoralActionService::isMayor($actingFor ?? $actor)) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Only the City Mayor, or the Acting Mayor while one is designated, can veto an ordinance or resolution.');
+        }
+        if ($document->isClosed() || $document->isDeemedApproved()) {
+            throw ValidationException::withMessages(['reasons' => 'This document is already closed or deemed approved.']);
+        }
+        if ($this->mayoral->finalAction($document)) {
+            throw ValidationException::withMessages(['reasons' => 'The Mayor has already acted on this document.']);
+        }
+        if (strtolower((string) $document->status) === 'returned') {
+            throw ValidationException::withMessages(['reasons' => 'This document was returned for correction. Wait for it to come back before acting on it.']);
+        }
+
+        $filer = $document->submitter;
+
+        DB::transaction(function () use ($document, $reasons, $actor, $ip, $actingFor, $designation, $filer) {
+            $this->mayoral->recordVeto($document, $reasons, $actor, $designation);
+
+            RoutingSlip::create([
+                'document_id'          => $document->document_id,
+                'tracking_number'      => $document->tracking_number ?: ('PENDING-' . $document->reference_number),
+                'from_user_id'         => $actor->id,
+                'from_department_id'   => $document->current_holder_department_id ?? $actor->department_id,
+                'to_user_id'           => $filer?->id,
+                'target_department_id' => $filer?->department_id ?? $document->department_id,
+                'sender_name'          => $actor->name,
+                'action'               => 'veto',
+                'instruction'          => "Vetoed by {$actor->name} (LGC Sec. 54). Reasons: {$reasons}",
+                'status'               => 'vetoed',
+                'date_received'        => now(),
+                'acting_for_user_id'   => $actingFor?->id,
+            ]);
+
+            $document->update([
+                'status'                       => Document::STATUS_VETOED,
+                'completed_at'                 => now(),
+                'current_holder_id'            => null,
+                'current_holder_department_id' => null,
+                'held_for_user_id'             => null,
+            ]);
+
+            $this->auditTrailService->logDocumentAction(
+                document: $document,
+                action: 'Vetoed',
+                description: "Vetoed by {$actor->name} under LGC Sec. 54 and returned to " . ($filer?->name ?? 'the filer') . ". Reasons: {$reasons}",
+                actor: $actor,
+                ipAddress: $ip
+            );
+        });
+
+        if ($filer && (int) $filer->id !== (int) $actor->id) {
+            \App\Services\NotificationService::triggerDocumentReceiptNotification(
+                document: $document,
+                targetUserId: $filer->id,
+                targetDeptId: $filer->department_id,
+                sender: $actor,
+                title: 'Document Vetoed by the Mayor'
+            );
+        }
+
+        return $document;
+    }
+
     public function forward(Document $document, array $params, User $actor, ?string $ip = null): Document
     {
         $destDeptId = $params['forward_to_department'];
@@ -783,6 +954,10 @@ class DocumentWorkflowService
         if (!$destUserId && $destDeptId) {
             $destUserId = $this->resolveOfficeHead((int) $destDeptId)?->id;
         }
+        $actingFor = $this->oic->actingFor($document, $actor);
+        $official = $destUserId ? User::find($destUserId) : null;
+        $delivery = $this->deliveryTo($official, (int) $destDeptId);
+        $destUserId = $delivery['holder']?->id ?? $destUserId;
 
         RoutingSlip::create([
             'document_id'          => $document->document_id,
@@ -793,17 +968,20 @@ class DocumentWorkflowService
             'target_department_id' => $destDeptId,
             'sender_name'          => $actor->name,
             'action'               => 'forward',
-            'instruction'          => $instruction,
+            'instruction'          => trim(($instruction ?? '') . $delivery['note']) ?: null,
             'status'               => 'pending',
             'date_received'        => now(),
+            'acting_for_user_id'   => $actingFor?->id,
         ]);
 
         $document->update([
-            'current_holder_department_id' => $destDeptId,
+            'current_holder_department_id' => $delivery['columns']['held_for_user_id'] ? $delivery['columns']['current_holder_department_id'] : $destDeptId,
             'current_holder_id'            => $destUserId,
+            'held_for_user_id'             => $delivery['columns']['held_for_user_id'],
             'status'                       => 'Ongoing',
             'current_step_index'           => max((int) $document->current_step_index, 4),
         ]);
+        $this->mayoral->markReceived($document, $official, $actor);
 
         $deptName = Department::find($destDeptId)?->department_name ?? 'destination';
         $this->auditTrailService->logDocumentAction(

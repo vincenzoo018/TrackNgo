@@ -7,6 +7,7 @@ import {
     ChevronDown,
 } from 'lucide-react';
 import { type ReactNode, useState, useEffect, useRef } from 'react';
+import { startLiveUpdates } from '@/hooks/use-live-updates';
 import { csrfHeaders } from '@/lib/csrf';
 import { cn } from '@/lib/utils';
 import { ToastContainer, type ToastItem } from '@/components/trackngo/ToastNotification';
@@ -163,7 +164,7 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
     // Keep track of known notification IDs to detect newly arrived documents in real-time
     const knownNotificationIdsRef = useRef<Set<string>>(new Set());
 
-    // Live 4s Polling for Real-Time Document Receipts & SLA Updates
+    // Notifications follow the shared live-update check (tng:changed:*), plus a slow refresh for deadline notices
     useEffect(() => {
         let mounted = true;
         if (initialNotifications?.items) {
@@ -205,9 +206,15 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
             }
         };
 
-        const interval = setInterval(fetchNotifications, 4000);
+        startLiveUpdates();
+        window.addEventListener('tng:changed:notifications', fetchNotifications);
+        window.addEventListener('tng:changed:documents', fetchNotifications);
+        // Deadline notices change with the clock, not with the data
+        const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
         return () => {
             mounted = false;
+            window.removeEventListener('tng:changed:notifications', fetchNotifications);
+            window.removeEventListener('tng:changed:documents', fetchNotifications);
             clearInterval(interval);
         };
     }, []);
@@ -576,6 +583,14 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
                 {/* Page Content */}
                 <main className="tng-scrollbar flex-1 overflow-y-auto p-4 lg:p-6 w-full">
                     <div className="tng-fade-in w-full">
+                        {/* Serving as Officer-in-Charge today (LGC Sec. 46): documents for the absent official come here */}
+                        {(((props.auth?.user as any)?.acting_as ?? []) as any[]).map((a: any) => (
+                            <p key={`${a.official}-${a.order}`} className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5 text-[13px] text-violet-900">
+                                You are <span className="font-semibold">{a.title}</span> for {a.official} until{' '}
+                                {new Date(`${a.until}T12:00:00+08:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}{' '}
+                                (Designation Order No. {a.order}). Documents meant for them come to you.
+                            </p>
+                        ))}
                         {children}
                     </div>
                 </main>

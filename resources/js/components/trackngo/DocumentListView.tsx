@@ -116,13 +116,11 @@ export function DocumentListView({
         window.addEventListener('tng:document-received', reload);
         window.addEventListener('tng:document-sent', handleSent);
         window.addEventListener('tng:fsm-refresh', reload);
-        const interval = setInterval(reload, 4000);
 
         return () => {
             window.removeEventListener('tng:document-received', reload);
             window.removeEventListener('tng:document-sent', handleSent);
             window.removeEventListener('tng:fsm-refresh', reload);
-            clearInterval(interval);
         };
     }, []);
 

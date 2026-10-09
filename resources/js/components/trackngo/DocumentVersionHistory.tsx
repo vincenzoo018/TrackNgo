@@ -2,6 +2,7 @@ import { Download, Eye, FileText, PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { formatBytes } from './DocumentRevisionModal';
 import { ExportPasswordModal } from './ExportPasswordModal';
+import { documentFileUrl } from '@/lib/document-files';
 
 export type DocumentVersion = {
     revision_id: number;
@@ -60,7 +61,12 @@ export function DocumentVersionHistory({ documentId, reference, info, onView, on
         if (onView) {
             onView(version, signedCopy);
         } else {
-            window.open(`/storage/${signedCopy ? version.signed_file_path : version.file_path}`, '_blank', 'noopener');
+            const url = signedCopy
+                ? documentFileUrl(documentId, version.is_current ? 'signed' : 'revision-signed', version.signed_file_path, version.is_current ? null : version.revision_id)
+                : documentFileUrl(documentId, 'revision', version.file_path, version.revision_id);
+            if (url) {
+                window.open(url, '_blank', 'noopener');
+            }
         }
     };
 

@@ -13,5 +13,13 @@ Schedule::call(function () {
 // ARTA monitoring for CART (CART pages also run it, throttled, when the scheduler is not running)
 Schedule::command('arta:monitor')->everyFiveMinutes()->withoutOverlapping();
 
+// Deemed approval when the processing period lapses (RA 11032 Sec. 10) or the Mayor neither signs nor vetoes an
+// ordinance / resolution within 10 days (LGC Sec. 54); only here (or the Admin's "Check now"), never on page loads,
+// because the applicant is texted
+Schedule::command('documents:deemed-approvals')->everyFiveMinutes()->withoutOverlapping();
+
+// Officer-in-Charge designations that started or ended today move the waiting documents (LGC Sec. 46)
+Schedule::command('oic:sync')->everyFiveMinutes()->withoutOverlapping();
+
 // SMS that were spaced out or failed once (timeout, Semaphore busy) are sent / retried here
 Schedule::command('sms:send-pending')->everyMinute()->withoutOverlapping();

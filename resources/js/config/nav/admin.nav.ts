@@ -10,6 +10,7 @@ import {
     BarChart3,
     Users,
     FileCode2,
+    Settings2,
 } from 'lucide-react';
 import type { NavItem } from '@/types';
 
@@ -26,4 +27,6 @@ export const adminNav: NavItem[] = [
     { title: 'Reports', href: '/admin/reports', icon: BarChart3 },
     { title: 'User Accounts', href: '/admin/users', icon: Users },
     { title: 'Document Templates', href: '/admin/templates', icon: FileCode2 },
+    // Document types (Citizen's Charter days) and the Holiday Calendar
+    { title: 'System Configuration', href: '/admin/system', icon: Settings2 },
 ];

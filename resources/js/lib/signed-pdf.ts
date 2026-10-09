@@ -10,6 +10,7 @@ import { degrees, PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import type { PDFFont, PDFImage, PDFPage } from 'pdf-lib';
 import { csrfHeaders } from '@/lib/csrf';
 import * as pdfjsLib from '@/lib/pdfjs';
+import { documentFileUrl } from '@/lib/document-files';
 
 export type StampableKind = 'pdf' | 'image' | 'other';
 
@@ -109,8 +110,9 @@ export function signatureBlocks(signatories: any[] = []): SignatureBlock[] {
         slot: slots[i],
         signed: Boolean(s.signed_at),
         image: s.signature?.signature_image ?? null,
-        name: s.user?.name || 'Signatory',
-        position: [s.user?.role?.role_name, s.user?.department?.department_name]
+        // An Officer-in-Charge signed in the official's place: their own name and designation are stamped
+        name: (s.signature?.capacity && s.signature?.signer?.name) || s.user?.name || 'Signatory',
+        position: s.signature?.capacity || [s.user?.role?.role_name, s.user?.department?.department_name]
             .filter(Boolean)
             .join(', '),
         date: formatSignedAt(s.signed_at),
@@ -482,9 +484,7 @@ export async function uploadSignedCopy(
  * the original file, so earlier signatures are never stamped twice.
  */
 export async function generateSignedCopy(doc: any): Promise<void> {
-    const fileUrl = doc.attachment_path
-        ? `/storage/${doc.attachment_path}`
-        : null;
+    const fileUrl = documentFileUrl(doc.document_id, 'main', doc.attachment_path);
     const blocks = signatureBlocks(doc.signatories);
     const signedCount = blocks.filter((b) => b.signed).length;
     // A newer version of the file is signed again: the server refuses a copy stamped on an older one

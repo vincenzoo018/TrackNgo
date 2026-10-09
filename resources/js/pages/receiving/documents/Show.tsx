@@ -170,7 +170,8 @@ export default function ReceivingDocumentShow(props: DocumentPageProps) {
                 </>
             );
         }
-        if (doc.status === 'approved' || doc.status === 'for_release') {
+        // Approved, or deemed approved by law (RA 11032 Sec. 10 / LGC Sec. 54): released at the counter
+        if (doc.status === 'approved' || doc.status === 'for_release' || doc.status === 'deemed_approved') {
             return (
                 <>
                     <button
@@ -179,7 +180,8 @@ export default function ReceivingDocumentShow(props: DocumentPageProps) {
                     >
                         Release to Applicant
                     </button>
-                    {returnButton}
+                    {/* Deemed approved by law: it can no longer be sent back */}
+                    {doc.status !== 'deemed_approved' && returnButton}
                 </>
             );
         }

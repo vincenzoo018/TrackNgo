@@ -4,6 +4,7 @@ import { DocumentPinFields, PIN_RULES_HINT, PinInput } from '@/components/trackn
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { ROLE_LABELS } from '@/types/trackngo';
 import type { UserRole } from '@/types/trackngo';
+import { MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
 import { cn } from '@/lib/utils';
 import { CollapsiblePanel } from '@/components/trackngo/CollapsiblePanel';
 
@@ -217,9 +218,11 @@ export default function ProfileShow() {
                                         </label>
                                         <input
                                             type="text"
-                                            maxLength={20}
+                                            inputMode="numeric"
+                                            maxLength={MOBILE_LENGTH}
                                             value={profileForm.data.mobile_number}
-                                            onChange={(e) => profileForm.setData('mobile_number', e.target.value)}
+                                            // Digits only, at most 11: 09XXXXXXXXX
+                                            onChange={(e) => profileForm.setData('mobile_number', mobileDigits(e.target.value))}
                                             className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white px-4 py-2 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                                             placeholder="09171234567"
                                         />

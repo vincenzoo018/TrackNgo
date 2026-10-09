@@ -187,8 +187,8 @@ class CartMonitoringTest extends TestCase
         $this->assertSame(1, SystemNotification::where('target_role', 'CART')->where('type', CartAlerts::ESCALATED)->count());
         $this->assertSame(1, AuditTrail::where('document_id', $document->document_id)->where('action', 'ARTA Escalation')->count());
 
-        // Two days later OD = 3: the Critical level is recorded once as well
-        Carbon::setTestNow(Carbon::parse('2026-06-07 10:00', 'Asia/Manila')->utc());
+        // Two working days later (Tue 9 June; the weekend is not counted) OD = 3: the Critical level is recorded once as well
+        Carbon::setTestNow(Carbon::parse('2026-06-09 10:00', 'Asia/Manila')->utc());
         $monitor->run();
         $monitor->run();
         $this->assertSame(

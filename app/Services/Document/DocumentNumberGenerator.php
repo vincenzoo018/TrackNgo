@@ -5,6 +5,11 @@ namespace App\Services\Document;
 use App\Models\Department;
 use App\Models\Document;
 
+/**
+ * Reference ({OFFICE CODE}-{YEAR}-{SEQ}) and tracking (RS-{YEAR}-{SEQ}) numbers. The next number follows the
+ * highest one already used with the same prefix (not a count, which repeats numbers once documents move between
+ * offices or are removed), and is checked against what exists; the unique indexes catch a simultaneous filing.
+ */
 class DocumentNumberGenerator
 {
     /**
@@ -13,14 +18,9 @@ class DocumentNumberGenerator
     public function generateReferenceNumber(?int $departmentId): string
     {
         $department = $departmentId ? Department::find($departmentId) : null;
-        $deptCode = $department?->code ?? 'GEN';
-        $year = date('Y');
+        $deptCode = $department?->code ?: 'GEN';
 
-        $deptDocCount = Document::where('department_id', $departmentId)
-            ->whereYear('created_at', $year)
-            ->count() + 1;
-
-        return sprintf('%s-%s-%s', $deptCode, $year, str_pad($deptDocCount, 4, '0', STR_PAD_LEFT));
+        return $this->next('reference_number', sprintf('%s-%s-', $deptCode, $this->year()));
     }
 
     /**
@@ -28,14 +28,26 @@ class DocumentNumberGenerator
      */
     public function generateTrackingNumber(): string
     {
-        $year = date('Y');
-        $latestDoc = Document::whereNotNull('tracking_number')
-            ->where('tracking_number', 'like', "RS-{$year}-%")
-            ->orderBy('tracking_number', 'desc')
-            ->first();
+        return $this->next('tracking_number', sprintf('RS-%s-', $this->year()));
+    }
 
-        $nextSeq = $latestDoc ? ((int) substr($latestDoc->tracking_number, -4)) + 1 : 1;
+    private function next(string $column, string $prefix): string
+    {
+        $highest = Document::where($column, 'like', $prefix . '%')
+            ->pluck($column)
+            ->map(fn ($number) => (int) substr((string) $number, strlen($prefix)))
+            ->max() ?? 0;
 
-        return sprintf('RS-%s-%s', $year, str_pad($nextSeq, 4, '0', STR_PAD_LEFT));
+        do {
+            $candidate = $prefix . str_pad((string) ++$highest, 4, '0', STR_PAD_LEFT);
+        } while (Document::where($column, $candidate)->exists());
+
+        return $candidate;
+    }
+
+    /** The filing year in office time (a document filed on 1 January, 07:00 in Manila belongs to the new year) */
+    private function year(): string
+    {
+        return now()->setTimezone(config('arta.timezone', 'Asia/Manila'))->format('Y');
     }
 }

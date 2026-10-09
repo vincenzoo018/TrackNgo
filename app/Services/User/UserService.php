@@ -8,13 +8,15 @@ use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use App\Services\User\AccountGuard;
 use Illuminate\Support\Facades\Hash;
 
 class UserService implements UserServiceInterface
 {
     public function __construct(
         protected AuditTrailServiceInterface $auditTrailService,
-        protected DocumentPinService $documentPins
+        protected DocumentPinService $documentPins,
+        protected AccountGuard $accounts
     ) {}
 
     public function getUserIndexPayload(User $actor): array
@@ -22,12 +24,14 @@ class UserService implements UserServiceInterface
         $authRole = strtolower($actor->role->role_name ?? '');
         $userRole = $authRole === 'hr' ? 'hr' : 'admin';
 
+        // HR does not manage Administrator accounts, so it neither sees them here nor can give the Admin role
         $users = User::with(['department', 'role'])
+            ->when($userRole === 'hr', fn ($q) => $q->whereDoesntHave('role', fn ($r) => $r->where('role_name', 'Admin')))
             ->orderBy('id', 'asc')
             ->get();
 
         $departments = Department::orderBy('department_name', 'asc')->get();
-        $roles = Role::orderBy('role_id', 'asc')->get();
+        $roles = AccountGuard::assignableRoles($actor);
 
         return [
             'dbUsers'       => $users,
@@ -47,6 +51,7 @@ class UserService implements UserServiceInterface
 
     public function createUser(array $data, User $actor, ?string $ipAddress = null): User
     {
+        $this->accounts->ensureRoleAssignable($actor, $data['role_id'] ?? null);
         $pin = $data['document_pin'] ?? null;
         unset($data['document_pin']);
         $data['password'] = Hash::make($data['password']);
@@ -78,6 +83,12 @@ class UserService implements UserServiceInterface
         $user = User::findOrFail($userId);
         $authRole = strtolower($actor->role->role_name ?? '');
         $actorLabel = $authRole === 'hr' ? 'HR' : 'Admin';
+        $this->accounts->ensureCanManage($actor, $user);
+        $this->accounts->ensureNotSelfEscalation($actor, $user, [
+            'role_id'       => $authRole === 'admin' ? ($data['role_id'] ?? null) : null,
+            'department_id' => $data['department_id'] ?? null,
+            'is_active'     => $data['is_active'] ?? null,
+        ]);
 
         $updateData = [
             'first_name'    => $data['first_name'],
@@ -118,6 +129,15 @@ class UserService implements UserServiceInterface
     {
         $user = User::findOrFail($userId);
         $authRole = strtolower($actor->role->role_name ?? '');
+        $this->accounts->ensureCanManage($actor, $user);
+        $this->accounts->ensureNotSelfEscalation($actor, $user, [
+            'role_id'       => $authRole === 'hr' ? null : ($data['role_id'] ?? null),
+            'department_id' => $data['department_id'] ?? null,
+            'is_active'     => $data['is_active'] ?? null,
+        ]);
+        if ($authRole !== 'hr') {
+            $this->accounts->ensureRoleAssignable($actor, $data['role_id'] ?? null);
+        }
 
         $oldRole = $user->role->role_name ?? 'None';
         $oldDept = $user->department->department_name ?? 'None';
@@ -172,17 +192,15 @@ class UserService implements UserServiceInterface
 
         $user = User::findOrFail($userId);
         if ($user->id === $actor->id) {
-            throw new \InvalidArgumentException('Action prohibited: You cannot delete your own Administrator account.');
+            throw new \InvalidArgumentException('Action prohibited: You cannot deactivate your own Administrator account.');
         }
 
-        $userName = $user->name;
-        $userEmail = $user->email;
-
-        $user->delete();
+        // Deactivated, never deleted: the account's documents, routing slips, signatures and audit trail stay intact
+        $user->update(['is_active' => false]);
 
         $this->auditTrailService->logUserAction(
-            action: 'Delete User',
-            description: "Admin permanently deleted user {$userName} ({$userEmail})",
+            action: 'Deactivate User',
+            description: "Admin deactivated the account of {$user->name} ({$user->email}); their records are kept.",
             actor: $actor,
             ipAddress: $ipAddress
         );

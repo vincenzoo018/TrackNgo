@@ -92,9 +92,8 @@ class NotificationService
             $startDate = $doc->date_filed ?? $doc->created_at;
             $startCarbon = $startDate ? Carbon::parse($startDate) : $now;
 
-            $dueDateCarbon = $doc->arta_due_date
-                ? Carbon::parse($doc->arta_due_date)
-                : (clone $startCarbon)->addDays($threshold);
+            // Holiday-aware deadline; overdue only after the due day has ended (office time)
+            $dueDateCarbon = app(\App\Services\Calendar\WorkingDayCalendar::class)->deadlineEndsAt($doc);
 
             $diffHours = $now->diffInHours($dueDateCarbon, false);
             $diffDays = (int) round($now->diffInDays($dueDateCarbon, false));

@@ -41,6 +41,8 @@ class CartMonitoringService
     private const HOP_ACTIONS = [
         'register' => 'Registered and routed', 'forward' => 'Forwarded', 'endorse' => 'Endorsed',
         'approve'  => 'Approved and sent', 'return' => 'Returned', 'resubmit' => 'Resubmitted',
+        'route'    => 'Approved and sent', 'oic' => 'Handed over (Officer-in-Charge)',
+        'deemed_approved' => 'Deemed approved — sent for release', 'veto' => 'Vetoed and returned',
     ];
 
     public function __construct(

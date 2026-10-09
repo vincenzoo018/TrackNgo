@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
+import { documentFileUrl } from '@/lib/document-files';
+import { useLiveUpdates } from '@/hooks/use-live-updates';
 
 export interface TimelineEntry {
     _id: string;
@@ -110,13 +112,12 @@ export function DiscussionAuditTimeline({
         setLocalAttachments(attachments);
     }, [attachments]);
 
-    // Active real-time background sync polling every 3.5 seconds
-    useEffect(() => {
+    // New trail entries, comments or files (shared 15 s live-update check) refresh the thread
+    useLiveUpdates(['trail', 'comments', 'attachments'], () => {
         if (!doc?.document_id) return;
-        const interval = setInterval(() => {
-            fetch(`/documents/${doc.document_id}/timeline-sync`, {
-                headers: { 'Accept': 'application/json' }
-            })
+        fetch(`/documents/${doc.document_id}/timeline-sync`, {
+            headers: { 'Accept': 'application/json' }
+        })
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data) {
@@ -128,10 +129,7 @@ export function DiscussionAuditTimeline({
             .catch(() => {
                 // Silent fail in background
             });
-        }, 3500);
-
-        return () => clearInterval(interval);
-    }, [doc?.document_id]);
+    });
 
     // 1. Audit Trail Entries (strictly authenticated actions & uploads)
     const auditEntries = useMemo(() => {
@@ -181,7 +179,7 @@ export function DiscussionAuditTimeline({
                 file_type: att.file_type,
                 attachment_id: att.attachment_id,
                 reason: att.reason,
-                url: att.url || (att.file_path ? `/storage/${att.file_path}` : null),
+                url: att.url || documentFileUrl(att.document_id ?? doc?.document_id, 'attachment', att.file_path, att.attachment_id),
                 user_name: nameStr,
                 user_role: roleStr,
                 document_ref: doc?.reference_number,

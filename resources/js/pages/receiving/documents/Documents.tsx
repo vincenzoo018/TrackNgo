@@ -27,14 +27,14 @@ export default function ReceivingDocumentsIndex() {
         if (s === 'returned') {
             return 'returned';
         }
-        if (['completed', 'archived'].includes(s)) {
+        if (['completed', 'archived', 'vetoed'].includes(s)) {
             return null;
         }
         if (authUserId && String(doc.submitted_by) === authUserId) {
             return 'sent';
         }
         if (String(doc.current_holder_id ?? '') === authUserId ||
-            ['received', 'pending', 'pending_registration', 'approved'].includes(s)) {
+            ['received', 'pending', 'pending_registration', 'approved', 'deemed_approved'].includes(s)) {
             return 'received';
         }
         if (['forwarded', 'in_transit', 'registered', 'sent', 'endorsed', 'accepted', 'ongoing'].includes(s)) {

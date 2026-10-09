@@ -63,6 +63,10 @@ class DepartmentController extends Controller
         return redirect()->back()->with('success', 'Department updated successfully.');
     }
 
+    /**
+     * An office with documents is deactivated, never deleted: deleting it would erase its documents and their trail.
+     * Only an unused office (no employees, no documents) is removed.
+     */
     public function destroy(Request $request, Department $department)
     {
         if ($department->users()->count() > 0) {
@@ -70,6 +74,24 @@ class DepartmentController extends Controller
         }
 
         $deptName = $department->department_name;
+        $id = $department->department_id;
+        $hasRecords = \App\Models\Document::where('department_id', $id)
+            ->orWhere('current_holder_department_id', $id)
+            ->orWhere('destination_department_id', $id)
+            ->exists()
+            || \App\Models\RoutingSlip::where('target_department_id', $id)->orWhere('from_department_id', $id)->exists();
+        if ($hasRecords) {
+            $department->update(['is_active' => false]);
+            $this->auditTrailService->logUserAction(
+                action: 'Deactivate Department',
+                description: "HR deactivated department {$deptName}; its documents and history are kept.",
+                actor: $request->user(),
+                ipAddress: $request->ip()
+            );
+
+            return redirect()->back()->with('success', 'This office has documents on record, so it was deactivated instead of deleted.');
+        }
+
         $department->delete();
 
         $this->auditTrailService->logUserAction(

@@ -30,10 +30,11 @@ export function describeHolder(doc: any, users: any[] = []): string {
 
     if (name) return details ? `${name} (${details})` : name;
     // Finished documents have no holder any more
-    if (!office && ['completed', 'released', 'archived'].includes(String(doc?.status || '').toLowerCase())) return 'None (completed)';
+    if (!office && isClosedStatus(doc?.status)) return 'None (completed)';
     return office || 'the next office';
 }
 
+/** Nothing more happens to the document (a vetoed ordinance / resolution is closed too) */
 export function isClosedStatus(status?: string | null): boolean {
-    return ['completed', 'released', 'archived'].includes((status || '').toLowerCase());
+    return ['completed', 'released', 'archived', 'vetoed'].includes((status || '').toLowerCase());
 }

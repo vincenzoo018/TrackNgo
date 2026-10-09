@@ -14,7 +14,7 @@ class CartNotificationStrategy implements NotificationStrategyInterface
     {
         // CART oversees all compliance, escalations, and SLA breaches across all departments
         return Document::with(['type', 'department', 'currentHolderDepartment', 'submitter'])
-            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived'])
+            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived', 'deemed_approved', 'vetoed'])
             ->get();
     }
 }

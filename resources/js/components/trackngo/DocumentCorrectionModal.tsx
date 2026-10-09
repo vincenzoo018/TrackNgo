@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { AlertCircle, UploadCloud, X } from 'lucide-react';
 import React, { useRef, useState } from 'react';
+import { ACCEPTED_FILE_TYPES, acceptFiles, useUploadLimits } from '@/lib/upload-files';
 import { cn } from '@/lib/utils';
 import { BaseModal } from './BaseModal';
 import { ResignNotice, VersionFileField, useVersionFile } from './DocumentRevisionModal';
@@ -15,9 +16,6 @@ type DocumentCorrectionModalProps = {
 
 /** version: the corrected main file becomes a new version; files: supporting files next to the main file */
 type CorrectionMode = 'files' | 'version';
-
-const MAX_FILES = 5;
-const ACCEPT = '.pdf,.doc,.docx,.png,.jpg,.jpeg';
 
 function formatBytes(bytes?: number): string {
     if (!bytes) {
@@ -47,6 +45,7 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
     const [isUploading, setIsUploading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [dragActive, setDragActive] = useState(false);
+    const uploadLimits = useUploadLimits();
     const canUploadVersion = Boolean(doc?.abilities?.create_revision);
     const [mode, setMode] = useState<CorrectionMode>('files');
     const versionMode = canUploadVersion && mode === 'version';
@@ -58,20 +57,18 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
     const returner = findReturner(doc);
     const ready = versionMode ? Boolean(mainFile.file) && !mainFile.reading && note.trim().length >= 5 : files.length > 0;
 
+    // Several files at once (picker or drop); wrong types, oversized files and files past the limit are refused with the reason
     const addFiles = (list: FileList | null) => {
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         if (!list) {
             return;
         }
-        setErrorMessage(null);
-        setFiles(prev => {
-            const merged = [...prev, ...Array.from(list)];
-            if (merged.length > MAX_FILES) {
-                setErrorMessage(`Attach up to ${MAX_FILES} files at a time.`);
-            }
-            return merged.slice(0, MAX_FILES);
-        });
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+        const { accepted, problems } = acceptFiles(files, Array.from(list), uploadLimits);
+        setErrorMessage(problems.length ? problems.join(' ') : null);
+        if (accepted.length) {
+            setFiles(prev => [...prev, ...accepted]);
         }
     };
 
@@ -193,7 +190,7 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
                     <label className="mb-1.5 block text-[13px] font-medium text-slate-800">
                         Corrected / Missing Files <span className="text-rose-500">*</span>
                     </label>
-                    <input ref={fileInputRef} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
+                    <input ref={fileInputRef} type="file" multiple accept={ACCEPTED_FILE_TYPES} className="hidden" onChange={(e) => addFiles(e.target.files)} />
                     <div
                         onClick={() => fileInputRef.current?.click()}
                         onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -206,7 +203,10 @@ export function DocumentCorrectionModal({ open, onClose, document: doc, returnRe
                     >
                         <UploadCloud className="mb-2 h-6 w-6 text-rose-500" />
                         <p className="text-[14px] font-medium text-slate-800">Click to choose files or drag them here</p>
-                        <p className="mt-1 text-[12px] text-slate-500">PDF, DOC, DOCX, PNG or JPG · up to {MAX_FILES} files</p>
+                        <p className="mt-1 text-[12px] text-slate-500">
+                            PDF, Word (.docx), PNG or JPG · up to {uploadLimits.maxFiles} files, max. {uploadLimits.maxLabel} each
+                            {files.length > 0 && files.length < uploadLimits.maxFiles && ` · ${uploadLimits.maxFiles - files.length} more allowed`}
+                        </p>
                     </div>
 
                     {files.length > 0 && (

@@ -40,7 +40,7 @@ class DocumentRevisionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('public');
+        Storage::fake('local'); // document files are private
         $this->withoutVite();
         $this->withoutDefer();
 
@@ -175,8 +175,8 @@ class DocumentRevisionTest extends TestCase
 
         // Every version is its own file; the original is untouched
         $this->assertSame($originalPath, $versions[0]->file_path);
-        $this->assertSame('%PDF-1.4 original permit', Storage::disk('public')->get($versions[0]->file_path));
-        $this->assertSame('%PDF-1.4 corrected permit', Storage::disk('public')->get($versions[1]->file_path));
+        $this->assertSame('%PDF-1.4 original permit', Storage::disk('local')->get($versions[0]->file_path));
+        $this->assertSame('%PDF-1.4 corrected permit', Storage::disk('local')->get($versions[1]->file_path));
         $this->assertSame($versions[2]->file_path, $doc->attachment_path);
         $this->assertSame('v3.0', $doc->version);
         $this->assertSame(hash('sha256', '%PDF-1.4 original permit'), $versions[0]->file_hash);
@@ -216,7 +216,7 @@ class DocumentRevisionTest extends TestCase
     {
         $doc = $this->fileDocument($this->mayor, $this->engineer);
         $this->approve($this->mayor, $doc); // the Mayor signs Version 1
-        Storage::disk('public')->put('documents/signed/v1.pdf', '%PDF signed v1');
+        Storage::disk('local')->put('documents/signed/v1.pdf', '%PDF signed v1');
         $doc->forceFill(['signed_file_path' => 'documents/signed/v1.pdf', 'signed_copy_signatures' => 1])->save();
 
         $this->actingAs($this->engineer)->post("/documents/{$doc->document_id}/accept")->assertSessionHasNoErrors();
@@ -229,7 +229,7 @@ class DocumentRevisionTest extends TestCase
         $this->assertNull($doc->signed_file_path);
         $this->assertSame(0, $doc->signatories()->whereNotNull('signed_at')->count());
         $this->assertSame($v1->revision_id, DigitalSignature::where('signed_by_user_id', $this->mayor->id)->sole()->revision_id);
-        $this->assertTrue(Storage::disk('public')->exists('documents/signed/v1.pdf'));
+        $this->assertTrue(Storage::disk('local')->exists('documents/signed/v1.pdf'));
 
         // The engineer signs Version 2, and the route takes it back to the Mayor to sign it too
         $this->actingAs($this->engineer)->post("/documents/{$doc->document_id}/approve-next")->assertSessionHasNoErrors();
@@ -239,8 +239,9 @@ class DocumentRevisionTest extends TestCase
         $this->assertSame(['approved', $this->clerk->id], [$doc->status, $doc->current_holder_id]);
         $this->assertSame(2, DigitalSignature::where('revision_id', $v2->revision_id)->count());
 
+        // The progress bar keeps one step per person: signing the new version again does not add steps
         $steps = collect(app(DocumentRoute::class)->steps($doc))->map(fn ($s) => "{$s['label']}:{$s['actor']}")->all();
-        $this->assertSame(['Submitted:Clerk Staff', 'Signed:Mayor Staff', 'Signed:Engineer Staff', 'Signed:Mayor Staff', 'Release:Receiving Clerk'], $steps);
+        $this->assertSame(['Submitted:Clerk Staff', 'Signed:Mayor Staff', 'Signed:Engineer Staff', 'Release:Clerk Staff'], $steps);
 
         // A copy stamped on Version 1 is refused; the copy of Version 2 is the final one
         $copy = fn (int $version) => $this->actingAs($this->clerk)->postJson("/documents/{$doc->document_id}/signed-copy", [

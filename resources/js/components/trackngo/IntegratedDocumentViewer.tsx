@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     ScanText,
-    Highlighter,
     Download,
     Copy,
     Check,
@@ -24,7 +23,7 @@ import {
     PanelBottom,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { router } from '@inertiajs/react';
+import { csrfHeaders } from '@/lib/csrf';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { SignatureStampLayer } from '@/components/trackngo/SignatureStampLayer';
 import { extractTextFromUrl, ocrImage } from '@/lib/ocr';
@@ -82,6 +81,76 @@ export interface IntegratedDocumentViewerProps {
     jumpToEndKey?: number;
     /** Called with the text read by "Scan Text" (OCR of the shown file) */
     onOcrText?: (text: string) => void;
+    /**
+     * Passages people commented on (quoted text): highlighted on the file afterwards. Nothing else is highlighted —
+     * the viewer selects the text they want to comment on themselves.
+     */
+    highlights?: string[];
+}
+
+/** Text compared without case or whitespace (PDF text layers split words and lines unpredictably) */
+const compact = (value: string) => value.toLowerCase().replace(/\s+/g, '');
+
+/** Marks the text-layer spans that belong to a commented passage */
+function markSavedHighlights(layer: HTMLElement | null, quotes: string[]): void {
+    if (!layer) return;
+    const spans = Array.from(layer.querySelectorAll<HTMLElement>('span')).filter(s => !s.classList.contains('markedContent') && (s.textContent || '').trim());
+    spans.forEach(s => s.classList.remove('tng-saved-highlight'));
+
+    let full = '';
+    const ranges: [number, number, HTMLElement][] = [];
+    spans.forEach(span => {
+        const text = compact(span.textContent || '');
+        ranges.push([full.length, full.length + text.length, span]);
+        full += text;
+    });
+
+    quotes.map(compact).filter(q => q.length >= 3).forEach(quote => {
+        for (let at = full.indexOf(quote); at !== -1; at = full.indexOf(quote, at + quote.length)) {
+            ranges.forEach(([start, end, span]) => {
+                if (start < at + quote.length && end > at) span.classList.add('tng-saved-highlight');
+            });
+        }
+    });
+}
+
+/** Wraps commented passages found inside single text nodes of a rendered Word document in <mark> */
+function markDocxHighlights(container: HTMLElement | null, quotes: string[]): void {
+    if (!container) return;
+    container.querySelectorAll('mark.tng-saved-mark').forEach(mark => mark.replaceWith(document.createTextNode(mark.textContent || '')));
+    container.normalize();
+
+    const wanted = quotes.map(q => q.replace(/\s+/g, ' ').trim()).filter(q => q.length >= 3);
+    if (wanted.length === 0) return;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);
+
+    nodes.forEach(node => {
+        const text = node.textContent || '';
+        const quote = wanted.find(q => text.toLowerCase().includes(q.toLowerCase()));
+        if (!quote) return;
+        const at = text.toLowerCase().indexOf(quote.toLowerCase());
+        const range = document.createRange();
+        range.setStart(node, at);
+        range.setEnd(node, at + quote.length);
+        const mark = document.createElement('mark');
+        mark.className = 'tng-saved-mark';
+        mark.title = 'Commented passage';
+        range.surroundContents(mark);
+    });
+}
+
+/** OCR text with the commented passages marked */
+function withHighlights(text: string, quotes: string[]): React.ReactNode {
+    const wanted = quotes.map(q => q.trim()).filter(q => q.length >= 3);
+    if (wanted.length === 0) return text;
+    const escaped = wanted.map(q => q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
+    const parts = text.split(new RegExp(`(${escaped.join('|')})`, 'gi'));
+
+    return parts.map((part, i) => (i % 2 === 1
+        ? <mark key={i} className="tng-saved-mark" title="Commented passage">{part}</mark>
+        : <React.Fragment key={i}>{part}</React.Fragment>));
 }
 
 const toolButton = 'inline-flex items-center gap-1.5 rounded-[8px] border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 shadow-xs transition-all hover:bg-slate-100 active:scale-[0.98]';
@@ -104,7 +173,11 @@ export default function IntegratedDocumentViewer({
     revisionId = null,
     jumpToEndKey = 0,
     onOcrText,
+    highlights = [],
 }: IntegratedDocumentViewerProps) {
+    // Stable list for the effects below (the prop is a new array on every render)
+    const highlightKey = highlights.join('\u0000');
+    const highlightList = useMemo(() => (highlightKey ? highlightKey.split('\u0000') : []), [highlightKey]);
     const url = fileUrl ?? pdfUrl ?? null;
     const kind = detectFileKind(url);
     const isPdf = kind === 'pdf';
@@ -129,7 +202,6 @@ export default function IntegratedDocumentViewer({
 
     // Interaction Modes & OCR State
     const [mode, setMode] = useState<'text' | 'area'>('text');
-    const [highlightsActive, setHighlightsActive] = useState<boolean>(true); // Active by default for immediate visibility
     const [isScanning, setIsScanning] = useState<boolean>(false);
     const [scanProgress, setScanProgress] = useState<string | null>(null);
     const [scanSuccessMessage, setScanSuccessMessage] = useState<string | null>(null);
@@ -158,6 +230,11 @@ export default function IntegratedDocumentViewer({
     // References
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
+    // Selectable text over the rendered PDF page (PDF.js text layer); nothing on it is highlighted until commented
+    const textLayerRef = useRef<HTMLDivElement>(null);
+    const textLayerTaskRef = useRef<{ cancel: () => void } | null>(null);
+    const pageBoxRef = useRef<HTMLDivElement>(null);
+    const [textLayerVersion, setTextLayerVersion] = useState(0);
     const docxContainerRef = useRef<HTMLDivElement>(null);
     const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
     const renderTaskRef = useRef<ReturnType<pdfjsLib.PDFPageProxy['render']> | null>(null);
@@ -342,31 +419,35 @@ export default function IntegratedDocumentViewer({
                 });
             });
 
-            // If PDF.js found no embedded text (e.g. scanned image PDF) but backend ocrText exists:
-            if (items.length === 0 && ocrText) {
-                const lines = ocrText.split('\n').filter(l => l.trim().length > 0);
-                const totalLines = Math.min(lines.length, 30);
-                const lineHeight = Math.min(26 * scale, (viewport.height * 0.85) / Math.max(totalLines, 1));
-                const startY = 40 * scale;
-
-                lines.slice(0, totalLines).forEach((line, idx) => {
-                    items.push({
-                        id: `synthetic-ocr-${pageNumber}-${idx}`,
-                        str: line.trim(),
-                        x: 36 * scale,
-                        y: startY + (idx * (lineHeight + 6 * scale)),
-                        width: Math.min(viewport.width - 72 * scale, Math.max(line.length * 7.5 * scale, 120)),
-                        height: lineHeight,
-                    });
-                });
-            }
-
             setPageTextItems(items);
+
+            // Invisible, selectable text over the page: the viewer drags over the words they want to comment on
+            // (scanned pages have no text layer: use Area OCR or the OCR Text view)
+            const layer = textLayerRef.current;
+            if (layer) {
+                textLayerTaskRef.current?.cancel();
+                layer.replaceChildren();
+                layer.style.setProperty('--total-scale-factor', String(scale));
+                const textLayer = new pdfjsLib.TextLayer({ textContentSource: textContent, container: layer, viewport });
+                textLayerTaskRef.current = textLayer;
+                await textLayer.render();
+                setTextLayerVersion(v => v + 1);
+            }
         } catch (err: any) {
-            if (err?.name === 'RenderingCancelledException') return;
+            if (err?.name === 'RenderingCancelledException' || err?.name === 'AbortException') return;
             console.error('Error rendering PDF page:', err);
         }
-    }, [pageNumber, scale, ocrText]);
+    }, [pageNumber, scale]);
+
+    // Commented passages stay highlighted on the page (PDF), in the Word view and in the OCR text
+    useEffect(() => {
+        markSavedHighlights(textLayerRef.current, highlightList);
+    }, [highlightList, textLayerVersion]);
+    useEffect(() => {
+        if (kind === 'docx' && loadedCurrent) {
+            markDocxHighlights(docxContainerRef.current, highlightList);
+        }
+    }, [highlightList, kind, loadedCurrent]);
 
     useEffect(() => {
         if (isPdf && !isLoading && !loadError && pdfDocRef.current) {
@@ -393,9 +474,7 @@ export default function IntegratedDocumentViewer({
                 const words = text.split(/\s+/).filter(Boolean).length;
                 setScanSuccessMessage(`OCR complete: ${words.toLocaleString()} words read from the document.`);
                 onOcrText?.(text);
-                if (isPdf && pageTextItems.length > 0) {
-                    setHighlightsActive(true);
-                } else {
+                if (!(isPdf && pageTextItems.length > 0)) {
                     // Photos, scans and Word files have no PDF text layer: show the text that was read
                     setViewMode('text');
                 }
@@ -430,7 +509,7 @@ export default function IntegratedDocumentViewer({
         link.click();
         URL.revokeObjectURL(blobUrl);
         setIsExportOpen(false);
-        logExportAction('Exported OCR as TXT');
+        logExportAction('ocr_txt');
     };
 
     const handleExportJson = () => {
@@ -453,33 +532,33 @@ export default function IntegratedDocumentViewer({
         link.click();
         URL.revokeObjectURL(blobUrl);
         setIsExportOpen(false);
-        logExportAction('Exported OCR as JSON');
+        logExportAction('ocr_json');
     };
 
-    const logExportAction = (description: string) => {
+    // The audit trail records the export; the server words the entry (nothing is written as typed in the browser)
+    const logExportAction = (event: 'ocr_txt' | 'ocr_json') => {
         if (!documentId) return;
-        router.post(`/documents/${documentId}/log-action`, {
-            action: 'Exported',
-            description: description
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-        });
+        void fetch(`/documents/${documentId}/log-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...csrfHeaders() },
+            credentials: 'same-origin',
+            body: JSON.stringify({ event }),
+        }).catch(() => undefined);
     };
 
-    // Handle Inline Highlight Click
-    const handleItemClick = (item: TextItemBounds, e: React.MouseEvent) => {
-        e.stopPropagation();
-        const newSelection = {
-            text: item.str,
-            x: item.x,
-            y: item.y,
-            width: item.width,
-        };
-        setActiveInlineSelection(newSelection);
-        if (onTextSelect) {
-            onTextSelect(item.str);
+    // Text the viewer highlighted by dragging over the page: offer Copy / Comment right above it
+    const handlePageTextSelection = () => {
+        if (mode !== 'text') return;
+        const selection = window.getSelection();
+        const text = selection?.toString().replace(/\s+/g, ' ').trim() || '';
+        const box = pageBoxRef.current;
+        if (!selection || !text || !box || selection.rangeCount === 0 || !textLayerRef.current?.contains(selection.anchorNode)) {
+            return;
         }
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        const origin = box.getBoundingClientRect();
+        setActiveInlineSelection({ text, x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width });
+        onTextSelect?.(text);
     };
 
     // Area Selection Mouse Handlers
@@ -733,7 +812,7 @@ export default function IntegratedDocumentViewer({
                                 setAreaOcrResult(null);
                             }}
                             className={segmentButton(mode === 'text')}
-                            title="Highlight and click recognized text directly"
+                            title="Drag over the text you want, then Copy or Comment"
                         >
                             <MousePointer className="h-3.5 w-3.5" />
                             <span className="hidden md:inline">Text Select</span>
@@ -754,7 +833,7 @@ export default function IntegratedDocumentViewer({
                 )}
             </div>
 
-            {/* Right Actions: Scan Text, Highlights, Copy, Export, Open / Download, Dock */}
+            {/* Right Actions: Scan Text, Copy, Export, Open / Download, Dock */}
             <div className="flex flex-wrap items-center gap-2">
                 {hasFileStage && (
                     <button
@@ -766,23 +845,6 @@ export default function IntegratedDocumentViewer({
                     >
                         {isScanning ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ScanText className="h-3.5 w-3.5" />}
                         <span>{isScanning ? 'Scanning...' : 'Scan Text'}</span>
-                    </button>
-                )}
-
-                {isPdf && showDocumentTools && (
-                    <button
-                        type="button"
-                        onClick={() => setHighlightsActive(!highlightsActive)}
-                        className={cn(
-                            "inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-xs sm:text-[13px] font-semibold transition-all shadow-xs active:scale-[0.98]",
-                            highlightsActive
-                                ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                        )}
-                        title={highlightsActive ? "Hide yellow OCR text highlights" : "Show yellow OCR text highlights"}
-                    >
-                        <Highlighter className={cn("h-3.5 w-3.5", highlightsActive ? "text-amber-600" : "text-slate-500")} />
-                        <span className="hidden sm:inline">Highlights</span>
                     </button>
                 )}
 
@@ -878,7 +940,7 @@ export default function IntegratedDocumentViewer({
                 className="text-[14px] text-slate-800 leading-relaxed whitespace-pre-wrap select-text"
                 onMouseUp={handleNativeTextSelection}
             >
-                {ocrText}
+                {withHighlights(ocrText || '', highlightList)}
             </div>
         </div>
     );
@@ -962,21 +1024,30 @@ export default function IntegratedDocumentViewer({
                 {/* PDF: Canvas + OCR overlay */}
                 {isPdf && showFile && (
                     <div
+                        ref={pageBoxRef}
                         className={cn("relative bg-white shadow-xl rounded-[4px] border border-slate-300 transition-all self-start", viewMode === 'text' && "hidden")}
                         style={{
                             width: pageViewport.width ? `${pageViewport.width}px` : 'auto',
                             height: pageViewport.height ? `${pageViewport.height}px` : 'auto',
                             minHeight: '400px'
                         }}
+                        onMouseUp={handlePageTextSelection}
                     >
                         <canvas ref={canvasRef} className="block select-none" />
 
-                        {/* Interactive Overlay Layer for Highlight & Marquee Area Selection */}
+                        {/* Invisible, selectable text of the page: drag over it to highlight what to copy or comment on */}
+                        <div
+                            ref={textLayerRef}
+                            className={cn('textLayer tng-text-layer', mode === 'area' && 'pointer-events-none')}
+                            style={{ ['--scale-round-x' as string]: '1px', ['--scale-round-y' as string]: '1px' }}
+                        />
+
+                        {/* Area OCR selection (and the Copy / Comment pill above selected text) */}
                         <div
                             ref={overlayRef}
                             className={cn(
                                 "absolute inset-0 z-10",
-                                mode === 'area' ? "cursor-crosshair" : "cursor-text"
+                                mode === 'area' ? "cursor-crosshair" : "pointer-events-none"
                             )}
                             onMouseDown={handleOverlayMouseDown}
                             onMouseMove={handleOverlayMouseMove}
@@ -993,31 +1064,6 @@ export default function IntegratedDocumentViewer({
                                 />
                             )}
 
-                            {/* Inline OCR Highlights */}
-                            {highlightsActive && pageTextItems.map((item) => {
-                                const isSelected = activeInlineSelection?.text === item.str || selectedText === item.str;
-
-                                return (
-                                    <div
-                                        key={item.id}
-                                        style={{
-                                            left: `${item.x}px`,
-                                            top: `${item.y}px`,
-                                            width: `${item.width}px`,
-                                            height: `${item.height}px`,
-                                        }}
-                                        onClick={(e) => handleItemClick(item, e)}
-                                        className={cn(
-                                            "absolute rounded-[4px] transition-all cursor-pointer group",
-                                            isSelected
-                                                ? "bg-yellow-400/80 border-2 border-yellow-600 shadow-sm z-20"
-                                                : "bg-amber-300/40 hover:bg-amber-300/75 border border-amber-400/70"
-                                        )}
-                                        title={`Click to select: "${item.str}"`}
-                                    />
-                                );
-                            })}
-
                             {/* Floating Contextual Action Pill (Anchored directly over/under selected text) */}
                             {activeInlineSelection && (
                                 <div
@@ -1025,8 +1071,9 @@ export default function IntegratedDocumentViewer({
                                         left: `${Math.max(10, Math.min(activeInlineSelection.x, (pageViewport.width || 600) - 260))}px`,
                                         top: `${Math.max(10, activeInlineSelection.y - 42)}px`,
                                     }}
-                                    className="absolute z-30 flex items-center gap-1.5 bg-slate-900/95 text-white rounded-[8px] p-1.5 shadow-2xl whitespace-nowrap text-[13px]"
+                                    className="pointer-events-auto absolute z-30 flex items-center gap-1.5 bg-slate-900/95 text-white rounded-[8px] p-1.5 shadow-2xl whitespace-nowrap text-[13px]"
                                     onMouseDown={(e) => e.stopPropagation()}
+                                    onMouseUp={(e) => e.stopPropagation()}
                                 >
                                     <span className="max-w-[140px] truncate pl-1.5 pr-2 border-r border-slate-700 text-amber-300 font-semibold text-[12px]">
                                         {activeInlineSelection.text}
@@ -1182,6 +1229,32 @@ export default function IntegratedDocumentViewer({
                 }
                 .tng-docx .docx-wrapper { background: transparent; padding: 0; }
                 .tng-docx .docx-wrapper > section.docx { margin: 0 auto 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); border: 1px solid rgb(203 213 225); }
+
+                /* PDF.js text layer (from pdfjs-dist/web/pdf_viewer.css): transparent text over the page, selectable */
+                .tng-text-layer {
+                    position: absolute; inset: 0; overflow: clip; opacity: 1; line-height: 1; text-align: initial;
+                    letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none;
+                    transform-origin: 0 0; caret-color: CanvasText; z-index: 5;
+                    --min-font-size: 1;
+                    --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+                    --min-font-size-inv: calc(1 / var(--min-font-size));
+                }
+                .tng-text-layer span, .tng-text-layer br {
+                    color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; user-select: text;
+                }
+                .tng-text-layer > :not(.markedContent), .tng-text-layer .markedContent span:not(.markedContent) {
+                    z-index: 1; --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height));
+                    --scale-x: 1; --rotate: 0deg;
+                    transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+                }
+                .tng-text-layer .markedContent { display: contents; }
+                .tng-text-layer ::selection { background: rgba(0, 102, 204, 0.3); color: transparent; }
+                .tng-text-layer br::selection { background: transparent; }
+                .tng-text-layer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: 0; cursor: default; user-select: none; }
+
+                /* Passages someone commented on */
+                .tng-text-layer span.tng-saved-highlight { background: rgba(250, 204, 21, 0.38); border-radius: 2px; }
+                mark.tng-saved-mark { background: rgba(250, 204, 21, 0.45); color: inherit; border-radius: 2px; padding: 0 1px; }
             `}</style>
 
             {canDownload && (

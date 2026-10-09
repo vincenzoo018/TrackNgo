@@ -13,7 +13,7 @@ class HrNotificationStrategy implements NotificationStrategyInterface
     public function getActiveDocuments(User $user): Collection
     {
         return Document::with(['type', 'department', 'currentHolderDepartment', 'submitter'])
-            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived'])
+            ->whereNotIn(DB::raw('LOWER(status)'), ['completed', 'approved', 'archived', 'deemed_approved', 'vetoed'])
             ->where(function ($q) use ($user) {
                 $q->where('current_holder_id', $user->id)
                   ->orWhere('submitted_by', $user->id);

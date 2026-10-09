@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { CheckCircle2, Clock, Loader2, MapPin, Search } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, Clock, Loader2, MapPin, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StepProgress } from '@/components/trackngo/StepProgress';
 
@@ -32,6 +32,19 @@ function formatWhen(value?: string | null): string {
               hour: 'numeric',
               minute: '2-digit',
           });
+}
+
+/** "2026-12-01" → "Dec 1, 2026" (a calendar date, shown the same in every time zone) */
+function formatDay(value?: string | null): string {
+    if (!value) {
+        return '';
+    }
+
+    const d = new Date(`${value.slice(0, 10)}T12:00:00+08:00`);
+
+    return isNaN(d.getTime())
+        ? ''
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
 }
 
 export default function TrackDocument() {
@@ -121,7 +134,7 @@ export default function TrackDocument() {
             </header>
 
             <main className="flex flex-1 flex-col items-center px-4 py-8 sm:p-6">
-                <div className="w-full max-w-2xl space-y-6 sm:space-y-8">
+                <div className="w-full max-w-3xl space-y-6 sm:space-y-8">
                     <div className="text-center">
                         <h2 className="text-2xl font-bold tracking-tight text-[var(--tng-slate-900)] sm:text-3xl">
                             Track your Document
@@ -196,7 +209,7 @@ export default function TrackDocument() {
                                 </span>
                             </div>
 
-                            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+                            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
                                 <div>
                                     <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase">
                                         {isFinished ? (
@@ -225,27 +238,38 @@ export default function TrackDocument() {
                                         {formatWhen(doc.date_filed || doc.created_at)}
                                     </p>
                                 </div>
+                                {doc.due_date && (
+                                    <div>
+                                        <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase">
+                                            <CalendarCheck className="h-4 w-4 text-[#0066cc]" />
+                                            Expected release by
+                                        </p>
+                                        <p className="mt-1.5 font-medium text-slate-900">
+                                            {formatDay(doc.due_date)}
+                                            {doc.extended && (
+                                                <span className="ml-1.5 text-xs font-normal text-slate-500">
+                                                    (extended)
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <p className="mb-3 text-xs font-semibold text-slate-500 uppercase">
                                 Progress
                             </p>
-                            <div className="-mx-2 overflow-x-auto px-2 pb-2">
-                                <div className="min-w-[560px]">
-                                    <StepProgress
-                                        document={doc}
-                                        auditTrails={timeline}
-                                        processType={
-                                            doc.is_internal
-                                                ? 'internal_dept'
-                                                : 'external'
-                                        }
-                                        submitterName={doc.submitter_name}
-                                        enableLiveSync={false}
-                                        showProcessBadge={false}
-                                        compact
-                                    />
-                                </div>
+                            {/* Exactly the progress bar shown inside TrackNGo: the same steps (from the server),
+                                people, offices and live status; it scrolls sideways by itself on small screens */}
+                            <div className="-mx-2 pb-2">
+                                <StepProgress
+                                    document={doc}
+                                    auditTrails={timeline}
+                                    submitterName={doc.submitter_name}
+                                    enableLiveSync={false}
+                                    showProcessBadge={false}
+                                    compact
+                                />
                             </div>
 
                             {timeline.length > 0 && (
@@ -269,6 +293,7 @@ export default function TrackDocument() {
                                                         </p>
                                                         <p className="text-xs text-slate-500">
                                                             {[
+                                                                entry.user_name !== entry.department ? entry.user_name : null,
                                                                 entry.department,
                                                                 formatWhen(
                                                                     entry.timestamp,

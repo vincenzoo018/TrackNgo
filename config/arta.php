@@ -14,9 +14,13 @@
 
 return [
 
-    // Count Monday–Friday only. RA 11032 counts working days; the rest of TrackNGo counts calendar days,
-    // so this stays off unless both should change together.
-    'count_working_days' => (bool) env('ARTA_COUNT_WORKING_DAYS', false),
+    // RA 11032 counts working days: Saturdays, Sundays and every date in the Holiday Calendar are skipped
+    // (App\Services\Calendar\WorkingDayCalendar). Legislative types (ordinances / resolutions) always count
+    // calendar days (LGC Sec. 54). Turning this off makes every other type count calendar days as well.
+    'count_working_days' => (bool) env('ARTA_COUNT_WORKING_DAYS', true),
+
+    // The one extension a processing office may grant (RA 11032): the same number of days as the original period
+    'extension_days' => 'same_as_period',
 
     // Days roll over at midnight office time, not server (UTC) time
     'timezone' => env('ARTA_TIMEZONE', 'Asia/Manila'),

@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
 import {
@@ -33,10 +33,12 @@ import {
     ChevronLeft,
     ChevronRight,
     Archive,
+    UserCheck,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { roleNeedsPin } from '@/components/EmployeeFormFields';
 import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
+import { MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { StatCard } from '@/components/trackngo/StatCard';
@@ -230,6 +232,14 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                     </div>
                     {isAdmin && (
                         <div className="flex items-center gap-3">
+                            {/* Officer-in-Charge / Acting Mayor while an official is away (LGC Sec. 46) */}
+                            <Link
+                                href="/admin/oic"
+                                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-[14px] font-medium text-slate-700 shadow-xs transition-all hover:bg-slate-50"
+                            >
+                                <UserCheck className="h-4 w-4 shrink-0 text-violet-600" />
+                                <span>OIC Designations</span>
+                            </Link>
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#005bb5] shadow-xs hover:shadow-sm transition-all cursor-pointer"
@@ -463,7 +473,7 @@ export default function UserAccounts({ dbUsers = [], dbDepartments = [], dbRoles
                                                     onEdit={() => setEditingUser(user)}
                                                     editTitle="Edit Record"
                                                     onDelete={isAdmin ? () => setDeletingUser(user) : undefined}
-                                                    deleteTitle={user.id === currentUserId ? "Cannot delete yourself" : "Delete Record"}
+                                                    deleteTitle={user.id === currentUserId ? "Cannot deactivate yourself" : "Deactivate account"}
                                                     deleteDisabled={user.id === currentUserId}
                                                     showDelete={isAdmin}
                                                     extraActions={
@@ -778,8 +788,11 @@ function UserAccountFields({
                     <ModalField label="Mobile Number" required description={copy.mobileDescription} error={errors.mobile_number}>
                         <input
                             type="text"
+                            inputMode="numeric"
+                            maxLength={MOBILE_LENGTH}
                             value={data.mobile_number}
-                            onChange={(e) => setData('mobile_number', e.target.value)}
+                            // Digits only, at most 11: 09XXXXXXXXX
+                            onChange={(e) => setData('mobile_number', mobileDigits(e.target.value))}
                             placeholder="09171234567"
                             className={inputClass}
                         />
@@ -1162,8 +1175,8 @@ function DeleteUserModal({
         <BaseModal
             isOpen={true}
             onClose={onClose}
-            title="Delete User Account"
-            description="Permanent removal of user account and system access."
+            title="Deactivate User Account"
+            description="The account can no longer sign in. Its records stay intact."
             icon={<Trash2 className="h-5 w-5" />}
             headerClassName="bg-rose-50 border-b border-rose-100"
             iconContainerClassName="bg-rose-600 text-white"
@@ -1180,7 +1193,7 @@ function DeleteUserModal({
                             className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-[0.98] cursor-pointer"
                         >
                             <Trash2 className="h-4 w-4" />
-                            Confirm & Delete
+                            Confirm & Deactivate
                         </button>
                     )}
                 </>
@@ -1194,20 +1207,20 @@ function DeleteUserModal({
                             Action Prohibited
                         </p>
                         <p className="text-xs leading-relaxed">
-                            You cannot delete your own logged-in Administrator account. Another Administrator must perform this action if required.
+                            You cannot deactivate your own logged-in Administrator account. Another Administrator must perform this action if required.
                         </p>
                     </div>
                 ) : (
                     <>
                         <ModalSection title="Account Confirmation">
                             <p className="text-sm text-slate-700 leading-relaxed">
-                                Are you sure you want to permanently delete the account for{' '}
+                                Deactivate the account of{' '}
                                 <strong className="text-slate-900">{user.name}</strong> ({user.email})?
                             </p>
                         </ModalSection>
 
                         <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-800 leading-relaxed">
-                            This action is recorded in the system Audit Trail. Historical documents, routing slips, and endorsements previously signed by this user will remain preserved.
+                            The account is deactivated, not deleted: its documents, routing slips, signatures and audit trail are kept. It can be activated again from Edit.
                         </div>
                     </>
                 )}

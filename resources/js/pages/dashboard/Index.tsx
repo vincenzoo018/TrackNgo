@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StatCard } from '@/components/trackngo/StatCard';
+import { DeemedApprovedPanel, PendingOrdinancesPanel } from '@/components/trackngo/CompliancePanels';
+import type { DeemedApproved, PendingOrdinance } from '@/components/trackngo/CompliancePanels';
 import {
     FileText,
     CheckCircle2,
@@ -108,6 +110,11 @@ export interface DashboardProps {
         department: string;
     };
     departments?: DepartmentOption[];
+    /** Mayor / Acting Mayor: ordinances and resolutions to sign or veto (LGC Sec. 54) */
+    pendingOrdinances?: PendingOrdinance[];
+    /** Admin: documents deemed approved by law */
+    deemedApproved?: DeemedApproved[];
+    deemedApprovedTotal?: number;
 }
 
 export default function UnifiedDashboard({
@@ -137,6 +144,9 @@ export default function UnifiedDashboard({
     userDepartment = 'LGU Mati',
     filters = { range: 'all', department: 'all' },
     departments = [],
+    pendingOrdinances,
+    deemedApproved,
+    deemedApprovedTotal = 0,
 }: DashboardProps) {
     const [selectedRange, setSelectedRange] = useState(filters.range || 'all');
     const [selectedDept, setSelectedDept] = useState(filters.department || 'all');
@@ -600,6 +610,10 @@ export default function UnifiedDashboard({
                         href={kpiLinks.slaViolations}
                     />
                 </div>
+
+                {/* ── LEGAL DEADLINES: the Mayor's ordinances to act on, the Admin's deemed approvals ── */}
+                {pendingOrdinances && <PendingOrdinancesPanel items={pendingOrdinances} role={currentRole} />}
+                {deemedApproved && <DeemedApprovedPanel items={deemedApproved} total={deemedApprovedTotal} />}
 
                 {/* ── LIVE KPI DATA VISUALIZATIONS SECTION (CHART.JS) ───────── */}
                 {/* Row 1: Department Bottlenecks (Bar Graph) & Workflow Status Distribution (Donut Chart) */}

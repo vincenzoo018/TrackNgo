@@ -50,7 +50,7 @@ export function ReturnedActions({ page, isHolder, rerouteLabel }: { page: Docume
     );
 }
 
-const CLOSED_STATUSES = ['completed', 'released', 'archived'];
+const CLOSED_STATUSES = ['completed', 'released', 'archived', 'vetoed'];
 const AWAITING_ACCEPTANCE = ['sent', 'submitted', 'registered', 'pending', 'endorsed', 'forwarded'];
 
 /**
@@ -66,7 +66,7 @@ export function RouteActions({ page, isHolder }: { page: DocumentPage; isHolder:
     if (CLOSED_STATUSES.includes(status)) {
         return (
             <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-[14px] font-medium text-slate-600">
-                {info.ends_with === 'release' ? 'Released / Completed' : 'Completed'}
+                {status === 'vetoed' ? 'Vetoed — returned to the filer' : info.ends_with === 'release' ? 'Released / Completed' : 'Completed'}
             </p>
         );
     }
@@ -88,8 +88,8 @@ export function RouteActions({ page, isHolder }: { page: DocumentPage; isHolder:
         );
     }
 
-    // External route finished: Receiving releases it to the applicant
-    if (status === 'approved' && info.ends_with === 'release') {
+    // External route finished, or deemed approved by law: Receiving releases it to the applicant
+    if ((status === 'approved' || status === 'deemed_approved') && info.ends_with === 'release') {
         return (
             <>
                 <button
@@ -98,7 +98,8 @@ export function RouteActions({ page, isHolder }: { page: DocumentPage; isHolder:
                 >
                     Release to Applicant
                 </button>
-                <ReturnButton page={page} />
+                {/* Approved by law: it can no longer be sent back */}
+                {status !== 'deemed_approved' && <ReturnButton page={page} />}
             </>
         );
     }

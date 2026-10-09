@@ -40,6 +40,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role'     => CheckRole::class,
             'not-role' => DenyRole::class,
+            // Deactivated / role-less accounts are signed out on their next request
+            'active'   => \App\Http\Middleware\EnsureActiveAccount::class,
         ]);
 
         $middleware->web(append: [
