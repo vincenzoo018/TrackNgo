@@ -68,7 +68,8 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
     const isValidRole = ['admin', 'receiving', 'department_head', 'mayor', 'cart', 'hr'].includes(mappedSegment);
     const inferredRole = isValidRole ? (mappedSegment as UserRole) : 'receiving';
 
-    const userRole = (role as UserRole) ?? props.auth?.user?.role ?? inferredRole;
+    // Pages pass either the role key (department_head) or its URL slug (department-head, from User::roleSlug)
+    const userRole = ((role?.replace(/-/g, '_') as UserRole | undefined) ?? props.auth?.user?.role ?? inferredRole);
     
     // Mock user names based on inferred role
     const mockNames: Record<string, string> = {
@@ -81,7 +82,8 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
     };
     const userName = props.auth?.user?.name ?? mockNames[userRole] ?? 'User';
     
-    const navItems = NAV_MAP[userRole] ?? receivingNav;
+    // Never fall back to another role's menu: its links lead to pages this account is sent away from
+    const navItems = NAV_MAP[userRole] ?? NAV_MAP[props.auth?.user?.role] ?? receivingNav;
     const roleLabel = ROLE_LABELS[userRole] ?? 'User';
 
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -309,7 +311,13 @@ export default function TrackngoLayout({ children, breadcrumbs, role }: Trackngo
         setMobileOpen(false);
     }, [url]);
 
+    // A document's ARTA Timeline / Location Map (/receiving/documents/{id}/arta-timeline) belongs to that menu item, not My Documents
+    const lookupSection = url.split('?')[0].match(/\/documents\/\d+\/(arta-timeline|location-map)$/)?.[1];
+
     const isActive = (href: string) => {
+        if (lookupSection) {
+            return href.endsWith(`/${lookupSection}`);
+        }
         if (href === `/${userRole}` || href === '/admin' || href === '/receiving' || href === '/mayor' || href === '/cart' || href === '/department-head' || href === '/hr') {
             return url === href;
         }

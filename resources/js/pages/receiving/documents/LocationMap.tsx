@@ -153,7 +153,8 @@ export default function LocationMap({ document: doc, path = [], physical = [], d
                                         <div className="min-w-0">
                                             <p className="text-[13px] text-slate-500">Now with</p>
                                             <p className="text-[15px] font-semibold text-slate-900">{doc.holder ?? doc.holder_office ?? 'Unassigned'}</p>
-                                            <p className="text-[13px] text-slate-600">{[doc.holder_role, doc.holder_office].filter(Boolean).join(' · ')}</p>
+                                            {/* With no named holder the office is already the line above */}
+                                            {doc.holder && <p className="text-[13px] text-slate-600">{[doc.holder_role, doc.holder_office].filter(Boolean).join(' · ')}</p>}
                                             {doc.held_for && (
                                                 <p className="mt-1 flex items-center gap-1 text-[12px] text-violet-700"><UserCheck className="h-3.5 w-3.5" /> As Officer-in-Charge for {doc.held_for}</p>
                                             )}
