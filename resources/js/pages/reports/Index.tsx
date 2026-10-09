@@ -345,19 +345,8 @@ export default function ReportsIndex({
                 {/* ── HEADER BANNER ─────────────────────────────────────────── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <BarChart3 className="h-5 w-5 text-[var(--tng-blue-600)]" />
-                                Reports & Analytics
-                            </h1>
-
-
-                        </div>
-                        <p className="mt-1 text-sm text-[var(--tng-slate-500)]">
-                            {isFullAccess
-                                ? 'Mati City Document Tracking System — Real-time performance metrics, SLA compliance & municipal analytics.'
-                                : `Analytics filtered to your departmental workflows (${userDepartment}) and user activity.`}
-                        </p>
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">Reports</h1>
+                        <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">{isFullAccess ? 'All offices' : userDepartment}</p>
                     </div>
 
                     {/* Filter & Export Actions */}
@@ -436,63 +425,44 @@ export default function ReportsIndex({
                 {/* ── KPI METRICS CARDS (Standardized System Blue) ───────────── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 shrink-0">
                     <StatCard
-                        title="Total Documents"
+                        title="Documents"
                         value={metrics.totalProcessed}
-                        sublabel={`${metrics.completedCount} Completed • ${metrics.activeCount} Ongoing`}
+                        sublabel={`${metrics.completedCount} done · ${metrics.activeCount} ongoing`}
                         icon={BarChart3}
                     />
 
                     <StatCard
-                        title="ARTA SLA Compliance"
+                        title="On Time"
                         value={`${metrics.slaComplianceRate}%`}
-                        sublabel={`${metrics.slaCompliant} Compliant Docs (RA 11032)`}
+                        sublabel={`${metrics.slaCompliant} within ARTA deadline`}
                         icon={CheckCircle2}
                     />
 
                     <StatCard
-                        title="SLA Violations"
+                        title="Past Deadline"
                         value={metrics.slaViolations}
-                        sublabel={metrics.nearDeadline > 0 ? `${metrics.nearDeadline} near deadline (≤2d)` : 'No impending breaches'}
+                        sublabel={metrics.nearDeadline > 0 ? `${metrics.nearDeadline} due within 2 days` : undefined}
                         icon={AlertTriangle}
                     />
 
                     <StatCard
-                        title="Avg Turnaround Time"
+                        title="Avg. Turnaround"
                         value={`${metrics.avgTurnaroundDays} Days`}
-                        sublabel="Processing benchmark (3–7d target)"
                         icon={Clock}
                     />
                 </div>
 
                 {/* ── AI / DATA ANALYTICS INSIGHTS PANEL ────────────────────── */}
-                <div className="shrink-0 rounded-xl border border-[var(--tng-blue-200)] bg-gradient-to-br from-blue-50/60 via-indigo-50/30 to-white p-5 shadow-xs">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--tng-blue-600)] text-white">
-                                <Sparkles className="h-4 w-4" />
-                            </div>
-                            <h3 className="text-sm font-bold text-[var(--tng-blue-950)]">
-                                Automated Data Analytics Insights
-                            </h3>
-                        </div>
-                        <span className="text-xs font-semibold text-[var(--tng-blue-700)] bg-blue-100/70 border border-blue-200 px-2.5 py-0.5 rounded-full">
-                            Database Derived
-                        </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div className="shrink-0 rounded-xl border border-[var(--tng-slate-200)] bg-white p-5 shadow-xs">
+                    <h3 className="text-sm font-semibold text-slate-900">Insights</h3>
+                    <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 md:grid-cols-2">
                         {insights.map((insight, idx) => (
-                            <div
-                                key={idx}
-                                className="flex items-start gap-3 rounded-lg border border-blue-100 bg-white/80 p-3 shadow-2xs hover:bg-white transition-colors"
-                            >
-                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--tng-blue-500)]" />
-                                <p className="text-xs text-[var(--tng-slate-700)] leading-relaxed font-medium">
-                                    {insight}
-                                </p>
-                            </div>
+                            <li key={idx} className="flex items-start gap-2 text-[13px] leading-relaxed text-slate-600">
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--tng-blue-500)]" />
+                                {insight}
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 </div>
 
                 {/* ── CHARTS SECTION (2 COLUMNS) ────────────────────────────── */}
@@ -502,11 +472,8 @@ export default function ReportsIndex({
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                    Department Processing Days vs SLA Limit
+                                    Processing Days vs ARTA Limit
                                 </h2>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Comparison of average turnaround days against legal statutory SLA targets
-                                </p>
                             </div>
                         </div>
 
@@ -582,11 +549,8 @@ export default function ReportsIndex({
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                    Weekly Document Filing Volume Trends
+                                    Filings per Weekday
                                 </h2>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Volume of submissions recorded by day of the week
-                                </p>
                             </div>
                         </div>
 
@@ -644,14 +608,9 @@ export default function ReportsIndex({
                 {/* ── DEPARTMENT BOTTLENECK & DELAYS BREAKDOWN TABLE ──────────── */}
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-                        <div>
-                            <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                Department Bottlenecks and Processing Delays
-                            </h2>
-                            <p className="text-xs text-[var(--tng-slate-500)] mt-0.5">
-                                Real-time breakdown of turnaround times, statutory SLA adherence, and active backlogs
-                            </p>
-                        </div>
+                        <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
+                            Department Bottlenecks
+                        </h2>
 
                         {/* Search in department table */}
                         <div className="relative w-full sm:w-64">
@@ -760,19 +719,9 @@ export default function ReportsIndex({
                 {/* ── USER-SPECIFIC ACTIVITY LOGS (AUDIT TRAIL) ──────────────── */}
                 <div className="rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                    User-Specific Activity & Workflow Logs
-                                </h2>
-                                <span className="text-[12px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
-                                    {filteredLogs.length} Records
-                                </span>
-                            </div>
-                            <p className="text-xs text-[var(--tng-slate-500)] mt-0.5">
-                                Direct database audit logs capturing user actions, timestamps, document references, and IP addresses
-                            </p>
-                        </div>
+                        <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
+                            Activity Log
+                        </h2>
 
                         {/* Search */}
                         <div className="relative w-full sm:w-80">
@@ -781,7 +730,7 @@ export default function ReportsIndex({
                                 type="text"
                                 value={activitySearch}
                                 onChange={(e) => { setActivitySearch(e.target.value); setLogPage(1); }}
-                                placeholder="Search by reference number, tracking number, type, or name..."
+                                placeholder="Search reference, name or action"
                                 className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-xs focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                             />
                         </div>
@@ -791,9 +740,9 @@ export default function ReportsIndex({
                     <div className="px-4 pt-3 bg-white border-b border-slate-100">
                         <TabNavigation
                             tabs={[
-                                { id: 'ALL', label: 'All Audit Logs', count: activityCounts.all },
-                                { id: 'WORKFLOW', label: 'Workflow Actions', count: activityCounts.workflow },
-                                { id: 'SECURITY', label: 'Auth & Session', count: activityCounts.security },
+                                { id: 'ALL', label: 'All', count: activityCounts.all },
+                                { id: 'WORKFLOW', label: 'Document actions', count: activityCounts.workflow },
+                                { id: 'SECURITY', label: 'Sign-ins', count: activityCounts.security },
                             ]}
                             activeTab={activityActionFilter}
                             onChange={(tabId) => {

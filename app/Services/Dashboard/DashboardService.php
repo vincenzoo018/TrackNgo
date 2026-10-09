@@ -6,6 +6,7 @@ use App\Contracts\DashboardServiceInterface;
 use App\Models\Department;
 use App\Models\Document;
 use App\Models\User;
+use App\Services\Document\DocumentListQuery;
 use App\Services\Document\DocumentMetrics;
 use App\Services\Document\MayoralActionService;
 use App\Services\Oic\OicService;
@@ -14,7 +15,8 @@ use Carbon\Carbon;
 class DashboardService implements DashboardServiceInterface
 {
     public function __construct(
-        protected DocumentMetrics $metrics
+        protected DocumentMetrics $metrics,
+        protected DocumentListQuery $lists
     ) {}
 
     /**
@@ -138,7 +140,12 @@ class DashboardService implements DashboardServiceInterface
             'inProgress'    => "/{$currentRole}/documents",
             'returned'      => "/{$currentRole}/documents",
             'slaViolations' => "/{$currentRole}/audit-trail",
+            // The Overdue card opens the list's Overdue tab, which counts the same documents
+            'overdue'       => "/{$currentRole}/documents?tab=overdue",
         ];
+
+        // Open documents past their ARTA deadline right now, from the user's own document list (not the period filter)
+        $overdueQuery = $this->lists->forUser($user);
 
         return [
             'kpiMetrics' => [
@@ -147,6 +154,7 @@ class DashboardService implements DashboardServiceInterface
                 'inProgressDocuments' => $inProgressCount,
                 'returnedDocuments'   => $returnedCount,
                 'slaViolations'       => $violationsCount,
+                'overdueDocuments'    => $overdueQuery ? $this->lists->overdue($overdueQuery)->count() : 0,
                 'nearDeadline'        => $sla['nearDeadline'],
                 'slaComplianceRate'   => $complianceRate,
             ],

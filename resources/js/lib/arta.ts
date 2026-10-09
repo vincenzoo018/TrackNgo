@@ -33,6 +33,21 @@ export function getArtaDueDate(doc: any): Date | null {
     return isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * A finished document: whole days it was finished after its due day (0 = on time, office time); null when it had
+ * no deadline or no finish date.
+ */
+export function getArtaDaysLate(doc: any): number | null {
+    const due = datePart(doc?.arta_due_date);
+    const finished = doc?.completed_at || doc?.updated_at;
+    if (!due || !finished) {
+        return null;
+    }
+    const finishedDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(finished));
+
+    return Math.max(0, Math.round((Date.parse(`${finishedDay}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / DAY_MS));
+}
+
 /** Whole calendar days until the due day (0 = due today, negative = overdue); undefined once the document is closed. */
 export function getArtaDaysLeft(doc: any): number | undefined {
     if (CLOSED_STATUSES.includes(String(doc?.status || '').toLowerCase())) {

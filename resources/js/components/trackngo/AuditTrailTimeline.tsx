@@ -190,15 +190,10 @@ export function AuditTrailTimeline({
                             >
                                 {/* Header: Action Type (16px semi-bold) + Timestamp (12px muted gray) */}
                                 <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h4 className="text-[16px] font-semibold text-slate-900 tracking-tight flex items-center gap-1.5">
-                                            <ActionIcon className={cn('h-4 w-4', style.color)} />
-                                            <span>{actionName}</span>
-                                        </h4>
-                                        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-semibold border', style.bg)}>
-                                            Status: {actionName}
-                                        </span>
-                                    </div>
+                                    <h4 className="text-[16px] font-semibold text-slate-900 tracking-tight flex items-center gap-1.5">
+                                        <ActionIcon className={cn('h-4 w-4', style.color)} />
+                                        <span>{actionName}</span>
+                                    </h4>
 
                                     {dateStr && (
                                         <span className="text-[12px] font-normal text-slate-400">
@@ -228,12 +223,7 @@ export function AuditTrailTimeline({
 
                                 {/* Document Reference (14px regular) */}
                                 {refNumber && (
-                                    <div className="mt-1 text-[14px] font-normal text-slate-600 flex items-center gap-1.5">
-                                        <span className="text-slate-400">Document Ref:</span>
-                                        <span className="font-mono text-slate-800 font-medium">
-                                            {refNumber}
-                                        </span>
-                                    </div>
+                                    <div className="mt-1 font-mono text-[13px] font-medium text-slate-700">{refNumber}</div>
                                 )}
 
                                 {/* Attachment file if present */}

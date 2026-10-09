@@ -63,7 +63,6 @@ export default function CartReports({ reportTypes, report, filters, options }: P
 
             <PageHeader
                 title="Reports"
-                description="Monitoring and compliance reports built from the same data as the CART dashboard."
                 actions={
                     <a href={exportUrl} className={cn(buttonStyles.primary, report.rows.length === 0 && 'pointer-events-none opacity-50')} aria-disabled={report.rows.length === 0}>
                         <Download className="h-4 w-4" />
@@ -73,8 +72,8 @@ export default function CartReports({ reportTypes, report, filters, options }: P
             />
 
             <div className="space-y-5 pb-10">
-                {/* Report picker */}
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                {/* Report picker: one compact chip per report (its description is the tooltip) */}
+                <div className="flex flex-wrap gap-2">
                     {reportTypes.map((type) => {
                         const Icon = ICONS[type.id];
                         const active = type.id === filters.report;
@@ -85,18 +84,14 @@ export default function CartReports({ reportTypes, report, filters, options }: P
                                 type="button"
                                 onClick={() => apply({ report: type.id })}
                                 aria-pressed={active}
+                                title={type.description}
                                 className={cn(
-                                    'flex items-start gap-3 rounded-xl border bg-white p-3.5 text-left transition-colors',
-                                    active ? 'border-[#0066cc] ring-2 ring-[#0066cc]/15' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60',
+                                    'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors',
+                                    active ? 'border-[#0066cc] bg-[#0066cc] text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
                                 )}
                             >
-                                <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', active ? 'bg-[#0066cc] text-white' : 'bg-slate-100 text-slate-500')}>
-                                    <Icon className="h-4 w-4" />
-                                </span>
-                                <span className="min-w-0">
-                                    <span className={cn('block text-[13px] font-semibold', active ? 'text-[#0066cc]' : 'text-slate-800')}>{type.label}</span>
-                                    <span className="mt-0.5 block text-xs text-slate-500">{type.description}</span>
-                                </span>
+                                <Icon className="h-4 w-4" />
+                                {type.label}
                             </button>
                         );
                     })}
@@ -126,7 +121,6 @@ export default function CartReports({ reportTypes, report, filters, options }: P
                         />
                         {hasFilters && <ResetButton onClick={() => router.get('/cart/reports', { report: filters.report }, { preserveState: true, replace: true })} />}
                     </FilterBar>
-                    <p className="text-xs text-slate-500">The CSV export uses the same report and filters.</p>
                 </div>
 
                 {/* Summary */}

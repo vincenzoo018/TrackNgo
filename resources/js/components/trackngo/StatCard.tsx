@@ -15,6 +15,8 @@ export type StatCardProps = {
     href?: string;
     onClick?: () => void;
     active?: boolean;
+    /** 'alert': something needs attention (e.g. overdue documents); the value turns red while it is above 0 */
+    tone?: 'default' | 'alert';
     className?: string;
 };
 
@@ -28,6 +30,7 @@ export function StatCard({
     href,
     onClick,
     active = false,
+    tone = 'default',
     className,
 }: StatCardProps) {
     const displayTitle = title || label || '';
@@ -80,6 +83,7 @@ export function StatCard({
     };
 
     const isClickable = Boolean(href || onClick);
+    const alerting = tone === 'alert' && Number(value) > 0;
 
     const cardInner = (
         <div className="flex h-full flex-col justify-between gap-2.5">
@@ -102,11 +106,11 @@ export function StatCard({
 
             {/* Middle & Bottom: 28px bold value + 12px muted sub-label */}
             <div className="mt-auto">
-                <div className="text-[28px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums select-none">
+                <div className={cn('text-[28px] font-bold leading-tight tracking-tight tabular-nums select-none', alerting ? 'text-red-600' : 'text-slate-900')}>
                     {isNumeric ? Number(displayNumeric).toLocaleString() : displayNumeric}
                 </div>
                 {displaySublabel && (
-                    <p className="mt-1 text-[12px] font-normal leading-normal text-slate-500 select-none line-clamp-1">
+                    <p className={cn('mt-1 text-[12px] leading-normal select-none line-clamp-1', alerting ? 'font-medium text-red-600' : 'font-normal text-slate-500')}>
                         {displaySublabel}
                     </p>
                 )}

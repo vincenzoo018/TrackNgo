@@ -15,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 /**
@@ -191,6 +192,23 @@ class AccountAndAccessTest extends TestCase
         $this->post('/documents', $this->filingPayload(['attachments' => [UploadedFile::fake()->create('old.doc', 5, 'application/msword')]]))
             ->assertSessionHasErrors('attachments.0');
         $this->assertSame($documents, Document::count());
+    }
+
+    public function test_the_dashboard_overdue_card_counts_only_open_documents_past_their_deadline(): void
+    {
+        $overdue = $this->fileDocument();
+        $finishedLate = $this->fileDocument();
+        $this->fileDocument(); // still within its period
+        $overdue->forceFill(['arta_due_date' => now()->subDays(3)->toDateString()])->save();
+        $finishedLate->forceFill(['arta_due_date' => now()->subDays(10)->toDateString(), 'status' => 'completed', 'completed_at' => now()->subDays(2)])->save();
+
+        // The card opens the list's Overdue tab, which applies the same rule to the same documents
+        foreach ([[$this->admin, 'admin'], [$this->clerk, 'receiving']] as [$user, $prefix]) {
+            $this->actingAs($user)->get("/{$prefix}")->assertInertia(fn (Assert $page) => $page
+                ->component('dashboard/Index')
+                ->where('kpiMetrics.overdueDocuments', 1)
+                ->where('kpiLinks.overdue', "/{$prefix}/documents?tab=overdue"));
+        }
     }
 
     public function test_nobody_changes_their_own_role_office_or_status(): void

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { StatCard } from '@/components/trackngo/StatCard';
 import { DeemedApprovedPanel, PendingOrdinancesPanel } from '@/components/trackngo/CompliancePanels';
@@ -10,16 +10,9 @@ import {
     Clock,
     RotateCcw,
     AlertTriangle,
-    ShieldCheck,
-    UserCheck,
     Building2,
-    TrendingUp,
-    BarChart3,
-    PieChart as PieChartIcon,
-    ArrowUpRight,
     ChevronDown,
     Filter,
-    Activity,
 } from 'lucide-react';
 import {
     Chart as ChartJS,
@@ -56,6 +49,8 @@ export interface KpiMetrics {
     inProgressDocuments: number;
     returnedDocuments: number;
     slaViolations: number;
+    /** Still open past the ARTA deadline right now (the list's Overdue tab) */
+    overdueDocuments: number;
     nearDeadline: number;
     slaComplianceRate: number;
 }
@@ -66,6 +61,7 @@ export interface KpiLinks {
     inProgress: string;
     returned: string;
     slaViolations: string;
+    overdue: string;
 }
 
 export interface BottleneckItem {
@@ -124,6 +120,7 @@ export default function UnifiedDashboard({
         inProgressDocuments: 0,
         returnedDocuments: 0,
         slaViolations: 0,
+        overdueDocuments: 0,
         nearDeadline: 0,
         slaComplianceRate: 100,
     },
@@ -133,6 +130,7 @@ export default function UnifiedDashboard({
         inProgress: '/admin/documents',
         returned: '/admin/documents',
         slaViolations: '/admin/audit-trail',
+        overdue: '/admin/documents?tab=overdue',
     },
     bottlenecks = [],
     statusDistribution = [],
@@ -471,19 +469,8 @@ export default function UnifiedDashboard({
                 {/* ── HEADER BANNER ─────────────────────────────────────────── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-4">
                     <div>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)] flex items-center gap-2">
-                                <Activity className="h-5 w-5 text-[var(--tng-blue-600)]" />
-                                {isFullAccess ? 'System Overview & Live Tracking' : `${userRoleName} Dashboard`}
-                            </h1>
-
-
-                        </div>
-                        <p className="mt-1 text-sm text-[var(--tng-slate-500)]">
-                            {isFullAccess
-                                ? 'Real-time document transactions, statutory SLA compliance, and cross-departmental workflow tracking.'
-                                : `Live tracking and metrics synchronized to your department (${userDepartment}) and user workflow.`}
-                        </p>
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">Dashboard</h1>
+                        <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">{isFullAccess ? 'All offices' : userDepartment}</p>
                     </div>
 
                     {/* Filter Controls */}
@@ -524,90 +511,22 @@ export default function UnifiedDashboard({
                                 <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-[var(--tng-slate-400)] pointer-events-none" />
                             </div>
                         )}
-
-                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold shadow-2xs">
-                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            Live Sync
-                        </div>
                     </div>
                 </div>
 
-                {/* ── CRITICAL SLA BREACH ALERT BANNER ───────────────────────── */}
-                {kpiMetrics.slaViolations > 0 && (
-                    <div className="rounded-xl border border-red-200 bg-red-50/80 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
-                                <AlertTriangle className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-red-900">
-                                    SLA Breach Alert: {kpiMetrics.slaViolations} Overdue Document{kpiMetrics.slaViolations > 1 ? 's' : ''}
-                                </h3>
-                                <p className="text-xs text-red-700 mt-0.5">
-                                    {kpiMetrics.slaViolations} transaction{kpiMetrics.slaViolations > 1 ? 's have' : ' has'} exceeded statutory Republic Act 11032 (ARTA) processing deadlines. Immediate administrative attention is required.
-                                </p>
-                            </div>
-                        </div>
-                        <Link
-                            href={kpiLinks.slaViolations}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors shrink-0 self-start sm:self-center shadow-2xs"
-                        >
-                            <span>Inspect Violations in Audit Trail</span>
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                        </Link>
-                    </div>
-                )}
-
-                {/* ── CLICKABLE KPI METRICS (5-COLUMN GRID) ─────────────────── */}
+                {/* ── KPI cards; Overdue turns red (instead of a banner) while documents are past their ARTA deadline ── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 shrink-0">
-                    {/* 1. Total Documents -> My Documents */}
+                    <StatCard label="Documents" value={kpiMetrics.totalDocuments} icon={FileText} href={kpiLinks.total} />
+                    <StatCard label="Completed" value={kpiMetrics.completedDocuments} icon={CheckCircle2} href={kpiLinks.completed} />
+                    <StatCard label="In Progress" value={kpiMetrics.inProgressDocuments} icon={Clock} href={kpiLinks.inProgress} />
+                    <StatCard label="Returned" value={kpiMetrics.returnedDocuments} icon={RotateCcw} href={kpiLinks.returned} />
                     <StatCard
-                        label="Total Documents"
-                        value={kpiMetrics.totalDocuments}
-                        subtitle="Click to view My Documents"
-                        icon={FileText}
-                        color="blue"
-                        href={kpiLinks.total}
-                    />
-
-                    {/* 2. Completed -> Archived */}
-                    <StatCard
-                        label="Completed"
-                        value={kpiMetrics.completedDocuments}
-                        subtitle="Click to view Archived"
-                        icon={CheckCircle2}
-                        color="emerald"
-                        href={kpiLinks.completed}
-                    />
-
-                    {/* 3. In Progress -> My Documents (Ongoing) */}
-                    <StatCard
-                        label="In Progress"
-                        value={kpiMetrics.inProgressDocuments}
-                        subtitle="Active ongoing workflows"
-                        icon={Clock}
-                        color="purple"
-                        href={kpiLinks.inProgress}
-                    />
-
-                    {/* 4. Returned -> Returned Documents */}
-                    <StatCard
-                        label="Returned"
-                        value={kpiMetrics.returnedDocuments}
-                        subtitle="Requires office revision"
-                        icon={RotateCcw}
-                        color="amber"
-                        href={kpiLinks.returned}
-                    />
-
-                    {/* 5. SLA Violations -> Audit Trail */}
-                    <StatCard
-                        label="SLA Violations"
-                        value={kpiMetrics.slaViolations}
-                        subtitle="Click to view Audit Trail"
+                        label="Overdue"
+                        value={kpiMetrics.overdueDocuments}
+                        subtitle={kpiMetrics.overdueDocuments > 0 ? 'Past ARTA deadline · View' : 'None past deadline'}
                         icon={AlertTriangle}
-                        color="red"
-                        href={kpiLinks.slaViolations}
+                        tone="alert"
+                        href={kpiLinks.overdue}
                     />
                 </div>
 
@@ -620,18 +539,11 @@ export default function UnifiedDashboard({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Chart 1: Department Bottlenecks (Bar Graph) */}
                     <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-blue-300 transition-colors">
-                        <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                    Department Bottlenecks
-                                </h2>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Average processing days vs statutory SLA threshold per department
-                                </p>
-                            </div>
-                            <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
-                                Bar Graph
-                            </span>
+                        <div className="mb-4">
+                            <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
+                                Department Bottlenecks
+                            </h2>
+                            <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">Average days vs ARTA limit</p>
                         </div>
 
                         <div className="h-72 w-full flex-1 relative pt-1">
@@ -641,18 +553,10 @@ export default function UnifiedDashboard({
 
                     {/* Chart 2: Workflow Status Distribution (Donut Chart) */}
                     <div className="rounded-2xl border border-[var(--tng-slate-200)] bg-white p-6 shadow-xs flex flex-col hover:border-emerald-300 transition-colors">
-                        <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                    Workflow Status Distribution
-                                </h2>
-                                <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                    Breakdown of active document lifecycle stages
-                                </p>
-                            </div>
-                            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
-                                Donut Chart
-                            </span>
+                        <div className="mb-4">
+                            <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
+                                Status Breakdown
+                            </h2>
                         </div>
 
                         <div className="h-72 w-full flex-1 relative pt-1">
@@ -675,22 +579,15 @@ export default function UnifiedDashboard({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <div>
                             <h2 className="text-[18px] md:text-[20px] font-medium text-[#0066cc]">
-                                Weekly Volume Trends
+                                Weekly Volume
                             </h2>
-                            <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">
-                                Document submissions per day of the week (Monday – Sunday)
-                            </p>
+                            <p className="mt-0.5 text-xs text-[var(--tng-slate-500)]">Filings per weekday</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {peakDay.volume > 0 && (
-                                <span className="text-xs text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg">
-                                    Peak Day: <strong className="text-purple-700">{peakDay.day}</strong> ({peakDay.volume} filings)
-                                </span>
-                            )}
-                            <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-md">
-                                Line Chart
+                        {peakDay.volume > 0 && (
+                            <span className="text-xs text-slate-500">
+                                Busiest: <strong className="font-semibold text-slate-700">{peakDay.day}</strong> ({peakDay.volume})
                             </span>
-                        </div>
+                        )}
                     </div>
 
                     <div className="h-72 w-full relative pt-2">

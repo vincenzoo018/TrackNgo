@@ -4,33 +4,21 @@ import {
     Search,
     Download,
     Eye,
-    QrCode,
     FileText,
-    CheckCircle2,
-    Clock,
-    ShieldCheck,
     ArrowUp,
     ArrowDown,
     X,
-    Building2,
-    Calendar,
     ExternalLink,
-    AlertCircle,
-    Check,
-    FileCheck2,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { SeverityPill } from '@/components/trackngo/SeverityPill';
-import { ArtaBadge } from '@/components/trackngo/ArtaBadge';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import { BaseModal, ModalSection, ModalSecondaryButton } from '@/components/trackngo/BaseModal';
-import { getStandardizedStatus, isFinalizedOrArchived } from '@/lib/status-helper';
-import { cn } from '@/lib/utils';
+import { getArtaDaysLate } from '@/lib/arta';
 import TablePagination from '@/components/trackngo/TablePagination';
-import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TabNavigation from '@/components/trackngo/TabNavigation';
 import TableActionButtons from '@/components/trackngo/TableActionButtons';
-import { StatCard } from '@/components/trackngo/StatCard';
 
 export default function ArchivedDocumentsIndex() {
     const { props, url } = usePage();
@@ -55,34 +43,11 @@ export default function ArchivedDocumentsIndex() {
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [previewDoc, setPreviewDoc] = useState<any | null>(null);
 
-    // KPI Metrics calculation
-    const metrics = useMemo(() => {
-        let approvedCount = 0;
-        let completedCount = 0;
-        let compliantCount = 0;
+    // Finished on or before the ARTA due day (documents without a deadline count as on time)
+    const onTime = useMemo(() => {
+        const count = documents.filter((doc: any) => !getArtaDaysLate(doc)).length;
 
-        documents.forEach((doc: any) => {
-            const s = (doc.status || '').toLowerCase();
-            if (s === 'approved') approvedCount++;
-            if (s === 'completed') completedCount++;
-
-            // ARTA compliance: either days_left >= 0 or not overdue
-            const daysLeft = doc.arta_days_left ?? 3;
-            if (daysLeft >= 0) {
-                compliantCount++;
-            }
-        });
-
-        const complianceRate = documents.length > 0
-            ? Math.round((compliantCount / documents.length) * 100)
-            : 100;
-
-        return {
-            total: documents.length,
-            approved: approvedCount,
-            completed: completedCount,
-            complianceRate,
-        };
+        return { count, rate: documents.length > 0 ? Math.round((count / documents.length) * 100) : 100 };
     }, [documents]);
 
     const tabCounts = useMemo(() => {
@@ -106,9 +71,9 @@ export default function ArchivedDocumentsIndex() {
             if (activeTab === 'archived' && s !== 'archived' && s !== 'archive') return false;
 
             // ARTA status filtering
-            const daysLeft = doc.arta_days_left ?? 3;
-            if (filterArta === 'compliant' && daysLeft < 0) return false;
-            if (filterArta === 'overdue' && daysLeft >= 0) return false;
+            const late = getArtaDaysLate(doc) ?? 0;
+            if (filterArta === 'compliant' && late > 0) return false;
+            if (filterArta === 'overdue' && late === 0) return false;
 
             // Search query filtering
             const q = searchQuery.toLowerCase();
@@ -202,8 +167,8 @@ export default function ArchivedDocumentsIndex() {
             'ARTA Status',
         ];
         const rows = filteredDocs.map((d: any) => {
-            const daysLeft = d.arta_days_left ?? 3;
-            const artaStatus = daysLeft < 0 ? `Overdue (${Math.abs(daysLeft)}d)` : `Compliant (${daysLeft}d left)`;
+            const late = getArtaDaysLate(d) ?? 0;
+            const artaStatus = late > 0 ? `Late (${late}d)` : 'On time';
             return [
                 d.reference_number,
                 d.tracking_number ?? '',
@@ -234,23 +199,11 @@ export default function ArchivedDocumentsIndex() {
 
             <div className="space-y-6">
                 {/* ── Page Header ────────────────────────────────────────── */}
-                <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-2.5">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-md shadow-slate-900/10">
-                                <Archive className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">
-                                    Archived Documents
-                                </h1>
-                                <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                                    Central Repository · Finalized & Completed Records
-                                </p>
-                            </div>
-                        </div>
-                        <p className="mt-2 text-sm text-slate-600 max-w-2xl">
-                            Single repository preserving finalized, approved, and completed documents across the City Government of Mati. All metadata, ARTA compliance history, and audit trails remain preserved for transparency.
+                        <h1 className="text-[20px] font-bold text-[var(--tng-slate-900)]">Archived Documents</h1>
+                        <p className="mt-0.5 text-sm text-slate-500" title="Finished on or before the ARTA due date">
+                            {onTime.rate}% finished on time ({onTime.count} of {documents.length})
                         </p>
                     </div>
 
@@ -265,58 +218,12 @@ export default function ArchivedDocumentsIndex() {
                     </div>
                 </div>
 
-                {/* ── Stat Cards (Standardized System Blue) ─────────────────── */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-                    <StatCard
-                        title="Total Archived"
-                        value={metrics.total}
-                        sublabel="All finalized records"
-                        icon={Archive}
-                        active={activeTab === 'all'}
-                        onClick={() => {
-                            setActiveTab('all');
-                            setCurrentPage(1);
-                        }}
-                    />
-
-                    <StatCard
-                        title="Approved Documents"
-                        value={metrics.approved}
-                        sublabel="Official executive approvals"
-                        icon={CheckCircle2}
-                        active={activeTab === 'approved'}
-                        onClick={() => {
-                            setActiveTab('approved');
-                            setCurrentPage(1);
-                        }}
-                    />
-
-                    <StatCard
-                        title="Completed & Released"
-                        value={metrics.completed}
-                        sublabel="Released to applicants & finalized"
-                        icon={FileCheck2}
-                        active={activeTab === 'completed'}
-                        onClick={() => {
-                            setActiveTab('completed');
-                            setCurrentPage(1);
-                        }}
-                    />
-
-                    <StatCard
-                        title="ARTA Compliance"
-                        value={`${metrics.complianceRate}%`}
-                        sublabel="On-time statutory processing rate"
-                        icon={ShieldCheck}
-                    />
-                </div>
-
-                {/* ── Standardized Tabbed Navigation (Archived: All, Approved, Completed) ── */}
+                {/* ── Tabs (their counts replace the old stat cards) ── */}
                 <TabNavigation
                     tabs={[
-                        { id: 'all', label: 'All Finalized', icon: <Archive className="h-4 w-4" />, count: tabCounts.all },
-                        { id: 'approved', label: 'Approved', icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />, count: tabCounts.approved },
-                        { id: 'completed', label: 'Completed', icon: <FileText className="h-4 w-4 text-blue-600" />, count: tabCounts.completed },
+                        { id: 'all', label: 'All', count: tabCounts.all },
+                        { id: 'approved', label: 'Approved', count: tabCounts.approved },
+                        { id: 'completed', label: 'Completed', count: tabCounts.completed },
                     ]}
                     activeTab={activeTab}
                     onChange={(tab) => {
@@ -336,7 +243,7 @@ export default function ArchivedDocumentsIndex() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                                placeholder="Search by reference number, tracking number, type, or name..."
+                                placeholder="Search reference, tracking no. or title"
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50/50 pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                             />
                             {searchQuery && (
@@ -359,7 +266,7 @@ export default function ArchivedDocumentsIndex() {
                                 <option value="">All Departments</option>
                                 {departments.map((dept: any) => (
                                     <option key={dept.department_id} value={dept.department_id}>
-                                        {dept.department_name} ({dept.code})
+                                        {dept.department_name}
                                     </option>
                                 ))}
                             </select>
@@ -375,7 +282,7 @@ export default function ArchivedDocumentsIndex() {
                                 <option value="">All Document Types</option>
                                 {documentTypes.map((type: any) => (
                                     <option key={type.type_id} value={type.type_id}>
-                                        {type.type_name} ({type.arta_processing_days}d ARTA)
+                                        {type.type_name}
                                     </option>
                                 ))}
                             </select>
@@ -388,9 +295,9 @@ export default function ArchivedDocumentsIndex() {
                                 onChange={(e) => { setFilterArta(e.target.value as any); setCurrentPage(1); }}
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
                             >
-                                <option value="all">All ARTA Status</option>
-                                <option value="compliant">Compliant (On-Time / Met)</option>
-                                <option value="overdue">Overdue</option>
+                                <option value="all">On time or late</option>
+                                <option value="compliant">On time</option>
+                                <option value="overdue">Late</option>
                             </select>
                         </div>
                     </div>
@@ -398,15 +305,12 @@ export default function ArchivedDocumentsIndex() {
                     {/* Active filter count & clear */}
                     {(activeFilterCount > 0 || searchQuery) && (
                         <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
-                            <span className="text-slate-500">
-                                Filtering by {activeFilterCount} attribute{activeFilterCount > 1 ? 's' : ''}
-                                {searchQuery && ` + query "${searchQuery}"`}
-                            </span>
+                            <span className="text-slate-500">{filteredDocs.length} result{filteredDocs.length === 1 ? '' : 's'}</span>
                             <button
                                 onClick={clearFilters}
                                 className="font-semibold text-rose-600 hover:text-rose-700 hover:underline"
                             >
-                                Clear all filters
+                                Clear filters
                             </button>
                         </div>
                     )}
@@ -450,7 +354,7 @@ export default function ArchivedDocumentsIndex() {
                                         </div>
                                     </th>
                                     <th className="px-4 py-3 text-[14px] font-normal text-slate-600">Final Status</th>
-                                    <th className="px-4 py-3 text-[14px] font-normal text-slate-600">ARTA Compliance</th>
+                                    <th className="px-4 py-3 text-[14px] font-normal text-slate-600">ARTA</th>
                                     <th className="px-4 py-3 text-right text-[14px] font-normal text-slate-600">Actions</th>
                                 </tr>
                             </thead>
@@ -514,26 +418,17 @@ export default function ArchivedDocumentsIndex() {
 
                                             {/* Department */}
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                    <span className="font-normal text-[13px] text-slate-700">
-                                                        {doc.department?.department_name || 'General Administration'}
-                                                    </span>
-                                                </div>
-                                                <span className="text-[12px] text-slate-400 pl-5">
-                                                    Code: {doc.department?.code || 'GEN'}
+                                                <span className="font-normal text-[13px] text-slate-700">
+                                                    {doc.department?.department_name || '—'}
                                                 </span>
                                             </td>
 
                                             {/* Date Filed */}
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1 text-slate-700 font-normal text-[13px]">
-                                                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                                                    <span>{formattedDateFiled}</span>
-                                                </div>
+                                                <div className="whitespace-nowrap text-slate-700 font-normal text-[13px]">{formattedDateFiled}</div>
                                                 {doc.completed_at && (
-                                                    <div className="text-[12px] text-slate-400 mt-0.5">
-                                                        Finalized: {new Date(doc.completed_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
+                                                    <div className="whitespace-nowrap text-[12px] text-slate-400 mt-0.5">
+                                                        Done {new Date(doc.completed_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
                                                     </div>
                                                 )}
                                             </td>
@@ -560,10 +455,13 @@ export default function ArchivedDocumentsIndex() {
 
                                             {/* ARTA Compliance */}
                                             <td className="px-4 py-3">
-                                                <ArtaBadge
-                                                    daysLeft={doc.arta_days_left ?? 3}
-                                                    threshold={doc.type?.arta_processing_days ?? 3}
-                                                />
+                                                {(() => {
+                                                    const late = getArtaDaysLate(doc);
+                                                    if (late === null) return <span className="text-slate-400">—</span>;
+                                                    return late > 0
+                                                        ? <span className="whitespace-nowrap rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[12px] font-medium text-red-700">{late}d late</span>
+                                                        : <span className="whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700">On time</span>;
+                                                })()}
                                             </td>
 
                                             {/* Actions */}
@@ -660,7 +558,7 @@ export default function ArchivedDocumentsIndex() {
                                     href={`/${currentRole}/documents/${previewDoc.document_id}`}
                                     className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors"
                                 >
-                                    <span>Open Full Show Page</span>
+                                    <span>Open Document</span>
                                     <ExternalLink className="h-3.5 w-3.5" />
                                 </Link>
                             </>
@@ -717,21 +615,13 @@ export default function ArchivedDocumentsIndex() {
                                 </div>
                             </ModalSection>
 
-                            <ModalSection title="ARTA Compliance Standard">
-                                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-semibold text-blue-900">
-                                            Processing Standard
-                                        </span>
-                                        <ArtaBadge
-                                            daysLeft={previewDoc.arta_days_left ?? 3}
-                                            threshold={previewDoc.type?.arta_processing_days ?? 3}
-                                        />
-                                    </div>
-                                    <p className="mt-1.5 text-xs text-blue-700 leading-relaxed">
-                                        Mandated processing window: <span className="font-semibold">{previewDoc.type?.arta_processing_days ?? 3} working days</span> under ARTA Citizen's Charter.
-                                    </p>
-                                </div>
+                            <ModalSection title="ARTA">
+                                <p className="text-sm text-slate-700">
+                                    {(getArtaDaysLate(previewDoc) ?? 0) > 0
+                                        ? <span className="font-medium text-red-700">Finished {getArtaDaysLate(previewDoc)} day(s) late</span>
+                                        : <span className="font-medium text-emerald-700">Finished on time</span>}
+                                    {previewDoc.type?.arta_processing_days ? ` · ${previewDoc.type.arta_processing_days} working days allowed` : ''}
+                                </p>
                             </ModalSection>
                         </div>
                     )}

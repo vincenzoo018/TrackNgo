@@ -84,7 +84,9 @@ export function DocumentListView({
     bulkAction,
     statusOptions = ['Received', 'Ongoing', 'Sent', 'Returned'],
 }: DocumentListViewProps) {
-    const [activeTab, setActiveTab] = useState('needs_action');
+    // ?tab=overdue (the dashboard's Overdue card) opens that tab
+    const requestedTab = new URLSearchParams(usePage().url.split('?')[1] ?? '').get('tab');
+    const [activeTab, setActiveTab] = useState(requestedTab || 'needs_action');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('');
     const [filterDept, setFilterDept] = useState('');
@@ -152,6 +154,8 @@ export function DocumentListView({
         { id: 'all', label: allLabel, match: allFilter },
         returnedTab,
         ...tabs,
+        // Still open past the ARTA deadline (DocumentListQuery::overdue counts the dashboard's Overdue card the same way)
+        { id: 'overdue', label: 'Overdue', match: (doc: any) => (getArtaDaysLeft(doc) ?? 0) < 0 },
     ], [needsAction, needsActionLabel, allLabel, allFilter, returnedTab, tabs]);
 
     const tabCounts = useMemo(() => {
@@ -305,7 +309,8 @@ export function DocumentListView({
 
                 {/* Tabs */}
                 <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-                    {allTabs.map(tab => (
+                    {/* The Overdue tab appears only while something is overdue */}
+                    {allTabs.filter(tab => tab.id !== 'overdue' || (tabCounts.overdue ?? 0) > 0 || activeTab === 'overdue').map(tab => (
                         <button
                             key={tab.id}
                             type="button"
@@ -322,7 +327,9 @@ export function DocumentListView({
                                 'rounded-full px-2 py-0.5 text-[11px] font-semibold',
                                 tab.id === 'needs_action' && (tabCounts[tab.id] ?? 0) > 0
                                     ? 'bg-[#0066cc] text-white'
-                                    : 'bg-slate-100 text-slate-600'
+                                    : tab.id === 'overdue'
+                                        ? 'bg-red-50 text-red-700'
+                                        : 'bg-slate-100 text-slate-600'
                             )}>
                                 {tabCounts[tab.id] ?? 0}
                             </span>

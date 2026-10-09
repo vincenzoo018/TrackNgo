@@ -1,40 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    Activity,
-    Download,
-    Shield,
-    ShieldCheck,
-    Lock,
-    KeyRound,
-    User,
-    Calendar,
-    Filter,
-    RefreshCw,
-    ExternalLink,
-    Clock,
-    FileText,
-    CheckCircle2,
-    LogOut,
-    PlusCircle,
-    ArrowRightCircle,
-    RotateCcw,
-    AlertTriangle,
-    Server,
-    Globe,
-    ChevronLeft,
-    ChevronRight,
-    Sparkles,
-    List,
-} from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { Activity, Download, List, RefreshCw } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { cn } from '@/lib/utils';
 import type { AuditTrailEntry } from '@/types/trackngo';
 import TablePagination from '@/components/trackngo/TablePagination';
-import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
+import TabNavigation from '@/components/trackngo/TabNavigation';
 import { AuditTrailTimeline } from '@/components/trackngo/AuditTrailTimeline';
-import TableActionButtons from '@/components/trackngo/TableActionButtons';
-import { StatCard } from '@/components/trackngo/StatCard';
 import { DateRangeSelect, FilterSelect, FilterToolbar } from '@/components/trackngo/ListFilters';
 import { downloadCsv } from '@/lib/csv';
 import { useLiveUpdates } from '@/hooks/use-live-updates';
@@ -58,7 +30,8 @@ export default function AuditTrailIndex({
 }: Props) {
     type AuditTab = 'all' | 'action' | 'system';
     const [activeTab, setActiveTab] = useState<AuditTab>('all');
-    const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline');
+    // A compact table by default; the timeline is one click away
+    const [viewMode, setViewMode] = useState<'timeline' | 'table'>('table');
     const [searchQuery, setSearchQuery] = useState('');
     const [actionFilter, setActionFilter] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
@@ -66,8 +39,6 @@ export default function AuditTrailIndex({
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [liveSyncEnabled, setLiveSyncEnabled] = useState(true);
-    const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
 
     // Changing the search or a filter goes back to the first page of results
     const filterBy = <T,>(setFilter: (value: T) => void) => (value: T) => {
@@ -77,13 +48,7 @@ export default function AuditTrailIndex({
 
     // New trail entries anywhere in the system reload the logs (shared 15 s live-update check)
     useLiveUpdates(['trail'], () => {
-        if (!liveSyncEnabled) return;
-        router.reload({
-            only: ['systemLogs', 'actionLogs'],
-            onSuccess: () => {
-                setLastSyncTime(new Date());
-            },
-        });
+        router.reload({ only: ['systemLogs', 'actionLogs'] });
     });
 
     // Active dataset based on selected tab
@@ -178,10 +143,7 @@ export default function AuditTrailIndex({
         setIsRefreshing(true);
         router.reload({
             only: ['systemLogs', 'actionLogs'],
-            onFinish: () => {
-                setIsRefreshing(false);
-                setLastSyncTime(new Date());
-            },
+            onFinish: () => setIsRefreshing(false),
         });
     };
 
@@ -218,105 +180,36 @@ export default function AuditTrailIndex({
         downloadCsv(`trackngo_audit_trail_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
     };
 
-    // Action Badge Visual Helper
-    const getActionBadge = (action: string) => {
-        const a = (action || '').toLowerCase();
-        if (a.includes('approve') || a.includes('complete')) {
-            return {
-                bg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                icon: CheckCircle2,
-            };
-        }
-        if (a.includes('login') || a.includes('auth') || a.includes('sign in')) {
-            return {
-                bg: 'bg-blue-50 text-blue-700 border-blue-200',
-                icon: ShieldCheck,
-            };
-        }
-        if (a.includes('logout') || a.includes('session')) {
-            return {
-                bg: 'bg-slate-100 text-slate-700 border-slate-300',
-                icon: LogOut,
-            };
-        }
-        if (a.includes('register') || a.includes('create')) {
-            return {
-                bg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                icon: PlusCircle,
-            };
-        }
-        if (a.includes('endorse') || a.includes('forward') || a.includes('route')) {
-            return {
-                bg: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-                icon: ArrowRightCircle,
-            };
-        }
-        if (a.includes('return')) {
-            return {
-                bg: 'bg-amber-50 text-amber-700 border-amber-200',
-                icon: RotateCcw,
-            };
-        }
-        if (a.includes('escalate') || a.includes('fail') || a.includes('alert')) {
-            return {
-                bg: 'bg-rose-50 text-rose-700 border-rose-200',
-                icon: AlertTriangle,
-            };
-        }
-        if (a.includes('export') || a.includes('download')) {
-            return {
-                bg: 'bg-violet-50 text-violet-700 border-violet-200',
-                icon: Download,
-            };
-        }
-        return {
-            bg: 'bg-slate-50 text-slate-700 border-slate-200',
-            icon: Activity,
-        };
-    };
 
-    // Role Badge Helper
-    const getRoleBadgeClass = (role: string) => {
-        const r = (role || '').toLowerCase();
-        if (r.includes('admin')) return 'bg-purple-100 text-purple-800 border-purple-200';
-        if (r.includes('cart')) return 'bg-rose-100 text-rose-800 border-rose-200';
-        if (r.includes('mayor')) return 'bg-amber-100 text-amber-800 border-amber-200';
-        if (r.includes('head') || r.includes('department')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        if (r.includes('hr')) return 'bg-teal-100 text-teal-800 border-teal-200';
-        if (r.includes('receiving') || r.includes('clerk')) return 'bg-blue-100 text-blue-800 border-blue-200';
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+    // Colour of an action's chip (green: approved / completed, red: escalations and failures, ...)
+    const actionChipClass = (action: string) => {
+        const a = (action || '').toLowerCase();
+        if (a.includes('approve') || a.includes('complete')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        if (a.includes('escalat') || a.includes('fail') || a.includes('deadline') || a.includes('alert')) return 'bg-rose-50 text-rose-700 border-rose-200';
+        if (a.includes('return')) return 'bg-amber-50 text-amber-700 border-amber-200';
+        if (a.includes('login') || a.includes('logout') || a.includes('auth') || a.includes('session')) return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-slate-50 text-slate-700 border-slate-200';
     };
 
     return (
         <TrackngoLayout role={currentRole}>
             <Head title="Audit Trail" />
 
-            <div className="space-y-6 pb-12">
-                {/* ── Header Section ────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[var(--tng-slate-200)] pb-5">
+            <div className="space-y-5 pb-12">
+                {/* ── Header ── */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-sm">
-                                <Activity className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <h1 className="text-[20px] font-bold tracking-tight text-[var(--tng-slate-900)]">
-                                    Audit Trail
-                                </h1>
-                                <p className="text-sm text-[var(--tng-slate-500)] mt-0.5">
-                                    Immutable, real-time audit log of workflow actions and authentication activities
-                                </p>
-                            </div>
-                        </div>
+                        <h1 className="text-[20px] font-bold tracking-tight text-[var(--tng-slate-900)]">Audit Trail</h1>
+                        <p className="mt-0.5 text-sm text-[var(--tng-slate-500)]">Document actions and sign-ins</p>
                     </div>
 
-                    {/* Right side controls */}
-                    <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         <button
                             type="button"
                             onClick={handleRefresh}
                             disabled={isRefreshing}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 text-[14px] font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors shadow-xs disabled:opacity-50"
+                            title="Refresh"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 disabled:opacity-50"
                         >
                             <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
                             Refresh
@@ -325,119 +218,51 @@ export default function AuditTrailIndex({
                             type="button"
                             onClick={handleExportCsv}
                             disabled={filteredLogs.length === 0}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-white bg-[#0066cc] hover:bg-[#005bb5] rounded-lg transition-all shadow-xs hover:shadow-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#0066cc] px-4 py-2 text-[14px] font-medium text-white shadow-xs transition-all hover:bg-[#005bb5] hover:shadow-sm disabled:opacity-50"
                         >
-                            <Download className="h-4 w-4 text-white shrink-0" />
-                            Export CSV ({filteredLogs.length})
+                            <Download className="h-4 w-4 shrink-0 text-white" />
+                            Export CSV
                         </button>
                     </div>
                 </div>
 
-                {/* ── Standardized Summary Cards (System Blue #0066cc) ── */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-                    <StatCard
-                        title="Total Logs"
-                        value={actionLogs.length + systemLogs.length}
-                        sublabel="All recorded events"
-                        icon={Activity}
-                        active={activeTab === 'all'}
-                        onClick={() => handleTabChange('all')}
-                    />
-                    <StatCard
-                        title="Action Trail"
-                        value={actionLogs.length}
-                        sublabel="Workflow & routing logs"
-                        icon={FileText}
-                        active={activeTab === 'action'}
-                        onClick={() => handleTabChange('action')}
-                    />
-                    <StatCard
-                        title="System Trail"
-                        value={systemLogs.length}
-                        sublabel="Security & auth activities"
-                        icon={Lock}
-                        active={activeTab === 'system'}
-                        onClick={() => handleTabChange('system')}
-                    />
-                    <StatCard
-                        title="Filtered View"
-                        value={filteredLogs.length}
-                        sublabel="Matching active filters"
-                        icon={Filter}
-                    />
-                </div>
-
-                {/* ── Category Tabs & Live Status ─────────────────────────── */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                {/* ── Tabs (their counts replace the old stat cards) and the view toggle ── */}
+                <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-end">
                     <TabNavigation
                         tabs={[
-                            { id: 'all', label: 'All Audit Logs', icon: <Activity className="h-4 w-4" />, count: actionLogs.length + systemLogs.length },
-                            { id: 'action', label: 'Action Trail', icon: <FileText className="h-4 w-4 text-blue-600" />, count: actionLogs.length },
-                            { id: 'system', label: 'System Trail', icon: <Lock className="h-4 w-4 text-purple-600" />, count: systemLogs.length },
+                            { id: 'all', label: 'All', count: actionLogs.length + systemLogs.length },
+                            { id: 'action', label: 'Document actions', count: actionLogs.length },
+                            { id: 'system', label: 'Sign-ins & security', count: systemLogs.length },
                         ]}
                         activeTab={activeTab}
                         onChange={handleTabChange}
-                        className="max-w-2xl"
+                        className="sm:max-w-2xl"
                     />
 
-                    <div className="flex items-center gap-3 self-center sm:self-auto flex-wrap">
-                        {/* View Mode Toggle: Timeline vs Table */}
-                        <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-2xs">
+                    <div className="flex shrink-0 items-center self-start rounded-lg border border-slate-200 bg-white p-1 shadow-2xs sm:self-auto">
+                        {([['table', 'Table', List], ['timeline', 'Timeline', Activity]] as const).map(([mode, label, Icon]) => (
                             <button
+                                key={mode}
                                 type="button"
-                                onClick={() => setViewMode('timeline')}
+                                onClick={() => setViewMode(mode)}
                                 className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
-                                    viewMode === 'timeline'
-                                        ? "bg-[#0066cc] text-white shadow-xs"
-                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                                    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all',
+                                    viewMode === mode ? 'bg-[#0066cc] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
                                 )}
                             >
-                                <Activity className="h-3.5 w-3.5" />
-                                Vertical Timeline
+                                <Icon className="h-3.5 w-3.5" />
+                                {label}
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('table')}
-                                className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
-                                    viewMode === 'table'
-                                        ? "bg-slate-900 text-white shadow-xs"
-                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                                )}
-                            >
-                                <List className="h-3.5 w-3.5" />
-                                Table View
-                            </button>
-                        </div>
-
-                        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-[var(--tng-slate-200)] shadow-2xs shrink-0">
-                            <span className="flex h-2 w-2 relative">
-                                <span className={cn(
-                                    "absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75",
-                                    liveSyncEnabled && "animate-ping"
-                                )}></span>
-                                <span className={cn(
-                                    "relative inline-flex rounded-full h-2 w-2",
-                                    liveSyncEnabled ? "bg-emerald-500" : "bg-slate-400"
-                                )}></span>
-                            </span>
-                            <span className="text-xs font-semibold text-emerald-700">
-                                {liveSyncEnabled ? 'Live Feed Active' : 'Live Feed Paused'}
-                            </span>
-                            <span className="text-[10px] text-[var(--tng-slate-400)]">
-                                (synced {lastSyncTime.toLocaleTimeString()})
-                            </span>
-                        </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* ── Filters & Search Toolbar ──────────────────────────────── */}
+                {/* ── Filters & Search Toolbar ── */}
                 <FilterToolbar
                     search={searchQuery}
                     onSearchChange={filterBy(setSearchQuery)}
                     onSearchClear={() => setSearchQuery('')}
-                    searchPlaceholder="Search by reference number, tracking number, type, or name..."
+                    searchPlaceholder="Search reference, name, action or details"
                     filterTags={[
                         { active: actionFilter !== 'all', label: <>Action: {actionFilter}</> },
                         { active: roleFilter !== 'all', label: <>Role: {roleFilter}</> },
@@ -450,7 +275,6 @@ export default function AuditTrailIndex({
                         setDateRangeFilter('all');
                     }}
                 >
-                    {/* Action Type Filter */}
                     <FilterSelect value={actionFilter} onChange={filterBy(setActionFilter)} withIcon>
                         <option value="all">All Actions</option>
                         {uniqueActions.map((act) => (
@@ -460,7 +284,6 @@ export default function AuditTrailIndex({
                         ))}
                     </FilterSelect>
 
-                    {/* Role Filter */}
                     {uniqueRoles.length > 1 && (
                         <FilterSelect value={roleFilter} onChange={filterBy(setRoleFilter)}>
                             <option value="all">All Roles</option>
@@ -475,211 +298,86 @@ export default function AuditTrailIndex({
                     <DateRangeSelect value={dateRangeFilter} onChange={filterBy(setDateRangeFilter)} />
                 </FilterToolbar>
 
-                {/* ── Table / Timeline Section ─────────────────────────────────────────── */}
-                {viewMode === 'timeline' ? (
-                    <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] p-6 shadow-xs space-y-6">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                            <div>
-                                <h3 className="text-[16px] font-semibold text-slate-900">
-                                    Real-Time Vertical Timeline
-                                </h3>
-                                <p className="text-[12px] text-slate-500 mt-0.5">
-                                    Showing {paginatedLogs.length} events • Step marker on the left, connected line, 16–20px card spacing
-                                </p>
-                            </div>
-                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
-                                Live Feed Active
-                            </span>
+                {/* ── Table (default) or timeline ── */}
+                <div className="overflow-hidden rounded-xl border border-[var(--tng-slate-200)] bg-white shadow-xs">
+                    {viewMode === 'timeline' ? (
+                        <div className="p-6">
+                            <AuditTrailTimeline entries={paginatedLogs as any} />
                         </div>
-
-                        <AuditTrailTimeline entries={paginatedLogs as any} />
-
-                        <div className="border-t border-slate-100 pt-4">
-                            <TablePagination
-                                currentPage={currentPage}
-                                pageSize={pageSize}
-                                totalItems={filteredLogs.length}
-                                onPageChange={setCurrentPage}
-                                onPageSizeChange={setPageSize}
-                                itemLabel="records"
-                            />
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-xl border border-[var(--tng-slate-200)] shadow-xs overflow-hidden">
-                        <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-collapse text-[13px] text-[var(--tng-slate-700)]">
+                    ) : (
+                        <div className="w-full overflow-x-auto">
+                            <table className="w-full border-collapse text-left text-[13px] text-[var(--tng-slate-700)]">
                                 <thead className="border-b border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)]">
-                                    <tr>
-                                        <th className="px-4 py-3 whitespace-nowrap text-left text-[14px] font-normal text-slate-600">Timestamp</th>
-                                        <th className="px-4 py-3 whitespace-nowrap text-left text-[14px] font-normal text-slate-600">Action Type</th>
-                                        <th className="px-4 py-3 whitespace-nowrap text-left text-[14px] font-normal text-slate-600">User Name</th>
-                                        <th className="px-4 py-3 whitespace-nowrap text-left text-[14px] font-normal text-slate-600">Role & Dept</th>
-                                        {activeTab === 'action' && (
-                                            <th className="px-4 py-3 whitespace-nowrap text-left text-[14px] font-normal text-slate-600">Document Ref</th>
-                                        )}
-                                        <th className="px-4 py-3 text-left text-[14px] font-normal text-slate-600">Description</th>
-                                        <th className="px-4 py-3 whitespace-nowrap font-mono text-[13px] text-left font-normal text-slate-600">IP Address</th>
-                                        <th className="px-4 py-3 text-right whitespace-nowrap text-[14px] font-normal text-slate-600">Actions</th>
+                                    <tr className="text-[13px] text-slate-600">
+                                        <th className="whitespace-nowrap px-4 py-3 font-normal">Date &amp; time</th>
+                                        <th className="whitespace-nowrap px-4 py-3 font-normal">Document</th>
+                                        <th className="whitespace-nowrap px-4 py-3 font-normal">Action</th>
+                                        <th className="whitespace-nowrap px-4 py-3 font-normal">By</th>
+                                        <th className="px-4 py-3 font-normal">Details</th>
+                                        <th className="whitespace-nowrap px-4 py-3 font-normal">IP address</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-[var(--tng-slate-200)] font-normal">
+                                <tbody className="divide-y divide-[var(--tng-slate-100)]">
                                     {paginatedLogs.length > 0 ? (
                                         paginatedLogs.map((log, idx) => {
-                                            const actionBadge = getActionBadge(log.action);
-                                            const ActionIcon = actionBadge.icon;
-                                            const docUrl = log.document_id
-                                                ? `/${currentRole}/documents/${log.document_id}`
-                                                : null;
+                                            const docUrl = log.document_id ? `/${currentRole}/documents/${log.document_id}` : null;
 
                                             return (
-                                                <tr
-                                                    key={log.audit_id || log.id || idx}
-                                                    className="group transition-colors odd:bg-white even:bg-slate-50/75 hover:bg-blue-50/40"
-                                                >
-                                                    {/* Timestamp */}
-                                                    <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
-                                                        <div className="text-[13px] font-normal text-slate-900">
-                                                            {log.formatted_time || log.timestamp}
-                                                        </div>
-                                                        <div className="text-[12px] text-slate-400 font-normal">
-                                                            ID #{log.audit_id || log.id || '-'}
-                                                        </div>
+                                                <tr key={log.audit_id || log.id || idx} className="align-top transition-colors hover:bg-blue-50/40">
+                                                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">{log.formatted_time || log.timestamp}</td>
+                                                    <td className="whitespace-nowrap px-4 py-3">
+                                                        {log.document_ref ? (
+                                                            docUrl ? (
+                                                                <Link href={docUrl} className="font-mono text-[#0066cc] hover:underline">{log.document_ref}</Link>
+                                                            ) : (
+                                                                <span className="font-mono text-slate-700">{log.document_ref}</span>
+                                                            )
+                                                        ) : (
+                                                            <span className="text-slate-400">—</span>
+                                                        )}
                                                     </td>
-
-                                                    {/* Action Type */}
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        <span
-                                                            className={cn(
-                                                                'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium border',
-                                                                actionBadge.bg
-                                                            )}
-                                                        >
-                                                            <ActionIcon className="h-3.5 w-3.5" />
+                                                    <td className="whitespace-nowrap px-4 py-3">
+                                                        <span className={cn('inline-flex rounded border px-1.5 py-0.5 text-[12px] font-medium', actionChipClass(log.action))}>
                                                             {log.action}
                                                         </span>
                                                     </td>
-
-                                                    {/* User Name */}
-                                                    <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-7 w-7 rounded-full bg-[var(--tng-slate-100)] border border-[var(--tng-slate-300)] flex items-center justify-center text-[12px] font-medium text-slate-700">
-                                                                {(log.user_name || log.user || 'U').charAt(0).toUpperCase()}
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-[13px] font-normal text-slate-900">
-                                                                    {log.user_name || log.user || 'System'}
-                                                                </div>
-                                                            </div>
+                                                    <td className="px-4 py-3">
+                                                        <div className="whitespace-nowrap text-slate-900">{log.user_name || log.user || 'System'}</div>
+                                                        {/* One line: the office is shown in full on hover */}
+                                                        <div className="max-w-[220px] truncate text-[12px] text-slate-500" title={[log.user_role, log.department].filter(Boolean).join(' · ')}>
+                                                            {[log.user_role, log.department].filter(Boolean).join(' · ')}
                                                         </div>
                                                     </td>
-
-                                                    {/* Role & Dept */}
-                                                    <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
-                                                        <div className="space-y-0.5">
-                                                            <span
-                                                                className={cn(
-                                                                    'inline-block px-2.5 py-0.5 rounded-full text-[12px] font-medium border',
-                                                                    getRoleBadgeClass(log.user_role)
-                                                                )}
-                                                            >
-                                                                {log.user_role || 'Staff'}
-                                                            </span>
-                                                            {log.department && (
-                                                                <div className="text-[12px] text-slate-400 font-normal truncate max-w-[140px]">
-                                                                    {log.department}
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                    <td className="max-w-md px-4 py-3">
+                                                        <p className="line-clamp-2">{log.description}</p>
                                                     </td>
-
-                                                    {/* Document Ref (only for Action Trail) */}
-                                                    {activeTab === 'action' && (
-                                                        <td className="px-4 py-3 whitespace-nowrap text-[13px] font-normal text-slate-700">
-                                                            {log.document_ref ? (
-                                                                docUrl ? (
-                                                                    <Link
-                                                                        href={docUrl}
-                                                                        className="inline-flex items-center gap-1 font-mono text-[13px] font-normal text-[#0066cc] hover:underline bg-blue-50 px-2 py-0.5 rounded border border-blue-100"
-                                                                    >
-                                                                        {log.document_ref}
-                                                                        <ExternalLink className="h-3.5 w-3.5" />
-                                                                    </Link>
-                                                                ) : (
-                                                                    <span className="font-mono text-[13px] font-normal text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                                                                        {log.document_ref}
-                                                                    </span>
-                                                                )
-                                                            ) : (
-                                                                <span className="text-[12px] text-slate-400 italic">
-                                                                    General
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {/* Description */}
-                                                    <td className="px-4 py-3 text-[13px] font-normal text-slate-700 max-w-sm">
-                                                        <p className="line-clamp-2 font-normal">{log.description}</p>
-                                                    </td>
-
-                                                    {/* IP Address */}
-                                                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] font-normal text-slate-500">
-                                                        {log.ip_address || '127.0.0.1'}
-                                                    </td>
-
-                                                    {/* Actions */}
-                                                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                                                        <TableActionButtons
-                                                            onEdit={() => alert(`Reviewing details for Audit Log #${log.audit_id || log.id}`)}
-                                                            editTitle="Edit Record"
-                                                            onDelete={() => {
-                                                                if (confirm(`Are you sure you want to delete audit entry #${log.audit_id || log.id}?`)) {
-                                                                    alert('Audit trail logs are immutable and protected by compliance standards.');
-                                                                }
-                                                            }}
-                                                            deleteTitle="Delete Record"
-                                                        />
-                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-slate-500">{log.ip_address || '—'}</td>
                                                 </tr>
                                             );
                                         })
                                     ) : (
                                         <tr>
-                                            <td
-                                                colSpan={activeTab === 'action' ? 8 : 7}
-                                                className="px-6 py-12 text-center"
-                                            >
-                                                <div className="flex flex-col items-center justify-center space-y-2">
-                                                    <div className="p-3 rounded-full bg-[var(--tng-slate-100)] text-[var(--tng-slate-400)]">
-                                                        <Activity className="h-6 w-6" />
-                                                    </div>
-                                                    <div className="text-sm font-semibold text-[var(--tng-slate-700)]">
-                                                        No audit trail events found
-                                                    </div>
-                                                    <p className="text-xs text-[var(--tng-slate-400)] max-w-sm">
-                                                        {searchQuery || actionFilter !== 'all' || roleFilter !== 'all'
-                                                            ? 'Try clearing your filters or search query to view all available records.'
-                                                            : `No ${activeTab === 'action' ? 'workflow action' : 'system session'} logs have been recorded for your current role scope.`}
-                                                    </p>
-                                                </div>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-sm text-[var(--tng-slate-500)]">
+                                                {searchQuery || actionFilter !== 'all' || roleFilter !== 'all' || dateRangeFilter !== 'all'
+                                                    ? 'No records match your filters.'
+                                                    : 'No records yet.'}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+                    )}
 
-                        <TablePagination
-                            currentPage={currentPage}
-                            pageSize={pageSize}
-                            totalItems={filteredLogs.length}
-                            onPageChange={setCurrentPage}
-                            onPageSizeChange={setPageSize}
-                            itemLabel="records"
-                        />
-                    </div>
-                )}
+                    <TablePagination
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={filteredLogs.length}
+                        onPageChange={setCurrentPage}
+                        onPageSizeChange={setPageSize}
+                        itemLabel="records"
+                    />
+                </div>
             </div>
         </TrackngoLayout>
     );
