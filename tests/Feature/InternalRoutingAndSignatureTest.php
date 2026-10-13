@@ -15,9 +15,9 @@ use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 /**
- * Internal documents pass through the Receiving Clerk (register only) to the person the sender chose;
- * confidential contents never reach the clerk; required signatories must sign and the final signed copy
- * must exist before the document can be completed.
+ * Internal documents are registered automatically and go straight to the person the sender chose; the
+ * Receiving Clerk only monitors them (status, location, paper original) and confidential contents never reach
+ * the clerk; required signatories must sign and the final signed copy must exist before the document can be completed.
  */
 class InternalRoutingAndSignatureTest extends TestCase
 {
@@ -85,23 +85,66 @@ class InternalRoutingAndSignatureTest extends TestCase
         return Document::latest('document_id')->firstOrFail();
     }
 
-    public function test_staff_documents_always_pass_through_the_clerk_to_the_chosen_person(): void
+    public function test_staff_documents_are_registered_automatically_and_go_straight_to_the_chosen_person(): void
     {
-        // Ticking nothing still makes it internal: it goes to the clerk first
+        // Ticking nothing still makes it internal
         $doc = $this->fileDocument($this->sender, ['is_internal' => false, 'forward_to' => $this->sender->department_id, 'forward_to_user' => $this->colleague->id]);
 
         $this->assertTrue($doc->is_internal);
-        $this->assertSame($this->clerk->id, $doc->current_holder_id);
         $this->assertSame($this->colleague->id, $doc->destination_user_id);
-
-        $this->actingAs($this->clerk)->post("/documents/{$doc->document_id}/register")->assertSessionHasNoErrors();
-        $doc->refresh();
-
-        // Same office: lands on the colleague, not back on the sender
+        // Same office: lands on the colleague, not back on the sender, and never on the clerk
         $this->assertSame($this->colleague->id, $doc->current_holder_id);
-        $this->assertSame('registered', $doc->status);
-        $this->assertNotNull($doc->tracking_number);
-        $this->assertSame('Please review the attached adjustments.', $doc->routingSlips()->where('action', 'register')->value('instruction'));
+        $this->assertSame('Sent', $doc->status);
+        $this->assertSame(2, $doc->current_step_index);
+        $this->assertMatchesRegularExpression('/^RS-\d{4}-\d{4,}$/', (string) $doc->tracking_number);
+        $this->assertSame($doc->tracking_number, $doc->routingSlips()->value('tracking_number'));
+        $this->assertSame('Please review the attached adjustments.', $doc->routingSlips()->where('to_user_id', $this->colleague->id)->value('instruction'));
+        $this->assertStringContainsString("registered automatically with Tracking No. {$doc->tracking_number}", \App\Models\AuditTrail::where('document_id', $doc->document_id)->where('action', 'Submit')->value('description'));
+        $this->assertTrue(\App\Models\SystemNotification::where('document_id', $doc->document_id)->where('user_id', $this->colleague->id)->exists());
+        $this->assertFalse(\App\Models\SystemNotification::where('document_id', $doc->document_id)->where('user_id', $this->clerk->id)->exists());
+
+        // There is nothing left for the clerk to register
+        $this->actingAs($this->clerk)->post("/documents/{$doc->document_id}/register")->assertNotFound();
+        $this->actingAs($this->colleague)->post("/documents/{$doc->document_id}/accept")->assertSessionHasNoErrors();
+    }
+
+    public function test_the_clerk_monitors_internal_documents_without_acting_on_them(): void
+    {
+        $doc = $this->fileDocument($this->sender);
+        $other = $this->fileDocument($this->recipient, ['forward_to' => $this->mayor->department_id, 'forward_to_user' => $this->mayor->id]);
+
+        // Every internal document in progress is in the clerk's list (its "Internal" tab), with who has it now
+        $this->actingAs($this->clerk)->get('/receiving/documents')->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('dbDocuments', fn ($docs) => collect($docs)->pluck('document_id')->intersect([$doc->document_id, $other->document_id])->count() === 2
+                && collect($docs)->firstWhere('document_id', $doc->document_id)['current_holder']['id'] === $this->recipient->id));
+        // ...and found by tracking number on the Location Map
+        $this->get('/receiving/location-map?q=' . $doc->tracking_number)->assertRedirect("/receiving/documents/{$doc->document_id}/location-map");
+        $this->get("/receiving/documents/{$doc->document_id}/location-map")->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('document.holder', $this->recipient->name));
+
+        // Only the holder acts on it
+        $this->post("/documents/{$doc->document_id}/accept")->assertForbidden();
+    }
+
+    public function test_whoever_has_an_internal_document_records_where_its_paper_original_is(): void
+    {
+        $doc = $this->fileDocument($this->sender);
+        $place = ['department_id' => $this->recipient->department_id, 'cabinet' => 'Cabinet 2', 'box' => 'Box 7'];
+
+        // The holder may, others on the document may not
+        $this->actingAs($this->recipient)->get("/department-head/documents/{$doc->document_id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('dbDocument.paper_location.can_record', true)->where('dbDocument.paper_location.current', null));
+        $this->actingAs($this->sender)->post("/documents/{$doc->document_id}/physical-location", $place)->assertForbidden();
+        $this->actingAs($this->recipient)->post("/documents/{$doc->document_id}/physical-location", $place)->assertSessionHasNoErrors();
+
+        $this->actingAs($this->sender)->get("/department-head/documents/{$doc->document_id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('dbDocument.paper_location.can_record', false)
+                ->where('dbDocument.paper_location.current.cabinet', 'Cabinet 2')
+                ->where('dbDocument.paper_location.current.recorded_by', $this->recipient->name));
+        // The clerk still records it for any document
+        $this->actingAs($this->clerk)->post("/receiving/documents/{$doc->document_id}/physical-location", ['cabinet' => 'Records Vault'] + $place)->assertSessionHasNoErrors();
+        $this->assertSame(['Records Vault', 'Cabinet 2'], $doc->physicalLocations()->pluck('cabinet')->all());
     }
 
     public function test_same_office_document_requires_a_named_person(): void
@@ -158,8 +201,7 @@ class InternalRoutingAndSignatureTest extends TestCase
             ->assertJson(['message' => 'This document is confidential. Only its sender and recipients can download it.']);
         $this->post("/documents/{$id}/comments", ['comment' => 'peek'])->assertForbidden();
 
-        // The clerk still registers it for the record
-        $this->post("/documents/{$id}/register")->assertSessionHasNoErrors();
+        // ...while it is already with the recipient
         $this->assertSame($this->recipient->id, $doc->refresh()->current_holder_id);
 
         // Sender and recipient open it
@@ -184,7 +226,6 @@ class InternalRoutingAndSignatureTest extends TestCase
         $this->assertSame([$this->sender->id, $this->recipient->id, $this->mayor->id], $doc->signatories->pluck('user_id')->all());
         $this->assertNotNull($doc->signatories()->where('user_id', $this->sender->id)->value('signed_at'));
 
-        $this->actingAs($this->clerk)->post("/documents/{$id}/register")->assertSessionHasNoErrors();
 
         // Recipient: forwarding is their approval, so their HR signature is stamped with it
         $this->actingAs($this->recipient)->post("/documents/{$id}/accept")->assertSessionHasNoErrors();
@@ -270,7 +311,6 @@ class InternalRoutingAndSignatureTest extends TestCase
     {
         $doc = $this->fileDocument($this->sender);
         $this->actingAs($this->sender)->post("/documents/{$doc->document_id}/comments", ['comment' => 'Private note about salaries'])->assertSessionHasNoErrors();
-        $this->actingAs($this->clerk)->post("/documents/{$doc->document_id}/register")->assertSessionHasNoErrors();
         $tracking = $doc->refresh()->tracking_number;
 
         auth()->logout();
@@ -281,7 +321,7 @@ class InternalRoutingAndSignatureTest extends TestCase
         $this->assertStringNotContainsString('@example.test', $body, 'No staff e-mail addresses');
         $this->assertStringNotContainsString('Private note', $body, 'No comments');
         $this->assertStringNotContainsString('ip_address', $body);
-        $this->assertSame(['Register', 'Submit'], collect($response->json('auditTrail'))->pluck('action')->all());
+        $this->assertSame(['Submit'], collect($response->json('auditTrail'))->pluck('action')->all());
     }
 
     public function test_qr_codes_point_to_the_configured_tracking_address(): void
@@ -296,7 +336,6 @@ class InternalRoutingAndSignatureTest extends TestCase
     {
         $doc = $this->fileDocument($this->sender, ['signatories' => [$this->mayor->id]]);
         $id = $doc->document_id;
-        $this->actingAs($this->clerk)->post("/documents/{$id}/register")->assertSessionHasNoErrors();
 
         $this->actingAs($this->recipient)->post("/documents/{$id}/accept")->assertSessionHasNoErrors();
         $this->post("/documents/{$id}/review")->assertSessionHasNoErrors();
@@ -323,7 +362,6 @@ class InternalRoutingAndSignatureTest extends TestCase
     {
         $doc = $this->fileDocument($this->sender);
         $id = $doc->document_id;
-        $this->actingAs($this->clerk)->post("/documents/{$id}/register")->assertSessionHasNoErrors();
         $this->actingAs($this->recipient)->post("/documents/{$id}/accept")->assertSessionHasNoErrors();
         $this->post("/documents/{$id}/endorse", ['destination_type' => 'user', 'destination_id' => $this->mayor->id])->assertSessionHasNoErrors();
         $this->actingAs($this->mayor)->post("/documents/{$id}/accept")->assertSessionHasNoErrors();
@@ -333,7 +371,7 @@ class InternalRoutingAndSignatureTest extends TestCase
         $this->assertSame($this->recipient->id, $doc->refresh()->current_holder_id);
         $this->assertSame('Returned', $doc->status);
 
-        // The recipient holds it again and may return it further back (the clerk's registration is skipped)
+        // The recipient holds it again and may return it further back, to the sender
         $this->actingAs($this->recipient)->post("/documents/{$id}/return", ['reason' => 'Please attach the annex'])->assertSessionHasNoErrors();
         $this->assertSame($this->sender->id, $doc->refresh()->current_holder_id);
 

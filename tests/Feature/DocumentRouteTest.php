@@ -221,16 +221,16 @@ class DocumentRouteTest extends TestCase
         $this->assertSame([0, 0, 1, 0, 0], array_column(app(DocumentRoute::class)->steps($doc), 'returns'));
     }
 
-    public function test_internal_route_is_registered_then_follows_the_route_and_completes_back_to_the_sender(): void
+    public function test_internal_route_is_registered_automatically_then_follows_the_route_and_completes_back_to_the_sender(): void
     {
         $this->fileInternal($this->healthHead, [$this->stop($this->engineer, true), $this->stop($this->mayor, true)])->assertSessionHasNoErrors();
         $doc = $this->latest();
-        $this->assertSame($this->clerk->id, $doc->current_holder_id);
-        $this->assertSame([5, 2], [$doc->total_steps, $doc->current_step_index]);
-
-        // The clerk only registers; the route already says who gets it
-        $this->actingAs($this->clerk)->post("/documents/{$doc->document_id}/register")->assertSessionHasNoErrors();
-        $this->assertSame($this->engineer->id, $doc->refresh()->current_holder_id);
+        // Registered on filing and straight to the first person on the route; the clerk is not a step
+        $this->assertNotNull($doc->tracking_number);
+        $this->assertSame($this->engineer->id, $doc->current_holder_id);
+        $this->assertSame([4, 2], [$doc->total_steps, $doc->current_step_index]);
+        $this->assertSame('Signature:Ricardo Tester:current', $this->labels($doc)[1]);
+        $this->assertFalse(SystemNotification::where('document_id', $doc->document_id)->where('user_id', $this->clerk->id)->exists());
 
         $this->approve($this->engineer, $doc);
         $this->assertSame($this->mayor->id, $doc->refresh()->current_holder_id);
@@ -238,10 +238,9 @@ class DocumentRouteTest extends TestCase
 
         $doc->refresh();
         $this->assertSame('completed', $doc->status);
-        $this->assertSame([5, 5], [$doc->total_steps, $doc->current_step_index]);
+        $this->assertSame([4, 4], [$doc->total_steps, $doc->current_step_index]);
         $this->assertSame([
             'Submitted:Elena Tester:done',
-            'Registered:Juan Tester:done',
             'Signed:Ricardo Tester:done',
             'Signed:Michelle Tester:done',
             'Completed:Elena Tester:done',
@@ -255,12 +254,10 @@ class DocumentRouteTest extends TestCase
         $doc = $this->latest();
         $this->assertTrue(DigitalSignature::where('document_id', $doc->document_id)->where('signed_by_user_id', $this->healthHead->id)->exists());
 
-        $this->actingAs($this->clerk)->post("/documents/{$doc->document_id}/register")->assertSessionHasNoErrors();
-        $this->assertSame($this->mayor->id, $doc->refresh()->current_holder_id);
+        $this->assertSame($this->mayor->id, $doc->current_holder_id);
         $this->assertSame([
             'Submitted:Elena Tester:done',
             'Signed:Elena Tester:done',
-            'Registered:Juan Tester:done',
             'Signature:Michelle Tester:current',
             'Completion:Elena Tester:pending',
         ], $this->labels($doc));

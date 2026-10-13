@@ -55,13 +55,12 @@ export default function DepartmentHeadReviewAndActions(props: DocumentPageProps)
         if (doc.route_based) return <RouteActions page={page} isHolder={isHolder} />;
         const std = getStandardizedStatus(doc.status);
         if (std !== 'Returned' && !isClosedStatus(doc.status) && !isHolder) {
-            const awaitingRegistration = Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1;
+            const sentByMe = String(doc.submitted_by) === String(auth?.user?.id);
             return (
                 <HolderStatusCard
-                    variant={awaitingRegistration ? 'sent' : 'forwarded'}
-                    title={awaitingRegistration ? 'Sent' : 'Forwarded'}
+                    variant={sentByMe ? 'sent' : 'forwarded'}
+                    title={sentByMe ? 'Sent' : 'Forwarded'}
                     holder={describeHolder(doc, users)}
-                    message={awaitingRegistration ? 'Awaiting registration by the Receiving Clerk.' : undefined}
                 />
             );
         }

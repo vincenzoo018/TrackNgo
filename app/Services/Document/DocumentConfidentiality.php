@@ -79,7 +79,7 @@ class DocumentConfidentiality
             return true;
         }
         if (in_array($user->role?->role_name, self::MONITORING_ROLES, true)) {
-            // The clerk registers and monitors the route but never opens a confidential document
+            // The clerk monitors the route but never opens a confidential document
             return !$confidential || (!$user->hasRole('Receiving Clerk') && $this->isInvolved($document, $user, false));
         }
 

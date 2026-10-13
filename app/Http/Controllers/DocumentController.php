@@ -69,6 +69,20 @@ class DocumentController extends Controller
         $revisions = app(\App\Services\Document\DocumentRevisionService::class);
         $document->setAttribute('revision_info', $canView ? $revisions->present($document) : null);
         $document->setAttribute('abilities', $revisions->abilities($document, $user));
+        // Internal documents never pass through the clerk: the page shows where the paper original is kept, and
+        // whoever has the document records it there
+        $paper = $document->is_internal ? $document->physicalLocations()->with(['department', 'recorder'])->first() : null;
+        $document->setAttribute('paper_location', [
+            'current'    => $paper ? [
+                'office'      => $paper->department?->department_name,
+                'cabinet'     => $paper->cabinet,
+                'box'         => $paper->box,
+                'remarks'     => $paper->remarks,
+                'recorded_by' => $paper->recorder?->name,
+                'recorded_at' => $paper->created_at?->toIso8601String(),
+            ] : null,
+            'can_record' => (bool) $document->is_internal && $document->paperLocationRecordableBy($user),
+        ]);
 
         return Inertia::render($view, [
             'dbDocument'    => $document,
@@ -147,7 +161,7 @@ class DocumentController extends Controller
             ], 201);
         }
 
-        $document->loadMissing(['currentHolder', 'currentHolderDepartment', 'destinationUser', 'destinationDepartment']);
+        $document->loadMissing(['currentHolder', 'currentHolderDepartment']);
 
         return redirect()->back()
             ->with('success', 'Document submitted successfully. Tracking: ' . $document->tracking_number)
@@ -155,28 +169,10 @@ class DocumentController extends Controller
                 'document_id'      => $document->document_id,
                 'reference_number' => $document->reference_number,
                 'tracking_number'  => $document->tracking_number,
+                // Its first recipient (internal documents are registered automatically and go straight to them)
                 'recipient_name'   => $document->currentHolder?->name,
                 'recipient_office' => $document->currentHolderDepartment?->department_name,
-                // Internal: sits with the Receiving Clerk for registration, then goes to this person
-                'is_internal'      => (bool) $document->is_internal,
-                'addressee_name'   => $document->destinationUser?->name,
-                'addressee_office' => $document->destinationDepartment?->department_name,
             ]);
-    }
-
-    public function register(Request $request, $id)
-    {
-        $actor = $request->user() ?: auth()->user();
-        $document = $this->documentService->executeWorkflowAction((int) $id, 'register', $request->all(), $actor, $request->ip());
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'message'  => 'Document registered successfully.',
-                'document' => $document,
-            ]);
-        }
-
-        return redirect()->back()->with('success', 'Document registered and routed successfully. Tracking: ' . $document->tracking_number);
     }
 
     public function receive(Request $request, $id)

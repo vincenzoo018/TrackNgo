@@ -129,95 +129,6 @@ class DocumentWorkflowService
         ];
     }
 
-    public function register(Document $document, array $params, User $actor, ?string $ip = null): Document
-    {
-        $trackingNumber = $document->tracking_number;
-        if (empty($trackingNumber) || str_starts_with($trackingNumber, 'PENDING-')) {
-            $numberGenerator = app(\App\Services\Document\DocumentNumberGenerator::class);
-            $trackingNumber = $numberGenerator->generateTrackingNumber();
-        }
-
-        $targetDeptId = $document->destination_department_id ?? $document->department_id;
-        if (!$targetDeptId && !empty($params['target_department_id'])) {
-            $targetDeptId = (int) $params['target_department_id'];
-        }
-
-        // The clerk only registers: the document goes to the person the sender chose when filing it
-        $targetUserId = $document->destination_user_id
-            ?: (!empty($params['to_user_id']) ? (int) $params['to_user_id'] : null);
-        if (!$targetUserId && $targetDeptId) {
-            // e.g. the HR office has an HR Manager but no "Department Head"
-            $targetUserId = $this->resolveOfficeHead((int) $targetDeptId, $document->submitted_by)?->id;
-        }
-        $targetUser = $targetUserId ? User::with('role')->find($targetUserId) : null;
-        if ($targetUser?->department_id) {
-            $targetDeptId = $targetUser->department_id;
-        }
-        // The Acting Mayor / OIC receives it while the addressee is away
-        $delivery = $this->deliveryTo($targetUser, $targetDeptId ? (int) $targetDeptId : null);
-        $targetUserId = $delivery['holder']?->id ?? $targetUserId;
-        $targetDeptId = $delivery['columns']['current_holder_department_id'] ?? $targetDeptId;
-
-        $stepIndex = 2;
-        $newStatus = 'registered';
-
-        // Carry the sender's instructions to the recipient
-        $senderInstruction = RoutingSlip::where('document_id', $document->document_id)->orderBy('slip_id')->value('instruction');
-        if ($senderInstruction === DocumentService::REGISTRATION_INSTRUCTION) {
-            $senderInstruction = null;
-        }
-
-        RoutingSlip::create([
-            'document_id'          => $document->document_id,
-            'tracking_number'      => $trackingNumber,
-            'from_user_id'         => $actor->id,
-            'from_department_id'   => $actor->department_id ?? $document->current_holder_department_id,
-            'to_user_id'           => $targetUserId,
-            'target_department_id' => $targetDeptId,
-            'sender_name'          => $actor->name,
-            'action'               => 'register',
-            'instruction'          => ($params['instruction'] ?? $senderInstruction ?? 'Document officially registered and routed for processing.') . $delivery['note'],
-            'status'               => 'pending',
-            'date_received'        => now(),
-        ]);
-
-        $document->update([
-            'tracking_number'              => $trackingNumber,
-            'status'                       => $newStatus,
-            'current_holder_department_id' => $targetDeptId,
-            'current_holder_id'            => $targetUserId,
-            'held_for_user_id'             => $delivery['columns']['held_for_user_id'],
-            'current_step_index'           => $stepIndex,
-        ]);
-        $this->mayoral->markReceived($document, $targetUser, $actor);
-
-        $holder = $delivery['holder'] ?? $targetUser;
-        $destName = $targetDeptId ? Department::find($targetDeptId)?->department_name : 'Destination Department';
-        if ($holder) {
-            $destName = "{$holder->name} ({$destName})" . ($delivery['columns']['held_for_user_id'] ? " for {$targetUser->name}" : '');
-        }
-        $targetUser = $holder;
-
-        $this->auditTrailService->logDocumentAction(
-            document: $document,
-            action: 'Register',
-            description: "Document officially registered by {$actor->name} with Tracking No. {$trackingNumber} and routed to {$destName}.",
-            actor: $actor,
-            ipAddress: $ip
-        );
-
-        // Notify the assigned holder directly; with no assignee, notify the destination office (never every Dept Head)
-        \App\Services\NotificationService::triggerDocumentReceiptNotification(
-            document: $document,
-            targetUserId: $targetUserId,
-            targetDeptId: $targetDeptId,
-            targetRole: $targetUser?->role?->role_name,
-            sender: $actor
-        );
-
-        return $document;
-    }
-
     /**
      * The person who receives documents for an office: its Department Head, or the equivalent
      * head for offices without one (HR Manager, Mayor), otherwise any active non-clerk staff.
@@ -244,9 +155,9 @@ class DocumentWorkflowService
      * FSM step map (current_step_index is the source of truth rendered by StepProgress):
      *  External (7):        1 Submitted (Clerk) → 2 Accepted (Dept Head) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → Mayor)
      *                       → 5 Accepted (Mayor) → 6 Reviewed (Mayor) → 7 Forwarded to Receiving Clerk → Released
-     *  Internal Dept (6):   1 Submitted (Dept Head) → 2 Registered (Clerk) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → Mayor)
+     *  Internal Dept (6):   1 Submitted (Dept Head) → 2 Registered (automatic) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → Mayor)
      *                       → 5 Accepted (Mayor) → 6 Reviewed (Mayor) → Forward to Receiving Clerk → Released
-     *  Internal Mayor (6):  1 Submitted (Mayor) → 2 Registered (Clerk) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → next)
+     *  Internal Mayor (6):  1 Submitted (Mayor) → 2 Registered (automatic) → 3 Reviewed (Dept Head) → 4 Forwarded (Dept Head → next)
      *                       → 5 Accepted (Dept Head) → 6 Reviewed (Dept) → Forward to Receiving Clerk → Released
      */
     public function accept(Document $document, User $actor, ?string $ip = null): Document
@@ -654,7 +565,7 @@ class DocumentWorkflowService
 
     /**
      * One step back: whoever passed the document to the actor (forward / endorse / correction). A clerk's
-     * registration is skipped — the clerk only records internal documents — so those go back to the sender.
+     * registration (internal documents filed before registration became automatic) is skipped, so those go back to the sender.
      */
     /** Slips that move a document without anyone passing it on (OIC hand-over, deemed approval) */
     public const SYSTEM_SLIP_ACTIONS = ['oic', 'deemed_approved'];

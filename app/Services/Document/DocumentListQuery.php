@@ -50,7 +50,10 @@ class DocumentListQuery
             alsoVisible: fn (Builder $query) => $query->orWhere('status', 'pending_registration')
                 ->orWhere('status', 'approved')
                 // Deemed approved by law: waiting at the counter for release
-                ->orWhere('status', Document::STATUS_DEEMED_APPROVED),
+                ->orWhere('status', Document::STATUS_DEEMED_APPROVED)
+                // Internal documents are registered automatically; the clerk monitors their status and location
+                // ("Internal" tab; confidential ones show the record only)
+                ->orWhere('is_internal', true),
         );
     }
 

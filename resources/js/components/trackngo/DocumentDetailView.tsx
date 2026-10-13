@@ -12,6 +12,7 @@ import { DocumentVersionHistory } from '@/components/trackngo/DocumentVersionHis
 import type { DocumentVersion } from '@/components/trackngo/DocumentVersionHistory';
 import { ExportPasswordModal } from '@/components/trackngo/ExportPasswordModal';
 import IntegratedDocumentViewer from '@/components/trackngo/IntegratedDocumentViewer';
+import { PaperOriginalCard } from '@/components/trackngo/PaperOriginalCard';
 import { csrfHeaders } from '@/lib/csrf';
 import type { RoutingSlipModalData } from '@/components/trackngo/RoutingSlipModal';
 import { RoutingSlipModal } from '@/components/trackngo/RoutingSlipModal';
@@ -674,6 +675,8 @@ export function DocumentDetailView({
 
                         <DocumentCompliancePanel doc={doc} role={role} />
 
+                        <PaperOriginalCard doc={doc} />
+
                         <Card
                             title="Routing Slip"
                             aside={slip && (
@@ -701,7 +704,7 @@ export function DocumentDetailView({
                                     </div>
                                 </div>
                             ) : (
-                                <p className="p-5 text-[13px] text-slate-500">No routing slip generated yet. Pending registration.</p>
+                                <p className="p-5 text-[13px] text-slate-500">No routing slip generated yet.</p>
                             )}
                         </Card>
 

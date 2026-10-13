@@ -20,11 +20,6 @@ export default function ReceivingDocumentShow(props: DocumentPageProps) {
 
     // Confirmed FSM transitions: endpoint, events to broadcast and the success message
     const CONFIRM_ACTIONS: Record<string, { url: string; events: string[]; message: string }> = {
-        register: {
-            url: 'register',
-            events: ['tng:fsm-refresh', 'tng:document-sent'],
-            message: 'Document registered! A tracking number has been assigned and the document has been forwarded to the destination department.',
-        },
         release: {
             url: 'release',
             events: ['tng:fsm-refresh', 'tng:document-sent'],
@@ -69,63 +64,31 @@ export default function ReceivingDocumentShow(props: DocumentPageProps) {
         const std = getStandardizedStatus(doc.status);
         // This page is shared with Admin/CART/HR; Admin keeps override rights (see DocumentService)
         const isHolder = isCurrentHolder(doc, auth?.user) || auth?.user?.role === 'admin';
-        // Internal docs arrive at the clerk as step 1 (status "Ongoing") and must be registered (step 2);
-        // a routed document says so in its own steps
-        const needsRegistration = doc.route_based
-            ? Boolean(doc.is_internal) && isHolder && (doc.route_info?.steps ?? []).some((s: any) => s.label === 'Registration' && s.status === 'current')
-            : doc.status === 'submitted' || doc.status === 'pending_registration' ||
-                (Boolean(doc.is_internal) && (doc.current_step_index || 1) <= 1 && isHolder);
         const rawStatus = (doc.status || '').toLowerCase();
 
-        // Documents filed with a route move along it automatically (the clerk still registers internal ones)
-        if (doc.route_based && !needsRegistration) {
+        // Documents filed with a route move along it automatically
+        if (doc.route_based) {
             return <RouteActions page={page} isHolder={isHolder} />;
         }
 
         // Once the clerk has sent/forwarded the document, it is read-only here until it comes back for release
-        if (!isHolder && !needsRegistration && std !== 'Returned' && !isClosedStatus(doc.status)) {
+        // (internal documents are registered automatically and never pass through the clerk)
+        if (!isHolder && std !== 'Returned' && !isClosedStatus(doc.status)) {
             const sentByMe = String(doc.submitted_by) === String(auth?.user?.id);
             return (
                 <HolderStatusCard
                     variant={sentByMe ? 'sent' : 'forwarded'}
                     title={sentByMe ? 'Sent' : 'Forwarded'}
                     holder={describeHolder(doc, users)}
-                    message={(doc.current_step_index || 1) <= 1
-                        ? 'Awaiting acceptance by the Department Head.'
-                        : 'You will be notified when it is routed back to Receiving for release.'}
+                    message={doc.is_internal
+                        ? undefined
+                        : (doc.current_step_index || 1) <= 1
+                            ? 'Awaiting acceptance by the Department Head.'
+                            : 'You will be notified when it is routed back to Receiving for release.'}
                 />
             );
         }
-        if (needsRegistration) {
-            // Internal documents already name their recipient; the clerk only registers them for the record
-            const addressee = doc.destination_user?.name
-                ? `${doc.destination_user.name}${doc.destination_department?.department_name ? ` (${doc.destination_department.department_name})` : ''}`
-                : doc.destination_department?.department_name;
-            return (
-                <>
-                    {addressee && (
-                        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-[13px] text-slate-600">
-                            Addressed to <span className="font-semibold text-slate-800">{addressee}</span>. Registering records it and sends it to them.
-                        </p>
-                    )}
-                    <button
-                        onClick={() => requestAction(
-                            'register',
-                            'Register Document',
-                            addressee
-                                ? `Register this document? It will get a tracking number and go to ${addressee}.`
-                                : 'Are you sure you want to register this document and generate its routing slip?',
-                            'Register'
-                        )}
-                        className={actionButton.primary}
-                    >
-                        Register &amp; Route Document
-                    </button>
-                    {returnButton}
-                </>
-            );
-        }
-        // Holder must accept first — incl. an internal doc just registered by the clerk and routed here (step 2)
+        // Holder must accept first — incl. an internal doc sent to them on filing (step 2)
         if (std === 'Sent' || ['sent', 'forwarded', 'endorsed', 'registered'].includes(rawStatus)) {
             return (
                 <>

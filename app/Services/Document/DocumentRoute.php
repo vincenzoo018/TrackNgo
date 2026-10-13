@@ -18,7 +18,8 @@ use Illuminate\Support\Collection;
  *
  * The progress bar has a fixed set of steps that never grows:
  *   external: Submitted → one step per person → Release (by the Receiving Clerk)
- *   internal: Submitted → Registration (Receiving Clerk) → one step per person → Completion (back to the sender)
+ *   internal: Submitted (registered automatically) → one step per person → Completion (back to the sender)
+ *             (documents the Receiving Clerk registered by hand, before that, keep their "Registered" step)
  * Returns and corrections do not add steps: the step that is waiting shows what is happening right now
  * (Forwarded · awaiting receipt, Under review, Returned to … for correction, Corrected · back for review, …) and
  * every step shows how many times that person returned the document. The public tracking page shows the same steps.
@@ -101,15 +102,18 @@ class DocumentRoute
 
         $steps = [$this->step('Submitted', $document->submitter?->name ?? $document->sender ?? 'Sender', self::DONE, $document->date_filed ?? $document->created_at, $office($document->submitter))];
 
-        $registerSlip = $slips->firstWhere('action', 'register');
+        // Only internal documents registered by hand by the clerk (before registration became automatic) show it
+        $registerSlip = $document->is_internal ? $slips->firstWhere('action', 'register') : null;
         $registrationStep = $registerSlip
             ? $this->step('Registered', $registerSlip->fromUser?->name ?? 'Receiving Clerk', self::DONE, $registerSlip->created_at, $office($registerSlip->fromUser))
-            : $this->step('Registration', $clerk?->name ?? 'Receiving Clerk', $closed ? self::SKIPPED : self::PENDING, null, $office($clerk));
-        $registrationStep['returns'] = $document->is_internal ? $clerkReturns : 0;
-        $registrationAdded = !$document->is_internal;
+            : null;
+        if ($registrationStep) {
+            $registrationStep['returns'] = $clerkReturns;
+        }
+        $registrationAdded = $registrationStep === null;
 
         foreach ($document->routeStops as $stop) {
-            // Internal documents are registered after the sender's own signature (when the sender heads the route)
+            // Those were registered after the sender's own signature (when the sender heads the route)
             if (!$registrationAdded && (int) $stop->user_id !== (int) $document->submitted_by) {
                 $steps[] = $registrationStep;
                 $registrationAdded = true;
@@ -183,7 +187,6 @@ class DocumentRoute
             $status === 'returned'                       => ["Returned to {$holder} for correction", self::TONE_DANGER],
             $document->isDeemedApproved()                => ['Deemed approved (' . $document->deemed_approval_basis . ') · for release', self::TONE_SUCCESS],
             $status === 'approved'                       => ['Approved · ready for release', self::TONE_SUCCESS],
-            $step['label'] === 'Registration'            => ['Awaiting registration', self::TONE_NORMAL],
             $lastSlip?->action === 'resubmit' && in_array($status, ['sent', 'submitted', 'pending'], true)
                                                          => ['Corrected · back for review', self::TONE_WARNING],
             in_array($status, ['accepted', 'ongoing', 'received', 'in_review', 'reviewed'], true)

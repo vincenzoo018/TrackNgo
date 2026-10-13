@@ -32,7 +32,7 @@ class DocumentService implements DocumentServiceInterface
      * view the document.
      */
     private const HOLDER_ONLY_ACTIONS = [
-        'register', 'receive', 'accept', 'review', 'endorse', 'forward', 'approveRoute',
+        'receive', 'accept', 'review', 'endorse', 'forward', 'approveRoute',
         'approveAndRouteToReceiving', 'releaseToApplicant', 'return', 'resubmit', 'link', 'veto',
     ];
 
@@ -41,9 +41,6 @@ class DocumentService implements DocumentServiceInterface
 
     /** Route-based documents follow the route chosen at filing; nobody picks the next person by hand */
     private const MANUAL_ROUTING_ACTIONS = ['endorse', 'forward', 'approveAndRouteToReceiving'];
-
-    /** Routing slip instruction to the clerk when the sender left no instructions */
-    public const REGISTRATION_INSTRUCTION = 'Submitted for registration and routing.';
 
     public function __construct(
         protected DocumentRepository $repository,
@@ -126,8 +123,8 @@ class DocumentService implements DocumentServiceInterface
             $slipFromDepartmentId = $actor->department_id ?? $slipFromDepartmentId;
             $client = $data['client'] ?? null;
         } else {
-            // Documents from internal personnel always pass through the Receiving Clerk, who registers them
-            // for the record before they reach the person the sender chose (same office or another office)
+            // Documents from internal personnel are registered automatically and go straight to the person the
+            // sender chose (same office or another office); the Receiving Clerk only monitors them
             $data['is_internal'] = true;
             // Staff always file from their own office
             if ($actor->department_id) {
@@ -144,23 +141,20 @@ class DocumentService implements DocumentServiceInterface
         $heldFor = null;
         $deliveryNote = '';
 
+        // Every document is registered (gets its tracking number) when it is filed, internal ones included
+        $trackingNumber = $this->numberGenerator->generateTrackingNumber();
+        $status = 'Sent';
+
         if ($isInternal) {
-            $trackingNumber = null;
-            $status = 'Ongoing';
-            $receivingUser = User::whereHas('role', fn($q) => $q->where('role_name', 'Receiving Clerk'))
-                ->where('is_active', true)
-                ->first();
-            $currentHolderDeptId = $receivingUser?->department_id ?? 2;
-            $currentHolderId = $receivingUser?->id ?? 5;
+            // The person the sender chose (first on the route), or the head of the office it is addressed to
             $destinationDeptId = $data['forward_to'];
-            // Kept on the document so the clerk's registration routes it to exactly this person
             $destinationUserId = !empty($data['forward_to_user'])
                 ? (int) $data['forward_to_user']
                 : $this->workflowService->resolveOfficeHead((int) $destinationDeptId, $actor->id)?->id;
-            $targetUser = $receivingUser;
+            $targetUser = $destinationUserId ? User::find($destinationUserId) : null;
+            $currentHolderId = $targetUser?->id;
+            $currentHolderDeptId = $targetUser?->department_id ?? $destinationDeptId;
         } else {
-            $trackingNumber = $this->numberGenerator->generateTrackingNumber();
-            $status = 'Sent';
             $currentHolderDeptId = $data['forward_to'];
             if (!empty($data['forward_to_user'])) {
                 $currentHolderId = (int)$data['forward_to_user'];
@@ -186,17 +180,17 @@ class DocumentService implements DocumentServiceInterface
                 $currentHolderId = $targetUser?->id;
             }
             $destinationDeptId = null;
+        }
 
-            // LGC Sec. 46: the Officer-in-Charge receives it while the first recipient is away
-            $firstOfficial = $targetUser ?? ($currentHolderId ? User::find($currentHolderId) : null);
-            $delivery = $this->workflowService->deliveryTo($firstOfficial, $currentHolderDeptId ? (int) $currentHolderDeptId : null);
-            if ($delivery['columns']['held_for_user_id']) {
-                $targetUser = $delivery['holder'];
-                $currentHolderId = $targetUser->id;
-                $currentHolderDeptId = $delivery['columns']['current_holder_department_id'];
-                $heldFor = $firstOfficial->id;
-                $deliveryNote = $delivery['note'];
-            }
+        // LGC Sec. 46: the Officer-in-Charge receives it while the first recipient is away
+        $firstOfficial = $targetUser ?? ($currentHolderId ? User::find($currentHolderId) : null);
+        $delivery = $this->workflowService->deliveryTo($firstOfficial, $currentHolderDeptId ? (int) $currentHolderDeptId : null);
+        if ($delivery['columns']['held_for_user_id']) {
+            $targetUser = $delivery['holder'];
+            $currentHolderId = $targetUser->id;
+            $currentHolderDeptId = $delivery['columns']['current_holder_department_id'];
+            $heldFor = $firstOfficial->id;
+            $deliveryNote = $delivery['note'];
         }
 
         $type = DocumentType::find($data['type_id']);
@@ -215,7 +209,8 @@ class DocumentService implements DocumentServiceInterface
             'urgency_justification'        => $data['urgency_justification'] ?? null,
             'status'                       => $status,
             'ocr_text'                     => $data['ocr_text'] ?? null,
-            'current_step_index'           => 1,
+            // Fixed-flow internal documents start at step 2 "Registered" (route-based ones are synced below)
+            'current_step_index'           => $isInternal ? 2 : 1,
             'total_steps'                  => $isInternal ? 6 : 7,
             // External documents are "from" the client; staff-filed documents are from the filer
             'sender'                       => $clientName ? mb_substr($clientName, 0, 100) : $actor->name,
@@ -261,55 +256,36 @@ class DocumentService implements DocumentServiceInterface
         // A sender who listed themselves signs by submitting it
         $this->signatureService->stampIfDue($document, $actor, $ipAddress);
 
-        if ($isInternal) {
-            RoutingSlip::create([
-                'document_id'          => $document->document_id,
-                'tracking_number'      => 'PENDING-' . $document->reference_number,
-                'from_user_id'         => $actor->id,
-                'from_department_id'   => $slipFromDepartmentId,
-                'to_user_id'           => $currentHolderId,
-                'target_department_id' => $currentHolderDeptId,
-                'sender_name'          => $actor->name,
-                'action'               => 'forward',
-                // The sender's instructions travel with the document to the recipient (see register)
-                'instruction'          => $data['instruction'] ?? self::REGISTRATION_INSTRUCTION,
-                'status'               => 'pending',
-                'date_received'        => now(),
-            ]);
-        } else {
-            RoutingSlip::create([
-                'document_id'          => $document->document_id,
-                'tracking_number'      => $trackingNumber,
-                'from_user_id'         => $actor->id,
-                'from_department_id'   => $slipFromDepartmentId,
-                'to_user_id'           => $currentHolderId,
-                'target_department_id' => $data['forward_to'],
-                'sender_name'          => $actor->name,
-                'action'               => 'forward',
-                'instruction'          => trim(($data['instruction'] ?? '') . $deliveryNote) ?: null,
-                'status'               => 'pending',
-                'date_received'        => now(),
-            ]);
-        }
+        // The sender's instructions travel with the document to its first recipient
+        RoutingSlip::create([
+            'document_id'          => $document->document_id,
+            'tracking_number'      => $trackingNumber,
+            'from_user_id'         => $actor->id,
+            'from_department_id'   => $slipFromDepartmentId,
+            'to_user_id'           => $currentHolderId,
+            'target_department_id' => $data['forward_to'],
+            'sender_name'          => $actor->name,
+            'action'               => 'forward',
+            'instruction'          => trim(($data['instruction'] ?? '') . $deliveryNote) ?: null,
+            'status'               => 'pending',
+            'date_received'        => now(),
+        ]);
 
         $destDept = Department::find($data['forward_to']);
-        $addressee = $destinationUserId ? User::find($destinationUserId)?->name : null;
         $supporting = count($data['attachments'] ?? []);
         $this->auditTrailService->logDocumentAction(
             document: $document,
             action: 'Submit',
             description: ($isInternal
-                ? 'Document submitted to the Receiving Clerk for registration, addressed to '
-                    . ($addressee ? "{$addressee} (" . ($destDept?->department_name ?? 'destination') . ')' : ($destDept?->department_name ?? 'destination'))
+                ? "Document submitted and registered automatically with Tracking No. {$trackingNumber}, sent to "
+                    . ($targetUser ? "{$targetUser->name} (" . ($destDept?->department_name ?? 'destination') . ')' : ($destDept?->department_name ?? 'destination'))
                 : 'Document submitted and routed to ' . ($destDept?->department_name ?? 'destination'))
                 . ($supporting ? " with {$supporting} supporting file" . ($supporting === 1 ? '' : 's') : ''),
             actor: $actor,
             ipAddress: $ipAddress
         );
-        // An ordinance / resolution filed straight to the Mayor: the 10 days start now (LGC Sec. 54)
-        if (!$isInternal) {
-            $this->mayoral->markReceived($document, $firstOfficial, $actor);
-        }
+        // An ordinance / resolution sent straight to the Mayor: the 10 days start now (LGC Sec. 54)
+        $this->mayoral->markReceived($document, $firstOfficial, $actor);
 
         \App\Services\NotificationService::triggerDocumentReceiptNotification(
             document: $document,
@@ -369,7 +345,6 @@ class DocumentService implements DocumentServiceInterface
     protected function performWorkflowAction(Document $document, string $action, array $params, User $actor, ?string $ipAddress): Document
     {
         return match ($action) {
-            'register'                  => $this->workflowService->register($document, $params, $actor, $ipAddress),
             'receive'                   => $this->workflowService->accept($document, $actor, $ipAddress),
             'accept'                    => $this->workflowService->accept($document, $actor, $ipAddress),
             'review'                    => $this->workflowService->review($document, $actor, $ipAddress),

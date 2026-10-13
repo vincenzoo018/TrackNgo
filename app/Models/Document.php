@@ -285,6 +285,24 @@ class Document extends Model
             : (!$this->current_holder_department_id || (int) $this->current_holder_department_id === (int) $user->department_id);
     }
 
+    /**
+     * Who may record where the paper original is kept: the Receiving Clerk for any document; for an internal
+     * document, which never passes through the clerk, also whoever has it now (the sender once it is closed).
+     */
+    public function paperLocationRecordableBy(User $user): bool
+    {
+        if ($user->hasRole('Receiving Clerk')) {
+            return true;
+        }
+        if (!$this->is_internal) {
+            return false;
+        }
+
+        return $this->isClosed()
+            ? (int) $this->submitted_by === (int) $user->id
+            : $this->isHeldBy($user);
+    }
+
     public function isClosed(): bool
     {
         return in_array(strtolower((string) $this->status), self::CLOSED_STATUSES, true);

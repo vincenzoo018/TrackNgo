@@ -1,10 +1,32 @@
 import { Head, useForm, Link } from '@inertiajs/react';
 import { useState, FormEventHandler } from 'react';
-import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
-export default function Login() {
+interface LoginProps {
+    status?: string;
+    canResetPassword?: boolean;
+}
+
+const inputClass =
+    'block h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 text-[15px] text-slate-900 shadow-xs outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[var(--tng-blue-600)] focus:ring-4 focus:ring-[var(--tng-blue-600)]/15 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus:ring-red-500/15';
+
+const iconClass =
+    'pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[var(--tng-blue-600)]';
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+    if (!message) return null;
+    return (
+        <p id={id} className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-red-600">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {message}
+        </p>
+    );
+}
+
+export default function Login({ status, canResetPassword = true }: LoginProps) {
     const [showPassword, setShowPassword] = useState(false);
+    const year = new Date().getFullYear();
 
     const { data, setData, post, processing, errors } = useForm({
         email: '',
@@ -22,204 +44,198 @@ export default function Login() {
     };
 
     return (
-        <div className="flex min-h-screen bg-[var(--tng-slate-50)] lg:flex-row flex-col font-sans">
+        <div className="flex min-h-dvh flex-col bg-white font-sans lg:flex-row">
             <Head title="Log in — TrackNGo Mati" />
 
-            {/* Left Half: City of Mati Image Panel */}
-            <div className="relative flex flex-col items-center justify-between bg-[var(--tng-blue-900)] p-6 lg:p-10 text-center text-white lg:w-1/2 lg:min-h-screen overflow-hidden">
-                {/* Background radial highlight */}
-                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-400 via-transparent to-transparent pointer-events-none" />
+            {/* Brand panel (desktop) */}
+            <aside className="relative isolate hidden overflow-hidden bg-[linear-gradient(155deg,#0a1a40_0%,#12317a_55%,#1e40af_100%)] text-white lg:flex lg:w-[48%] lg:flex-col lg:justify-between lg:p-12 xl:p-14">
+                <div className="absolute -left-1/4 -top-1/4 -z-10 size-[80%] rounded-full bg-blue-400/20 blur-3xl" aria-hidden="true" />
+                <div
+                    className="absolute inset-0 -z-10 bg-[radial-gradient(rgba(255,255,255,0.5)_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.12] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_75%)]"
+                    aria-hidden="true"
+                />
+                <img
+                    src="/image/mati-seal.png"
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute -bottom-[22%] -right-[22%] -z-10 w-[70%] opacity-[0.04] grayscale"
+                />
 
-                {/* Top Subtle Header */}
-                <div className="relative z-10 w-full text-center lg:text-left pt-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-xs border border-white/10 text-xs font-semibold text-blue-100 tracking-wide">
-                        <span>Office of the Mayor &bull; City of Mati</span>
+                <p className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-blue-100/80">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />
+                    Office of the Mayor &middot; City of Mati
+                </p>
+
+                <div className="flex flex-col items-center text-center">
+                    <div className="relative grid place-items-center">
+                        <span className="absolute aspect-square w-[150%] rounded-full border border-white/10" aria-hidden="true" />
+                        <span className="absolute aspect-square w-[205%] rounded-full border border-white/[0.06]" aria-hidden="true" />
+                        <span className="absolute aspect-square w-[115%] rounded-full bg-blue-300/15 blur-2xl" aria-hidden="true" />
+                        <img
+                            src="/image/mati-seal.png"
+                            alt="Seal of the City of Mati"
+                            className="relative w-[clamp(160px,15vw,232px)] drop-shadow-[0_20px_35px_rgba(0,0,0,0.45)]"
+                        />
+                    </div>
+                    <h1 className="mt-14 text-[40px] font-bold leading-none tracking-tight xl:text-[44px]">TrackNGo</h1>
+                    <span className="mt-4 h-[3px] w-10 rounded-full bg-amber-300" aria-hidden="true" />
+                    <p className="mt-4 text-[17px] text-blue-100/85">Document Management System</p>
+                </div>
+
+                <p className="text-xs text-blue-200/60">
+                    &copy; {year} City Government of Mati. All rights reserved.
+                </p>
+            </aside>
+
+            {/* Brand header (mobile / tablet) */}
+            <header className="relative isolate overflow-hidden bg-[linear-gradient(155deg,#0a1a40_0%,#12317a_55%,#1e40af_100%)] px-5 py-5 text-white sm:px-8 lg:hidden">
+                <div className="absolute -right-10 -top-16 -z-10 size-48 rounded-full bg-blue-400/25 blur-3xl" aria-hidden="true" />
+                <div className="mx-auto flex max-w-[400px] items-center gap-3.5">
+                    <img src="/image/mati-seal.png" alt="Seal of the City of Mati" className="h-12 w-auto drop-shadow-md" />
+                    <div className="min-w-0">
+                        <p className="text-lg font-bold leading-tight tracking-tight">TrackNGo</p>
+                        <p className="truncate text-xs text-blue-100/80">Office of the Mayor &middot; City of Mati</p>
                     </div>
                 </div>
+            </header>
 
-                {/* City of Mati Image: scaled to fit half-page layout */}
-                <div className="relative z-10 flex flex-1 items-center justify-center py-6 w-full max-w-[960px]">
-                    <img 
-                        src="/image/login-half-page-seal-transparent.png" 
-                        alt="City of Mati" 
-                        className="max-h-[50vh] sm:max-h-[60vh] lg:max-h-[75vh] xl:max-h-[82vh] w-auto max-w-full object-contain drop-shadow-[0_25px_40px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.015]" 
-                    />
-                </div>
+            {/* Login form */}
+            <main className="flex flex-1 flex-col">
+                <div className="flex flex-1 items-start justify-center px-5 py-10 sm:items-center sm:px-8 lg:px-12">
+                    <div className="tng-fade-in w-full max-w-[400px]">
+                        <h2 className="text-[28px] font-bold leading-tight tracking-tight text-slate-900">Welcome back</h2>
+                        <p className="mt-2 text-[15px] text-slate-500">Sign in to your TrackNGo account.</p>
 
-                {/* Bottom Footer & System Tagline */}
-                <div className="relative z-10 w-full text-center pb-2">
-                    <h1 className="text-[20px] font-bold tracking-wide">TrackNGo</h1>
-                    <p className="text-sm font-normal text-blue-200/90 mt-1">
-                        Document Management System
-                    </p>
-                    <p className="text-xs text-blue-300/60 mt-3 hidden lg:block">
-                        &copy; {new Date().getFullYear()} City Government of Mati. All rights reserved.
-                    </p>
-                </div>
-            </div>
-
-            {/* Right Half: Redesigned Login Form Panel */}
-            <div className="flex w-full flex-col items-center justify-center p-6 lg:w-1/2 min-h-screen relative">
-                {/* Card-style container: 8px radius, 32px padding, subtle shadow (0 2px 6px rgba(0,0,0,0.1)) */}
-                <div 
-                    className="w-full max-w-[420px] bg-white rounded-[8px] p-[32px] border border-slate-200/80 shadow-[0_2px_6px_rgba(0,0,0,0.1)] transition-all"
-                    style={{ boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)' }}
-                >
-                    {/* Typography: Heading 22px bold & Subtext 14px regular */}
-                    <div className="mb-6 text-center">
-                        <h2 className="text-[22px] font-bold text-slate-900 leading-tight">
-                            Welcome back
-                        </h2>
-                        <p className="mt-1.5 text-[14px] font-normal text-slate-500 leading-relaxed">
-                            Please enter your credentials to securely log in
-                        </p>
-                    </div>
-
-                    <form onSubmit={submit} className="space-y-4" role="form" aria-label="Login form">
-                        {/* Email Input Field */}
-                        <div className="space-y-1.5">
-                            <label 
-                                htmlFor="email" 
-                                className="block text-[14px] font-semibold text-slate-700"
-                            >
-                                Email address
-                            </label>
-                            <div className="relative">
-                                <Mail 
-                                    className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#999] pointer-events-none" 
-                                    aria-hidden="true" 
-                                />
-                                <input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    required
-                                    value={data.email}
-                                    onChange={(e) => setData('email', e.target.value)}
-                                    placeholder="name@trackngo.gov.ph"
-                                    autoComplete="username"
-                                    aria-invalid={errors.email ? 'true' : 'false'}
-                                    aria-describedby={errors.email ? 'email-error' : undefined}
-                                    className="block w-full h-[44px] rounded-[6px] border border-slate-300 bg-white pl-10 pr-3.5 text-[14px] font-normal text-slate-800 placeholder:text-[#999] focus:border-[#0066cc] focus:ring-2 focus:ring-[#0066cc]/20 focus:outline-none transition-all"
-                                />
+                        {status && (
+                            <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-green-200 bg-green-50 px-3.5 py-3 text-[14px] text-green-800">
+                                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" aria-hidden="true" />
+                                <span>{status}</span>
                             </div>
-                            {errors.email && (
-                                <p id="email-error" className="text-[12px] text-red-600 font-medium mt-1">
-                                    {errors.email}
-                                </p>
-                            )}
+                        )}
+
+                        <form onSubmit={submit} className="mt-8 space-y-5" aria-label="Login form">
+                            <div>
+                                <label htmlFor="email" className="mb-1.5 block text-[14px] font-medium text-slate-700">
+                                    Email address
+                                </label>
+                                <div className="group relative">
+                                    <Mail className={iconClass} aria-hidden="true" />
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        name="email"
+                                        required
+                                        autoFocus
+                                        value={data.email}
+                                        onChange={(e) => setData('email', e.target.value)}
+                                        placeholder="name@trackngo.gov.ph"
+                                        autoComplete="username"
+                                        aria-invalid={errors.email ? 'true' : 'false'}
+                                        aria-describedby={errors.email ? 'email-error' : undefined}
+                                        className={`${inputClass} pr-3.5`}
+                                    />
+                                </div>
+                                <FieldError id="email-error" message={errors.email} />
+                            </div>
+
+                            <div>
+                                <div className="mb-1.5 flex items-center justify-between">
+                                    <label htmlFor="password" className="block text-[14px] font-medium text-slate-700">
+                                        Password
+                                    </label>
+                                    {canResetPassword && (
+                                        <Link
+                                            href="/forgot-password"
+                                            className="rounded text-[13px] font-medium text-[var(--tng-blue-700)] hover:text-[var(--tng-blue-800)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tng-blue-600)]"
+                                        >
+                                            Forgot password?
+                                        </Link>
+                                    )}
+                                </div>
+                                <div className="group relative">
+                                    <Lock className={iconClass} aria-hidden="true" />
+                                    <input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="password"
+                                        required
+                                        value={data.password}
+                                        onChange={(e) => setData('password', e.target.value)}
+                                        placeholder="Enter your password"
+                                        autoComplete="current-password"
+                                        aria-invalid={errors.password ? 'true' : 'false'}
+                                        aria-describedby={errors.password ? 'password-error' : undefined}
+                                        className={`${inputClass} pr-11`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                <FieldError id="password-error" message={errors.password} />
+                            </div>
+
+                            <div className="flex items-center gap-2.5">
+                                <Checkbox
+                                    id="remember"
+                                    checked={data.remember}
+                                    onCheckedChange={(checked) => setData('remember', checked === true)}
+                                    className="border-slate-300"
+                                />
+                                <label htmlFor="remember" className="cursor-pointer select-none text-[14px] text-slate-600">
+                                    Remember me
+                                </label>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="group flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--tng-blue-800)] px-4 text-[15px] font-semibold text-white shadow-md shadow-blue-900/20 outline-none transition hover:bg-[#1e3a8a] focus-visible:ring-4 focus-visible:ring-[var(--tng-blue-600)]/30 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                                {processing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Logging in…</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Log in</span>
+                                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                                    </>
+                                )}
+                            </button>
+                        </form>
+
+                        <div className="my-7 flex items-center gap-3 text-[12px] font-medium uppercase tracking-wider text-slate-400">
+                            <span className="h-px flex-1 bg-slate-200" />
+                            or
+                            <span className="h-px flex-1 bg-slate-200" />
                         </div>
 
-                        {/* Password Input Field */}
-                        <div className="space-y-1.5">
-                            <label 
-                                htmlFor="password" 
-                                className="block text-[14px] font-semibold text-slate-700"
-                            >
-                                Password
-                            </label>
-                            <div className="relative">
-                                <Lock 
-                                    className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#999] pointer-events-none" 
-                                    aria-hidden="true" 
-                                />
-                                <input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="password"
-                                    required
-                                    value={data.password}
-                                    onChange={(e) => setData('password', e.target.value)}
-                                    placeholder="••••••••"
-                                    autoComplete="current-password"
-                                    aria-invalid={errors.password ? 'true' : 'false'}
-                                    aria-describedby={errors.password ? 'password-error' : undefined}
-                                    className="block w-full h-[44px] rounded-[6px] border border-slate-300 bg-white pl-10 pr-10 text-[14px] font-normal text-slate-800 placeholder:text-[#999] focus:border-[#0066cc] focus:ring-2 focus:ring-[#0066cc]/20 focus:outline-none transition-all font-mono"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus:text-[#0066cc] cursor-pointer p-1"
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
-                                    tabIndex={-1}
-                                >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                            </div>
-                            {errors.password && (
-                                <p id="password-error" className="text-[12px] text-red-600 font-medium mt-1">
-                                    {errors.password}
-                                </p>
-                            )}
-
-                            {/* “Forgot password?” → 12px, aligned right under password field */}
-                            <div className="flex justify-end pt-0.5">
-                                <Link 
-                                    href="/forgot-password" 
-                                    className="text-[12px] font-medium text-[#0066cc] hover:underline focus:outline-none focus:ring-1 focus:ring-[#0066cc] rounded transition-colors"
-                                >
-                                    Forgot password?
-                                </Link>
-                            </div>
-                        </div>
-
-                        {/* “Remember me for 30 days” → Checkbox styled with consistent blue accent */}
-                        <div className="flex items-center space-x-2.5 pt-1">
-                            <Checkbox
-                                id="remember"
-                                checked={data.remember}
-                                onCheckedChange={(checked) => setData('remember', checked as boolean)}
-                                className="h-4 w-4 rounded-[4px] border-slate-300 data-[state=checked]:bg-[#0066cc] data-[state=checked]:border-[#0066cc] data-[state=checked]:text-white focus-visible:ring-[#0066cc]/30"
-                                aria-label="Remember me for 30 days"
-                            />
-                            <label 
-                                htmlFor="remember" 
-                                className="text-[13px] font-normal text-slate-600 cursor-pointer select-none"
-                            >
-                                Remember me for 30 days
-                            </label>
-                        </div>
-
-                        {/* Primary button: 16px bold, full width, 48px height, #0066cc blue, hover #004c99, disabled #ccc */}
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="mt-2 flex w-full h-[48px] items-center justify-center gap-2 rounded-[6px] bg-[#0066cc] px-4 text-[16px] font-bold text-white shadow-xs transition-colors hover:bg-[#004c99] active:scale-[0.99] disabled:bg-[#ccc] disabled:text-slate-500 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:ring-offset-2"
+                        <Link
+                            href="/track"
+                            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-[15px] font-medium text-slate-700 shadow-xs transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tng-blue-600)]/20"
                         >
-                            {processing ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Logging in...</span>
-                                </>
-                            ) : (
-                                'Log in'
-                            )}
-                        </button>
-                    </form>
+                            <Search className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                            Track a document
+                        </Link>
 
-                    {/* Secondary links (“Need an account?”, “Track a Document”) → 12px, muted gray, hover underline */}
-                    <div className="mt-8 text-center border-t border-slate-100 pt-6 space-y-2.5">
-                        <p className="text-[12px] text-slate-500">
+                        <p className="mt-8 text-center text-[13px] text-slate-500">
                             Need an account? Contact the{' '}
-                            <span className="font-semibold text-slate-700">System Administrator</span>
-                        </p>
-                        <p>
-                            <Link 
-                                href="/track" 
-                                className="text-[12px] text-slate-500 hover:text-[#0066cc] hover:underline transition-colors inline-flex items-center gap-1 font-medium"
-                            >
-                                <span>Track a Document (Public Portal)</span>
-                                <span aria-hidden="true">&rarr;</span>
-                            </Link>
+                            <span className="font-medium text-slate-700">System Administrator</span>.
                         </p>
                     </div>
                 </div>
 
-                {/* Mobile Footer */}
-                <div className="text-[12px] text-slate-400 mt-6 lg:hidden block text-center">
-                    &copy; {new Date().getFullYear()} Office of the Mayor, City of Mati.
-                </div>
-            </div>
+                <p className="pb-6 text-center text-[12px] text-slate-400 lg:hidden">
+                    &copy; {year} City Government of Mati
+                </p>
+            </main>
         </div>
     );
 }

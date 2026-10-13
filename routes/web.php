@@ -29,7 +29,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/documents/{id}/return', [\App\Http\Controllers\DocumentController::class, 'returnDocument'])->name('documents.return');
         // Returned document: holder uploads the missing / corrected files and it goes back to whoever returned it
         Route::post('/documents/{id}/resubmit', [\App\Http\Controllers\DocumentController::class, 'resubmit'])->name('documents.resubmit');
-        Route::post('/documents/{id}/register', [\App\Http\Controllers\DocumentController::class, 'register'])->name('documents.register');
         Route::post('/documents/{id}/accept', [\App\Http\Controllers\DocumentController::class, 'accept'])->name('documents.accept');
         Route::post('/documents/{id}/receive', [\App\Http\Controllers\DocumentController::class, 'receive'])->name('documents.receive');
         Route::post('/documents/{id}/review', [\App\Http\Controllers\DocumentController::class, 'review'])->name('documents.review');
@@ -61,6 +60,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/documents/{id}/extend', [\App\Http\Controllers\DocumentComplianceController::class, 'extend'])->whereNumber('id')->name('documents.extend');
         // LGC Sec. 54: the Mayor (or the Acting Mayor) vetoes an ordinance / resolution, stating the reasons
         Route::post('/documents/{id}/veto', [\App\Http\Controllers\DocumentComplianceController::class, 'veto'])->whereNumber('id')->name('documents.veto');
+
+        // Where the paper original is kept: the holder of an internal document records it from the document page
+        Route::post('/documents/{id}/physical-location', [\App\Http\Controllers\Receiving\DocumentLookupController::class, 'storePhysicalLocation'])->whereNumber('id')->name('documents.physicalLocation');
     });
 
     // Document files are private: shown only to the people who may open the document
@@ -228,7 +230,6 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // Document Actions
         $documentActions([
-            'register' => 'register',
             'endorse'  => 'endorse',
             'escalate' => 'escalate',
             'link'     => 'link',

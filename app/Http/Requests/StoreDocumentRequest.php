@@ -347,7 +347,7 @@ class StoreDocumentRequest extends FormRequest
     }
 
     /**
-     * Internal documents go to the Receiving Clerk first, then to this person; within the sender's own office
+     * Internal documents go straight to this person (registered automatically); within the sender's own office
      * the person must be named, otherwise it would resolve back to the sender's own desk.
      */
     private function validateInternalRecipient($validator, User $actor): void
@@ -361,7 +361,7 @@ class StoreDocumentRequest extends FormRequest
             } elseif ((int) $recipient->id === (int) $actor->id) {
                 $validator->errors()->add('forward_to_user', 'You cannot send a document to yourself.');
             } elseif ($recipient->hasRole('Receiving Clerk')) {
-                $validator->errors()->add('forward_to_user', 'The Receiving Clerk registers every internal document automatically; choose the person who should act on it.');
+                $validator->errors()->add('forward_to_user', 'The Receiving Clerk does not process internal documents; choose the person who should act on it.');
             }
             return;
         }

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
-import { Plus, ScanLine, Loader2, FileText, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, X, Inbox, Paperclip } from 'lucide-react';
+import { Plus, ScanLine, Loader2, FileText, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, X, Paperclip } from 'lucide-react';
 import { BaseModal } from '@/components/trackngo/BaseModal';
 import { ClientInfoSection, ClientInfo, EMPTY_CLIENT, validateClient } from '@/components/trackngo/ClientInfoSection';
 import { extractDocumentText, withTimeout } from '@/lib/ocr';
@@ -28,7 +28,7 @@ const FIELD_LABELS: Record<string, string> = {
     route: 'Route',
 };
 
-// Officials who review or sign; the Receiving Clerk only registers documents, and Admin / CART never process them
+// Officials who review or sign; the Receiving Clerk, Admin and CART never process documents
 const canBeOnRoute = (u: any) => !['receiving clerk', 'admin', 'cart'].includes(String(u.role_name || '').toLowerCase());
 
 /** One person on the route, in order; `signs` stamps their registered signature when they approve */
@@ -47,9 +47,6 @@ type CreatedDocument = {
     tracking_number?: string | null;
     recipient_name?: string | null;
     recipient_office?: string | null;
-    is_internal?: boolean;
-    addressee_name?: string | null;
-    addressee_office?: string | null;
 };
 
 export interface CreateDocumentModalProps {
@@ -625,7 +622,7 @@ export default function CreateDocumentModal({
                 <p className="text-[11px] leading-tight text-[var(--tng-slate-500)]">
                     {isReceivingClerk
                         ? 'The people this document goes to, in order. Each one approves (and signs, if ticked); it then moves to the next person automatically. After the last person it comes back to Receiving for release to the client.'
-                        : 'The people this document goes to after the Receiving Clerk registers it, in order. Each one approves (and signs, if ticked); it then moves to the next person automatically. After the last person it is completed and returned to you.'}
+                        : 'The people this document goes to, in order. Each one approves (and signs, if ticked); it then moves to the next person automatically. After the last person it is completed and returned to you.'}
                 </p>
 
                 {data.route.length > 0 && (
@@ -814,18 +811,6 @@ export default function CreateDocumentModal({
                                     </span>
                                 </div>
                             </label>
-
-                            <div className="flex items-start gap-3 rounded-lg border border-[var(--tng-slate-200)] bg-[var(--tng-slate-50)] p-3">
-                                <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-[var(--tng-blue-600)]" />
-                                <div>
-                                    <span className="block text-xs font-semibold text-[var(--tng-slate-800)]">
-                                        Passes through the Receiving Clerk
-                                    </span>
-                                    <span className="block text-[10px] text-[var(--tng-slate-500)] mt-0.5 leading-tight">
-                                        The clerk registers it for the record, then it follows the route you set below.
-                                    </span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -903,14 +888,7 @@ export default function CreateDocumentModal({
                         Document Submitted
                     </h2>
                     <p className="mb-6 text-sm text-[var(--tng-slate-500)]">
-                        {createdDoc?.is_internal ? (
-                            <>
-                                Sent to the Receiving Clerk{createdDoc.recipient_name ? <> (<span className="font-semibold text-[var(--tng-slate-700)]">{createdDoc.recipient_name}</span>)</> : ''} for registration.
-                                {' '}Once registered it goes to{' '}
-                                <span className="font-semibold text-[var(--tng-slate-700)]">{createdDoc.addressee_name || createdDoc.addressee_office || 'the recipient'}</span>
-                                {createdDoc.addressee_name && createdDoc.addressee_office ? ` (${createdDoc.addressee_office})` : ''}.
-                            </>
-                        ) : createdDoc?.recipient_name || createdDoc?.recipient_office
+                        {createdDoc?.recipient_name || createdDoc?.recipient_office
                             ? <>Routed to <span className="font-semibold text-[var(--tng-slate-700)]">{createdDoc?.recipient_name || createdDoc?.recipient_office}</span>{createdDoc?.recipient_name && createdDoc?.recipient_office ? ` (${createdDoc.recipient_office})` : ''}. The recipient has been notified.</>
                             : 'The document has been created and the recipient has been notified automatically.'}
                     </p>

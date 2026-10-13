@@ -82,9 +82,7 @@ export default function MayorDocumentShow(props: DocumentPageProps) {
                         variant="sent"
                         title="Sent"
                         holder={describeHolder(doc, users)}
-                        message={(doc.current_step_index || 1) <= 1
-                            ? 'Awaiting registration by the Receiving Clerk.'
-                            : 'Being processed by the receiving office.'}
+                        message="Being processed by the receiving office."
                     />
                 );
             }

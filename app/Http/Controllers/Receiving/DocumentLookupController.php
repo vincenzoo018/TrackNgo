@@ -148,10 +148,14 @@ class DocumentLookupController extends Controller
         ]);
     }
 
-    /** Record where the paper original is kept now (each change is kept as history) */
+    /**
+     * Record where the paper original is kept now (each change is kept as history). Also posted from the document
+     * page by the holder of an internal document (see Document::paperLocationRecordableBy).
+     */
     public function storePhysicalLocation(Request $request, int $id, AuditTrailServiceInterface $auditTrail): RedirectResponse
     {
         $document = Document::findOrFail($id);
+        abort_unless($document->paperLocationRecordableBy($request->user()), 403, 'Only the Receiving Clerk or the person who has this document can record where its paper original is kept.');
         $data = $request->validate([
             'department_id' => 'required|integer|exists:departments,department_id',
             'cabinet'       => 'required|string|max:100',
