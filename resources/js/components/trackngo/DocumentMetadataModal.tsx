@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { Lock, PencilLine } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
+import { EMAIL_HINT } from '@/lib/form-rules';
 import { requestJson } from '@/lib/request';
 import { BaseModal, ModalField, ModalPrimaryButton, ModalSecondaryButton, ModalSection } from './BaseModal';
 
@@ -96,8 +97,8 @@ export function DocumentMetadataModal({ open, onClose, doc, onSaved }: Props) {
         }
     };
 
-    const field = (key: Key, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}, required = false) => (
-        <ModalField label={label} required={required && editable(key)}>
+    const field = (key: Key, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}, required = false, description?: string) => (
+        <ModalField label={label} required={required && editable(key)} description={description}>
             <input value={values[key]} onChange={set(key)} disabled={!editable(key)} className={input} {...props} />
         </ModalField>
     );
@@ -160,10 +161,10 @@ export function DocumentMetadataModal({ open, onClose, doc, onSaved }: Props) {
                             </ModalField>
                         </ModalSection>
 
-                        <ModalSection title="Contact" description="The applicant is texted at this number when the document is ready for pickup and when it is released.">
+                        <ModalSection title="Contact" description="The applicant is texted at this number, and emailed when an address is given, about important updates on the document.">
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 {field('contact_number', 'Contact Number', { inputMode: 'tel', placeholder: '09XX XXX XXXX' }, true)}
-                                {field('email', 'Email Address', { type: 'email', maxLength: 100 })}
+                                {field('email', 'Email Address', { type: 'email', maxLength: 100 }, false, EMAIL_HINT)}
                             </div>
                         </ModalSection>
                     </>

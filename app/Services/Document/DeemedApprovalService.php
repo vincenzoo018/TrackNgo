@@ -8,6 +8,7 @@ use App\Models\RoutingSlip;
 use App\Models\User;
 use App\Services\Calendar\WorkingDayCalendar;
 use App\Services\Cart\CartAlerts;
+use App\Services\Email\DocumentEmailNotifier;
 use App\Services\NotificationService;
 use App\Services\Sms\DocumentSmsNotifier;
 use Carbon\CarbonInterface;
@@ -34,7 +35,8 @@ class DeemedApprovalService
         protected WorkingDayCalendar $calendar,
         protected MayoralActionService $mayoral,
         protected DocumentRoute $route,
-        protected DocumentSmsNotifier $smsNotifier
+        protected DocumentSmsNotifier $smsNotifier,
+        protected DocumentEmailNotifier $emailNotifier
     ) {}
 
     /** @return array{arta: int, lgc: int} */
@@ -163,6 +165,7 @@ class DeemedApprovalService
 
         if (!$internal) {
             $this->smsNotifier->deemedApproved($document);
+            $this->emailNotifier->deemedApproved($document, $clerk);
         }
 
         return $document;

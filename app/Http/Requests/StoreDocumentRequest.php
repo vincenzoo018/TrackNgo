@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\User;
 use App\Rules\PhilippineMobileNumber;
+use App\Support\EmailAddress;
 use App\Support\PhilippineMobile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
@@ -78,16 +79,32 @@ class StoreDocumentRequest extends FormRequest
 
     private const NOT_ON_ROUTE_ROLES = ['Receiving Clerk', 'Admin', 'CART'];
 
-    /** PH mobile numbers arrive as 0917…, 63917… or +63917… (with spaces / dashes); store the plain 09XXXXXXXXX. */
     protected function prepareForValidation(): void
     {
-        $client = $this->input('client');
-        if (is_array($client) && isset($client['contact_number'])) {
-            $client['contact_number'] = PhilippineMobile::normalizeInput((string) $client['contact_number']);
-            $this->merge(['client' => $client]);
+        if (is_array($this->input('client'))) {
+            $this->merge(['client' => self::normalizeClient($this->input('client'))]);
         }
 
         $this->prepareRoute();
+    }
+
+    /**
+     * The applicant's contact details as stored (also used by Edit Metadata): PH mobile numbers arrive as 0917…,
+     * 63917… or +63917… (with spaces / dashes) and become the plain 09XXXXXXXXX; emails are trimmed and lower-case.
+     *
+     * @param  array<string, mixed>  $client
+     * @return array<string, mixed>
+     */
+    public static function normalizeClient(array $client): array
+    {
+        if (isset($client['contact_number'])) {
+            $client['contact_number'] = PhilippineMobile::normalizeInput((string) $client['contact_number']);
+        }
+        if (array_key_exists('email', $client)) {
+            $client['email'] = EmailAddress::normalizeInput($client['email']);
+        }
+
+        return $client;
     }
 
     /**
@@ -164,7 +181,7 @@ class StoreDocumentRequest extends FormRequest
                 'client.province'            => 'required|string|max:100',
                 // The applicant is texted when the document is ready for pickup and when it is released
                 'client.contact_number'      => ['required', 'string', new PhilippineMobileNumber()],
-                'client.email'               => 'nullable|email:rfc|max:100',
+                'client.email'               => 'nullable|' . EmailAddress::RULE . '|max:100',
                 'client.id_type'             => 'nullable|string|max:50',
                 'client.id_number'           => 'nullable|required_with:client.id_type|string|max:50',
                 'client.receipt_mode'        => 'required|in:' . implode(',', self::RECEIPT_MODES),

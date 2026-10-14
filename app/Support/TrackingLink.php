@@ -37,6 +37,17 @@ class TrackingLink
         return self::baseUrl($request) . '/track?tn=' . rawurlencode($trackingNumber);
     }
 
+    /**
+     * Base address for links in messages (emails): the one above while serving a web request; from the scheduler or
+     * a queue worker, where there is no request, TRACKING_URL or else APP_URL.
+     */
+    public static function messageBaseUrl(): string
+    {
+        $request = app()->runningInConsole() ? null : request();
+
+        return $request ? self::baseUrl($request) : rtrim((string) (config('app.tracking_url') ?: config('app.url')), '/');
+    }
+
     /** First private IPv4 of this machine, preferring the usual Wi-Fi / LAN ranges over virtual adapters. */
     private static function lanAddress(): ?string
     {

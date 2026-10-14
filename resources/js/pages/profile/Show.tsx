@@ -4,7 +4,7 @@ import { DocumentPinFields, PIN_RULES_HINT, PinInput } from '@/components/trackn
 import TrackngoLayout from '@/layouts/trackngo/TrackngoLayout';
 import { ROLE_LABELS } from '@/types/trackngo';
 import type { UserRole } from '@/types/trackngo';
-import { MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
+import { EMAIL_HINT, MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
 import { cn } from '@/lib/utils';
 import { CollapsiblePanel } from '@/components/trackngo/CollapsiblePanel';
 
@@ -210,7 +210,9 @@ export default function ProfileShow() {
                                                 className="w-full rounded-lg border border-[var(--tng-slate-200)] bg-white pl-10 pr-4 py-2 text-sm text-[var(--tng-slate-900)] focus:border-[var(--tng-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20"
                                             />
                                         </div>
-                                        {profileForm.errors.email && <p className="mt-1 text-sm text-red-600">{profileForm.errors.email}</p>}
+                                        {profileForm.errors.email
+                                            ? <p className="mt-1 text-sm text-red-600">{profileForm.errors.email}</p>
+                                            : <p className="mt-1 text-xs text-[var(--tng-slate-400)]">{EMAIL_HINT}</p>}
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="mb-1.5 block text-base font-medium text-[var(--tng-slate-700)]">

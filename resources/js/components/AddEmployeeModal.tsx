@@ -24,7 +24,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
 import { pinFieldsShown, validateEmployee } from '@/components/EmployeeFormFields';
 import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
-import { MOBILE_HINT, MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
+import { EMAIL_HINT, MOBILE_HINT, MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
 import { isSignaturePadEmpty, signaturePadDataUrl } from '@/lib/signature-pad';
 import { cn } from '@/lib/utils';
 
@@ -295,7 +295,7 @@ export default function AddEmployeeModal({ isOpen, onClose, departments = [], ro
                     icon={<Mail className="h-4 w-4" />}
                 >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <ModalField label="Email Address" required error={fieldErrors.email}>
+                        <ModalField label="Email Address" required description={EMAIL_HINT} error={fieldErrors.email}>
                             <input
                                 id={inputId('email')}
                                 type="email"

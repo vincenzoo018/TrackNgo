@@ -230,6 +230,23 @@ export type SmsNotification = {
     created_at: string;
 };
 
+// ── Email Notification (admin Email Dashboard; the address arrives masked) ──
+export type EmailNotification = {
+    id: number;
+    document_ref: string | null;
+    notification_type: string;
+    recipient_type: 'staff' | 'applicant' | 'test';
+    recipient_name: string;
+    recipient_email: string;
+    subject: string;
+    status: 'queued' | 'sending' | 'sent' | 'failed' | 'deferred' | 'skipped' | 'invalid_email' | 'disabled';
+    attempts: number;
+    error_message: string | null;
+    sent_at: string | null;
+    created_at: string;
+    retryable: boolean;
+};
+
 // ── Document Comment ────────────────────────────────────────────────
 export type DocumentComment = {
     id: number;

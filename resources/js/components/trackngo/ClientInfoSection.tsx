@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { EMAIL_PATTERN, MOBILE_HINT, MOBILE_LENGTH, NAME_PATTERN, mobileDigits, mobileNumberError } from '@/lib/form-rules';
+import { EMAIL_HINT, EMAIL_PATTERN, MOBILE_HINT, MOBILE_LENGTH, NAME_PATTERN, mobileDigits, mobileNumberError } from '@/lib/form-rules';
 import { cn } from '@/lib/utils';
 
 /**
@@ -337,7 +337,7 @@ export function ClientInfoSection({ client, errors, onChange }: ClientInfoSectio
                         onChange: e => onChange('contact_number', mobileDigits(e.target.value)),
                     })}
                 </Field>
-                <Field label="Email Address" error={err('email')}>
+                <Field label="Email Address" error={err('email')} hint={EMAIL_HINT}>
                     {text('email', { maxLength: 100, type: 'email', placeholder: 'name@example.com' })}
                 </Field>
                 <Field label="ID Presented" error={err('id_type')}>

@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Document;
 use App\Rules\PhilippineMobileNumber;
-use App\Support\PhilippineMobile;
+use App\Support\EmailAddress;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -30,10 +30,8 @@ class UpdateDocumentMetadataRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $client = $this->input('client');
-        if (is_array($client) && isset($client['contact_number'])) {
-            $client['contact_number'] = PhilippineMobile::normalizeInput((string) $client['contact_number']);
-            $this->merge(['client' => $client]);
+        if (is_array($this->input('client'))) {
+            $this->merge(['client' => StoreDocumentRequest::normalizeClient($this->input('client'))]);
         }
     }
 
@@ -51,9 +49,9 @@ class UpdateDocumentMetadataRequest extends FormRequest
             'client.suffix'       => 'sometimes|nullable|string|max:10',
             'client.organization' => 'sometimes|nullable|string|max:150',
             'client.purpose'      => 'sometimes|required|string|min:5|max:255',
-            // The applicant is texted when the document is ready for pickup and when it is released
+            // The applicant is texted (and emailed, when an address is given) about important events of the document
             'client.contact_number' => ['sometimes', 'required', 'string', new PhilippineMobileNumber()],
-            'client.email'          => 'sometimes|nullable|email:rfc|max:100',
+            'client.email'          => 'sometimes|nullable|' . EmailAddress::RULE . '|max:100',
         ];
     }
 

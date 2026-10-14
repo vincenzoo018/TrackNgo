@@ -38,7 +38,7 @@ import {
 import { useState, useMemo } from 'react';
 import { roleNeedsPin } from '@/components/EmployeeFormFields';
 import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
-import { MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
+import { EMAIL_HINT, MOBILE_LENGTH, mobileDigits } from '@/lib/form-rules';
 import TablePagination from '@/components/trackngo/TablePagination';
 import TabNavigation, { TabItem } from '@/components/trackngo/TabNavigation';
 import { StatCard } from '@/components/trackngo/StatCard';
@@ -677,7 +677,7 @@ function UserAccountFields({
             {/* Section 2: Account Credentials */}
             <ModalSection title="Account Credentials" description={copy.credentialsDescription}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <ModalField label="Email Address" required error={errors.email}>
+                    <ModalField label="Email Address" required description={EMAIL_HINT} error={errors.email}>
                         <input
                             type="email"
                             required

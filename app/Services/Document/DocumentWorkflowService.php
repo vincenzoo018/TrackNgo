@@ -10,6 +10,7 @@ use App\Models\Document;
 use App\Models\DocumentAttachment;
 use App\Models\RoutingSlip;
 use App\Models\User;
+use App\Services\Email\DocumentEmailNotifier;
 use App\Services\Oic\OicService;
 use App\Services\Sms\DocumentSmsNotifier;
 use Illuminate\Http\UploadedFile;
@@ -25,7 +26,8 @@ class DocumentWorkflowService
         protected DocumentRevisionService $revisionService,
         protected SignatureServiceInterface $signatureService,
         protected OicService $oic,
-        protected MayoralActionService $mayoral
+        protected MayoralActionService $mayoral,
+        protected DocumentEmailNotifier $emailNotifier
     ) {}
 
     /**
@@ -448,6 +450,7 @@ class DocumentWorkflowService
         );
 
         $this->smsNotifier->readyForPickup($document);
+        $this->emailNotifier->readyForPickup($document);
 
         return $document;
     }
@@ -513,6 +516,7 @@ class DocumentWorkflowService
                 title: 'Document Approved & Completed'
             );
             $this->smsNotifier->documentCompleted($document, $sender);
+            $this->emailNotifier->documentCompleted($document, $sender);
         }
 
         return $document;
@@ -541,6 +545,7 @@ class DocumentWorkflowService
         );
 
         $this->smsNotifier->documentReleased($document);
+        $this->emailNotifier->documentReleased($document);
 
         return $document;
     }
@@ -612,7 +617,7 @@ class DocumentWorkflowService
             'return_reason' => $reason,
         ] + $delivery['columns']);
 
-        RoutingSlip::create([
+        $returnSlip = RoutingSlip::create([
             'document_id'          => $document->document_id,
             'tracking_number'      => $document->tracking_number ?: ('RS-RET-' . $document->reference_number),
             'from_user_id'         => $actor->id,
@@ -643,6 +648,8 @@ class DocumentWorkflowService
             targetRole: $targetHolder?->role?->role_name,
             sender: $actor
         );
+
+        $this->emailNotifier->documentReturned($document, $targetHolder, $actor, (int) $returnSlip->slip_id);
 
         return $document;
     }

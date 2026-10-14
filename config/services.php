@@ -63,4 +63,23 @@ return [
         'max_attempts'         => (int) env('SMS_MAX_ATTEMPTS', 3),
     ],
 
+    /*
+    | Email notifications (see app/Services/Email/EmailService.php). The SMTP account itself is the MAIL_* settings
+    | in config/mail.php. TRACKNGO_EMAIL_ENABLED=false records each event as "disabled" and sends nothing.
+    | Run `php artisan config:clear` after changing these if the config is cached.
+    */
+    'email' => [
+        'enabled'                   => (bool) env('TRACKNGO_EMAIL_ENABLED', false),
+        // Our own ceiling, kept well below the provider's (Gmail's limits vary by account and can change)
+        'max_per_day'               => (int) env('TRACKNGO_EMAIL_MAX_PER_DAY', 50),
+        // Safety limit against loops and accidental bulk sends to one address
+        'max_per_recipient_per_day' => (int) env('TRACKNGO_EMAIL_MAX_PER_RECIPIENT_PER_DAY', 10),
+        'max_attempts'              => (int) env('TRACKNGO_EMAIL_MAX_ATTEMPTS', 3),
+        // Placeholder domains of demo accounts (comma separated, e.g. "mati.com"): logged as skipped, never sent
+        'blocked_domains'           => array_values(array_filter(array_map(
+            fn ($domain) => strtolower(trim($domain)),
+            explode(',', (string) env('TRACKNGO_EMAIL_BLOCKED_DOMAINS', ''))
+        ))),
+    ],
+
 ];

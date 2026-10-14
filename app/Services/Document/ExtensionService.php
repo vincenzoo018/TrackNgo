@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\DocumentExtension;
 use App\Models\User;
 use App\Services\Calendar\WorkingDayCalendar;
+use App\Services\Email\DocumentEmailNotifier;
 use App\Services\Sms\DocumentSmsNotifier;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -22,7 +23,8 @@ class ExtensionService
     public function __construct(
         protected WorkingDayCalendar $calendar,
         protected AuditTrailServiceInterface $auditTrail,
-        protected DocumentSmsNotifier $smsNotifier
+        protected DocumentSmsNotifier $smsNotifier,
+        protected DocumentEmailNotifier $emailNotifier
     ) {}
 
     /**
@@ -101,6 +103,7 @@ class ExtensionService
         }
 
         $this->smsNotifier->extensionGranted($document, $extension);
+        $this->emailNotifier->extensionGranted($document, $extension);
 
         return $extension;
     }

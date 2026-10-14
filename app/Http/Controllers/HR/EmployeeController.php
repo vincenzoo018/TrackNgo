@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Rules\PhilippineMobileNumber;
 use App\Services\User\AccountGuard;
 use App\Services\User\DocumentPinService;
+use App\Support\EmailAddress;
 use App\Support\PhilippineMobile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,11 +58,11 @@ class EmployeeController extends Controller
 
     public function store(Request $request)
     {
-        $request->merge(['mobile_number' => PhilippineMobile::normalizeInput($request->input('mobile_number'))]);
+        self::normalizeContact($request);
 
         $validated = $request->validate(self::nameRules() + [
             // An e-mail already registered is refused: existing accounts are changed through Edit, never overwritten here
-            'email' => 'required|string|email|max:100|unique:users,email',
+            'email' => 'required|string|' . EmailAddress::RULE . '|max:100|unique:users,email',
             'password' => 'required|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',
@@ -88,6 +89,15 @@ class EmployeeController extends Controller
         });
 
         return redirect()->route('hr.employees.index')->with('success', 'Employee saved successfully.');
+    }
+
+    /** Mobile numbers stored as 09XXXXXXXXX and emails trimmed and lower-case, before they are validated */
+    private static function normalizeContact(Request $request): void
+    {
+        $request->merge([
+            'mobile_number' => PhilippineMobile::normalizeInput($request->input('mobile_number')),
+            'email'         => EmailAddress::normalizeInput($request->input('email')),
+        ]);
     }
 
     /** Letters (incl. ñ / accented), spaces, periods, apostrophes and hyphens, as on the client intake form */
@@ -134,10 +144,10 @@ class EmployeeController extends Controller
     public function update(Request $request, User $employee)
     {
         $this->accounts->ensureCanManage($request->user(), $employee);
-        $request->merge(['mobile_number' => PhilippineMobile::normalizeInput($request->input('mobile_number'))]);
+        self::normalizeContact($request);
 
         $validated = $request->validate(self::nameRules() + [
-            'email' => 'required|string|email|max:100|unique:users,email,' . $employee->id,
+            'email' => 'required|string|' . EmailAddress::RULE . '|max:100|unique:users,email,' . $employee->id,
             'password' => 'nullable|string|min:8',
             'department_id' => 'required|exists:departments,department_id',
             'role_id' => 'required|exists:roles,role_id',

@@ -2,17 +2,13 @@
 
 namespace App\Services\Sms;
 
+use App\Concerns\NotifiesDocumentEvents;
 use App\Models\ArtaEscalation;
 use App\Models\Document;
 use App\Models\DocumentExtension;
 use App\Models\SmsNotification;
 use App\Models\User;
-use App\Services\Document\DocumentWorkflowService;
 use App\Services\SmsService;
-use Closure;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 /**
  * The only events that send an SMS, who receives it and what it says (every SMS template lives here).
@@ -25,6 +21,8 @@ use Throwable;
  */
 class DocumentSmsNotifier
 {
+    use NotifiesDocumentEvents;
+
     public const COMPLETED = 'document_completed';
     public const READY_FOR_PICKUP = 'ready_for_pickup';
     public const RELEASED = 'document_released';
@@ -109,11 +107,7 @@ class DocumentSmsNotifier
             if (!in_array($escalation->escalation_level, self::SMS_LEVELS, true)) {
                 return;
             }
-            $handler = $document->current_holder_id
-                ? User::find($document->current_holder_id)
-                : ($document->current_holder_department_id
-                    ? app(DocumentWorkflowService::class)->resolveOfficeHead((int) $document->current_holder_department_id)
-                    : null);
+            $handler = $this->currentHandler($document);
             if (!$handler) {
                 return;
             }
@@ -145,27 +139,5 @@ class DocumentSmsNotifier
             $message,
             $document,
         );
-    }
-
-    private function staffRef(Document $document): string
-    {
-        return $document->reference_number ?: ($document->tracking_number ?: "#{$document->document_id}");
-    }
-
-    /** Applicants follow their document by its tracking number on the public tracking page. */
-    private function applicantRef(Document $document): string
-    {
-        return $document->tracking_number ?: ($document->reference_number ?: "#{$document->document_id}");
-    }
-
-    private function afterCommit(Closure $callback): void
-    {
-        DB::afterCommit(function () use ($callback) {
-            try {
-                $callback();
-            } catch (Throwable $e) {
-                Log::error('SMS event could not be evaluated', ['error' => $e->getMessage()]);
-            }
-        });
     }
 }

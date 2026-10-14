@@ -23,3 +23,10 @@ Schedule::command('oic:sync')->everyFiveMinutes()->withoutOverlapping();
 
 // SMS that were spaced out or failed once (timeout, Semaphore busy) are sent / retried here
 Schedule::command('sms:send-pending')->everyMinute()->withoutOverlapping();
+
+// Emails held back by the daily cap go out as it allows; sends interrupted half-way are marked failed
+Schedule::command('email:send-pending')->everyMinute()->withoutOverlapping();
+
+// Queued jobs (email sending and its retries), so the scheduler alone is enough; a separate `php artisan queue:work`
+// (or `composer dev`) may run as well, the queue hands each job to one worker only
+Schedule::command('queue:work --stop-when-empty --max-time=50')->everyMinute()->withoutOverlapping();

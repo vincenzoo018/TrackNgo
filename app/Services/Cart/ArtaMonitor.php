@@ -7,6 +7,7 @@ use App\Models\AuditTrail;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\RoutingSlip;
+use App\Services\Email\DocumentEmailNotifier;
 use App\Services\Sms\DocumentSmsNotifier;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -30,7 +31,8 @@ class ArtaMonitor
 
     public function __construct(
         protected ArtaClock $clock,
-        protected DocumentSmsNotifier $smsNotifier
+        protected DocumentSmsNotifier $smsNotifier,
+        protected DocumentEmailNotifier $emailNotifier
     ) {}
 
     public function syncIfDue(): void
@@ -178,8 +180,9 @@ class ArtaMonitor
         $this->log($document, 'ARTA Escalation', "Escalation level {$level} reached on " . $escalatedAt->copy()->setTimezone(config('arta.timezone'))->format('M d, Y')
             . ". {$reason} Now {$timing['overdue_days']} day(s) overdue. Responsible: {$holder}. CART and the responsible office were notified.");
 
-        // Texted once per escalation record; the monitor never records the same level twice
+        // Texted and emailed once per escalation record; the monitor never records the same level twice
         $this->smsNotifier->escalated($document, $escalation);
+        $this->emailNotifier->escalated($document, $escalation);
     }
 
     /** Recorded from the handler's own "Escalate to CART" action, which is already in the audit trail */

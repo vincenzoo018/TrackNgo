@@ -7,6 +7,8 @@
 /** Letters (incl. ñ / accented), spaces, periods, apostrophes and hyphens */
 export const NAME_PATTERN = /^[\p{L}\s.'-]+$/u;
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Under email fields: the server checks the format only (App\Support\EmailAddress), never that the mailbox exists */
+export const EMAIL_HINT = 'Only the format is checked, not whether the mailbox exists';
 
 export const MOBILE_LENGTH = 11;
 export const MOBILE_HINT = '11 digits starting with 09, e.g. 09171234567';

@@ -206,6 +206,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         Route::get('/compliance-reports', [\App\Http\Controllers\ReportController::class, 'index']);
         Route::get('/notifications/sms', [\App\Http\Controllers\Admin\SmsDashboardController::class, 'index']);
+        Route::get('/notifications/email', [\App\Http\Controllers\Admin\EmailDashboardController::class, 'index']);
+        Route::post('/notifications/email/{id}/retry', [\App\Http\Controllers\Admin\EmailDashboardController::class, 'retry'])->whereNumber('id');
         Route::get('/templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'index']);
         Route::post('/templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'store']);
         // POST (not PUT) so a replacement file can be uploaded

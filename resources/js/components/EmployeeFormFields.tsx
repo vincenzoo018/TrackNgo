@@ -1,5 +1,5 @@
 import { DocumentPinFields, PIN_RULES_HINT } from '@/components/trackngo/DocumentPinFields';
-import { MOBILE_HINT, MOBILE_LENGTH, documentPinError, emailError, mobileDigits, mobileNumberError, nameError } from '@/lib/form-rules';
+import { EMAIL_HINT, MOBILE_HINT, MOBILE_LENGTH, documentPinError, emailError, mobileDigits, mobileNumberError, nameError } from '@/lib/form-rules';
 
 export type EmployeeFieldValues = {
     first_name: string;
@@ -129,7 +129,9 @@ export function EmployeeFormFields({ data, setData, errors, departments, roles, 
                         className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--tng-blue-500)]/20 ${errors.email ? 'border-red-500' : 'border-[var(--tng-slate-200)]'}`}
                         placeholder="juan@mati.gov.ph"
                     />
-                    {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+                    {errors.email
+                        ? <p className="text-xs text-red-500">{errors.email}</p>
+                        : <p className="text-xs text-[var(--tng-slate-400)]">{EMAIL_HINT}</p>}
                 </div>
             </div>
 
