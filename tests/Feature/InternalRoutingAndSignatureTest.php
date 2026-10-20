@@ -307,14 +307,26 @@ class InternalRoutingAndSignatureTest extends TestCase
         $this->assertSame('completed', $doc->refresh()->status);
     }
 
-    public function test_public_tracking_shows_progress_without_personal_details(): void
+    public function test_internal_documents_cannot_be_found_on_the_public_tracking_page(): void
+    {
+        $doc = $this->fileDocument($this->sender);
+
+        auth()->logout();
+        $this->assertGuest();
+        $unknown = $this->getJson('/api/track/NO-SUCH-NUMBER')->assertNotFound()->json();
+
+        // Exactly the answer for a number that does not exist, by tracking number or reference number alike
+        $this->assertSame($unknown, $this->getJson('/api/track/' . $doc->tracking_number)->assertNotFound()->json());
+        $this->assertSame($unknown, $this->getJson('/api/track/PENDING-' . $doc->reference_number)->assertNotFound()->json());
+    }
+
+    public function test_signed_in_staff_who_may_open_an_internal_document_can_track_it_without_personal_details(): void
     {
         $doc = $this->fileDocument($this->sender);
         $this->actingAs($this->sender)->post("/documents/{$doc->document_id}/comments", ['comment' => 'Private note about salaries'])->assertSessionHasNoErrors();
         $tracking = $doc->refresh()->tracking_number;
 
-        auth()->logout();
-        $response = $this->getJson('/api/track/' . strtolower($tracking))->assertOk();
+        $response = $this->actingAs($this->sender)->getJson('/api/track/' . strtolower($tracking))->assertOk();
 
         $response->assertJsonPath('document.tracking_number', $tracking);
         $body = $response->getContent();
@@ -322,6 +334,24 @@ class InternalRoutingAndSignatureTest extends TestCase
         $this->assertStringNotContainsString('Private note', $body, 'No comments');
         $this->assertStringNotContainsString('ip_address', $body);
         $this->assertSame(['Submit'], collect($response->json('auditTrail'))->pluck('action')->all());
+
+        // The people it was sent to and the clerk who monitors it; staff outside it get "not found"
+        $this->actingAs($this->recipient)->getJson("/api/track/{$tracking}")->assertOk();
+        $this->actingAs($this->clerk)->getJson("/api/track/{$tracking}")->assertOk();
+        $this->actingAs($this->mayor)->getJson("/api/track/{$tracking}")->assertNotFound();
+
+        // A deactivated account still signed in on a phone sees nothing either
+        $this->recipient->forceFill(['is_active' => false])->save();
+        $this->actingAs($this->recipient->refresh())->getJson("/api/track/{$tracking}")->assertNotFound();
+    }
+
+    public function test_confidential_internal_documents_are_tracked_only_by_the_people_on_them(): void
+    {
+        $tracking = $this->fileDocument($this->sender, ['classification' => 'confidential'])->tracking_number;
+
+        $this->actingAs($this->recipient)->getJson("/api/track/{$tracking}")->assertOk()
+            ->assertJsonPath('document.title', 'Confidential Document');
+        $this->actingAs($this->clerk)->getJson("/api/track/{$tracking}")->assertNotFound();
     }
 
     public function test_qr_codes_point_to_the_configured_tracking_address(): void

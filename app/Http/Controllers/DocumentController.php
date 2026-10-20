@@ -627,6 +627,9 @@ class DocumentController extends Controller
      * Public tracking (QR code / tracking number, no login). The progress bar is exactly the one inside TrackNGo
      * (same steps, office and person, same live status); the applicant appears by initials only, and no e-mails,
      * phone numbers, IP addresses or remarks are exposed.
+     *
+     * Only external documents are public. Internal documents are confidential to the offices: the portal answers
+     * exactly as for a number that does not exist, except to signed-in staff who may open the document in TrackNGo.
      */
     public function trackPublicDocument(Request $request, $trackingNumber): JsonResponse
     {
@@ -638,7 +641,7 @@ class DocumentController extends Controller
             ->orWhere('reference_number', $reference)
             ->first();
 
-        if (!$document) {
+        if (!$document || ($document->is_internal && !$this->staffMayTrack($document, $request->user()))) {
             return response()->json(['message' => 'Document not found'], 404);
         }
 
@@ -706,6 +709,12 @@ class DocumentController extends Controller
             ],
             'auditTrail' => $timeline,
         ]);
+    }
+
+    /** Internal documents on the tracking page: signed-in, active staff who may open the document inside TrackNGo */
+    private function staffMayTrack(Document $document, ?\App\Models\User $user): bool
+    {
+        return $user !== null && $user->is_active && $user->role_id && $document->contentsVisibleTo($user);
     }
 
     /** "Ana M. Reyes" → "A. M. R." (the applicant is never named on the public page) */

@@ -82,4 +82,20 @@ return [
         ))),
     ],
 
+    /*
+    | Cloudflare Turnstile captcha on the login and forgot-password forms (see app/Services/Security/Turnstile.php).
+    | The secret key lives only in .env; never commit it. When enabled, a form is refused whenever the check cannot
+    | be completed (missing keys, Cloudflare unreachable): it fails closed. Cloudflare's test keys are refused in
+    | production. Run `php artisan config:clear` after changing these if the config is cached.
+    */
+    'turnstile' => [
+        'enabled'               => (bool) env('TURNSTILE_ENABLED', true),
+        'site_key'              => env('TURNSTILE_SITE_KEY'),
+        'secret_key'            => env('TURNSTILE_SECRET_KEY'),
+        'timeout'               => (int) env('TURNSTILE_TIMEOUT', 10),
+        'connect_timeout'       => (int) env('TURNSTILE_CONNECT_TIMEOUT', 5),
+        // Checks sent to Cloudflare per visitor IP per minute (each login / reset attempt is one check)
+        'max_checks_per_minute' => (int) env('TURNSTILE_MAX_CHECKS_PER_MINUTE', 60),
+    ],
+
 ];

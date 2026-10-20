@@ -1,11 +1,16 @@
 import { Head, useForm, Link } from '@inertiajs/react';
-import { useState, FormEventHandler } from 'react';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import type { FormEventHandler } from 'react';
+import TurnstileWidget from '@/components/turnstile-widget';
+import type { TurnstileHandle } from '@/components/turnstile-widget';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface LoginProps {
     status?: string;
     canResetPassword?: boolean;
+    /** Cloudflare Turnstile public key; null when the captcha is off */
+    turnstileSiteKey?: string | null;
 }
 
 const inputClass =
@@ -24,23 +29,42 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     );
 }
 
-export default function Login({ status, canResetPassword = true }: LoginProps) {
+export default function Login({ status, canResetPassword = true, turnstileSiteKey = null }: LoginProps) {
     const [showPassword, setShowPassword] = useState(false);
+    const captcha = useRef<TurnstileHandle>(null);
     const year = new Date().getFullYear();
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
         email: '',
         password: '',
         remember: false,
+        turnstile_token: '',
     });
+
+    const handleCaptchaToken = (token: string) => {
+        setData('turnstile_token', token);
+
+        if (token) {
+            clearErrors('turnstile_token');
+        }
+    };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+
+        if (turnstileSiteKey && !data.turnstile_token) {
+            setError('turnstile_token', 'Please complete the security check.');
+
+            return;
+        }
+
         try {
             sessionStorage.removeItem('tng_login_toasts_shown_for_session');
             sessionStorage.setItem('tng_just_logged_in', 'true');
         } catch (err) {}
-        post('/login');
+
+        // A token passes only once: get a fresh one whenever the login does not go through
+        post('/login', { onFinish: () => captcha.current?.reset() });
     };
 
     return (
@@ -191,6 +215,19 @@ export default function Login({ status, canResetPassword = true }: LoginProps) {
                                     Remember me
                                 </label>
                             </div>
+
+                            {turnstileSiteKey && (
+                                <div>
+                                    <TurnstileWidget
+                                        ref={captcha}
+                                        siteKey={turnstileSiteKey}
+                                        action="login"
+                                        theme="light"
+                                        onTokenChange={handleCaptchaToken}
+                                    />
+                                    <FieldError id="turnstile-error" message={errors.turnstile_token} />
+                                </div>
+                            )}
 
                             <button
                                 type="submit"

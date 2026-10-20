@@ -386,6 +386,9 @@ class ArtaComplianceTest extends TestCase
     {
         $doc = $this->fileExternal([$this->stop($this->engineer)]);
 
+        // External documents are public: no sign-in needed
+        auth()->logout();
+        $this->assertGuest();
         $json = $this->getJson("/api/track/{$doc->tracking_number}")->assertOk()->json('document');
         $this->assertSame(app(DocumentRoute::class)->steps($doc), $json['route_info']['steps']);
         $this->assertNotContains('Michelle Tester', array_column($json['route_info']['steps'], 'actor'), 'the Mayor is not on this route');

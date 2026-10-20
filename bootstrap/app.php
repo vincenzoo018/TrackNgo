@@ -44,6 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'active'   => \App\Http\Middleware\EnsureActiveAccount::class,
         ]);
 
+        // Local development: 127.0.0.1 → localhost, where the login captcha (Cloudflare Turnstile) can run
+        $middleware->web(prepend: [
+            \App\Http\Middleware\RedirectLoopbackToLocalhost::class,
+        ]);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,

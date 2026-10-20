@@ -1,15 +1,29 @@
 // Components
 import { Form, Head } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
+import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
+import TurnstileWidget from '@/components/turnstile-widget';
+import type { TurnstileHandle } from '@/components/turnstile-widget';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAppearance } from '@/hooks/use-appearance';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
-export default function ForgotPassword({ status }: { status?: string }) {
+export default function ForgotPassword({
+    status,
+    turnstileSiteKey = null,
+}: {
+    status?: string;
+    /** Cloudflare Turnstile public key; null when the captcha is off */
+    turnstileSiteKey?: string | null;
+}) {
+    const captcha = useRef<TurnstileHandle>(null);
+    const { resolvedAppearance } = useAppearance();
+
     return (
         <>
             <Head title="Forgot password" />
@@ -21,7 +35,11 @@ export default function ForgotPassword({ status }: { status?: string }) {
             )}
 
             <div className="space-y-6">
-                <Form {...email.form()}>
+                {/* A token passes only once: get a fresh one after every request */}
+                <Form
+                    {...email.form()}
+                    onFinish={() => captcha.current?.reset()}
+                >
                     {({ processing, errors }) => (
                         <>
                             <div className="grid gap-2">
@@ -37,6 +55,21 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
                                 <InputError message={errors.email} />
                             </div>
+
+                            {turnstileSiteKey && (
+                                <div className="mt-6 grid gap-2">
+                                    {/* Posts the token in its own hidden turnstile_token input */}
+                                    <TurnstileWidget
+                                        ref={captcha}
+                                        siteKey={turnstileSiteKey}
+                                        action="password_reset"
+                                        theme={resolvedAppearance}
+                                    />
+                                    <InputError
+                                        message={errors.turnstile_token}
+                                    />
+                                </div>
+                            )}
 
                             <div className="my-6 flex items-center justify-start">
                                 <Button
